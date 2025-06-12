@@ -9,11 +9,13 @@ from engine.utils import lerp, lerp_color, clamp
 from ui.ui_context import UIContext
 from ui.constants import (
     KEY_TO_COLOR, RARITY_COLORS, GOLD, HIGHLIGHT_COLOR, WHITE, BLACK, GRAY, RED, GREEN,
-    PANEL_BG, DARK_GRAY, BUTTON_HOVER, BUTTON_BG, ITEM_COLOR,
+    PANEL_BG, DARK_GRAY, BUTTON_HOVER, BUTTON_BG, ITEM_COLOR, GRID_LINE,
     INACTIVE_SYNERGY, ACTIVE_SYNERGY_BRONZE, ACTIVE_SYNERGY_SILVER, ACTIVE_SYNERGY_GOLD,
     MAP_NODE_BG, MAP_NODE_CURRENT, MAP_NODE_VISITED, MAP_PATH, YELLOW, LIGHT_GRAY,
     HEALTH_BAR_BG, HEALTH_BAR_COLOR,
-    SYNERGY_LINE_HEIGHT, ANIM_DURATIONS, DEATH_ANIM_DURATION, MAX_ITEMS_EQUIPPED
+    SYNERGY_LINE_HEIGHT, ANIM_DURATIONS, DEATH_ANIM_DURATION, MAX_ITEMS_EQUIPPED,
+    BOARD_ROWS, BOARD_COLS, BOARD_X_START, BOARD_Y_START, SLOT_SIZE, SLOT_MARGIN,
+    BENCH_X_START, BENCH_Y, BENCH_SLOTS
 )
 from data.definitions import SYNERGY_DEFINITIONS
 from states.enums import GamePhase, UnitLocation
@@ -124,6 +126,14 @@ def draw_health_bar(context: UIContext, x, y, current_hp, max_hp, width, height)
       # Then border
       pygame.draw.rect(context.screen, BLACK, (int(x), int(y), int(width), int(height)), 1)
 
+def draw_bar(context: UIContext, rect: pygame.Rect, ratio: float, color: tuple):
+      if not context or not context.screen or not rect: return
+      pygame.draw.rect(context.screen, DARK_GRAY, rect)
+      fill = int(rect.width * clamp(ratio,0,1))
+      if fill > 0:
+          pygame.draw.rect(context.screen, color, (rect.x, rect.y, fill, rect.height))
+      pygame.draw.rect(context.screen, BLACK, rect, 1)
+
 # --- Phase-Specific Drawing Functions ---
 
 def draw_player_info(state: GameState, context: UIContext):
@@ -147,33 +157,38 @@ def draw_player_info(state: GameState, context: UIContext):
          draw_text(context, line, (panel_rect.x + 10, current_y), font_key)
 
 def draw_synergies(state: GameState, context: UIContext):
-      # FIX: Check rect
-     if not context.synergy_panel_rect: return
-     panel_rect = context.synergy_panel_rect
-     pygame.draw.rect(context.screen, PANEL_BG, panel_rect)
-     pygame.draw.rect(context.screen, GRAY, panel_rect, 1)
-     draw_text(context, "SYNERGIES:", (panel_rect.x+10, panel_rect.y+5), "default", GOLD)
-     y_offset = 30;
-     # FIX: ensure active_synergies is not None
-     if not state.player.active_synergies: return
-     sorted_traits = sorted(state.player.active_synergies.keys())
-     for trait in sorted_traits:
-          status = state.player.active_synergies[trait]; count = status.get('count', 0); level_index = status.get('level_index', -1) # FIX .get
-          definition = SYNERGY_DEFINITIONS.get(trait)
-           # FIX: check definition and thresholds exist
-          if not definition or 'thresholds' not in definition: continue
-          thresholds = definition['thresholds']; color = INACTIVE_SYNERGY
-          level_colors = [ACTIVE_SYNERGY_BRONZE, ACTIVE_SYNERGY_SILVER, ACTIVE_SYNERGY_GOLD]
-          if level_index != -1: color = level_colors[min(level_index, len(level_colors)-1)]
-          next_threshold_str = "MAX"
-          # FIX: bounds check for next_threshold
-          if level_index == -1 and thresholds:
-               next_threshold_str = str(thresholds[0])
-          elif level_index != -1 and level_index < len(thresholds) -1 :
-               next_threshold_str = str(thresholds[level_index+1])
-
-          count_text = f"[{count}/{next_threshold_str}]"
-          draw_text(context, f"{count_text} {trait}", (panel_rect.x + 10, panel_rect.y + y_offset), "small", color); y_offset += SYNERGY_LINE_HEIGHT
+    # FIX: Check rect
+    if not context.synergy_panel_rect:
+        return
+    panel_rect = context.synergy_panel_rect
+    pygame.draw.rect(context.screen, PANEL_BG, panel_rect)
+    pygame.draw.rect(context.screen, GRAY, panel_rect, 1)
+    draw_text(context, "SYNERGIES:", (panel_rect.x + 10, panel_rect.y + 5), "default", GOLD)
+    y_offset = 30
+    if not state.player.active_synergies:
+        return
+    sorted_traits = sorted(state.player.active_synergies.keys())
+    bar_width = panel_rect.width - 20
+    for trait in sorted_traits:
+        status = state.player.active_synergies[trait]
+        count = status.get('count', 0)
+        level_index = status.get('level_index', -1)
+        definition = SYNERGY_DEFINITIONS.get(trait)
+        if not definition or 'thresholds' not in definition:
+            continue
+        thresholds = definition['thresholds']
+        color = INACTIVE_SYNERGY
+        level_colors = [ACTIVE_SYNERGY_BRONZE, ACTIVE_SYNERGY_SILVER, ACTIVE_SYNERGY_GOLD]
+        if level_index != -1:
+            color = level_colors[min(level_index, len(level_colors) - 1)]
+        next_thresh = thresholds[min(level_index + 1, len(thresholds) - 1)] if thresholds else 0
+        ratio = count / next_thresh if next_thresh else 1.0
+        label_y = panel_rect.y + y_offset
+        draw_text(context, trait, (panel_rect.x + 10, label_y), "small", color)
+        bar_rect = pygame.Rect(panel_rect.x + 10, label_y + 12, bar_width, 6)
+        draw_bar(context, bar_rect, ratio, color)
+        draw_text(context, f"{count}/{next_thresh if next_thresh else count}", (bar_rect.right - 2, label_y + 8), "small", color, align='right')
+        y_offset += 20
 
 
 def draw_preparation_phase(state: GameState, context: UIContext):
@@ -209,10 +224,24 @@ def draw_preparation_phase(state: GameState, context: UIContext):
     # Item Inventory
     draw_text(context, "ITEMS:", (context.inventory_x_start, context.inventory_y - 20), "default", ITEM_COLOR)
     for i in range(len(player.item_inventory)):
-         rect = context.get_slot_rect(UnitLocation.INVENTORY, i)
-         item = player.item_inventory[i]
-         is_selected = selected_item_info is not None and selected_item_info[0] == UnitLocation.INVENTORY and selected_item_info[1] == i
-         draw_item_prep(context, rect, item, is_selected)
+        rect = context.get_slot_rect(UnitLocation.INVENTORY, i)
+        item = player.item_inventory[i]
+        is_selected = selected_item_info is not None and selected_item_info[0] == UnitLocation.INVENTORY and selected_item_info[1] == i
+        draw_item_prep(context, rect, item, is_selected)
+
+    # Board grid and bench background
+    board_w = BOARD_COLS * (SLOT_SIZE + SLOT_MARGIN) - SLOT_MARGIN
+    board_h = BOARD_ROWS * (SLOT_SIZE + SLOT_MARGIN) - SLOT_MARGIN
+    board_rect = pygame.Rect(BOARD_X_START, BOARD_Y_START, board_w, board_h)
+    pygame.draw.rect(context.screen, LIGHT_GRAY, board_rect, 1)
+    for r in range(BOARD_ROWS):
+        for c in range(BOARD_COLS):
+            cell_rect = context.get_slot_rect(UnitLocation.BOARD, (r, c))
+            pygame.draw.rect(context.screen, GRID_LINE, cell_rect, 1)
+
+    bench_w = BENCH_SLOTS * (SLOT_SIZE + SLOT_MARGIN) - SLOT_MARGIN
+    bench_rect = pygame.Rect(BENCH_X_START, BENCH_Y, bench_w, SLOT_SIZE)
+    pygame.draw.rect(context.screen, DARK_GRAY, bench_rect)
 
     # Bench & Board
     # Determine if an item is currently hovered to keep its unit items visible
@@ -255,6 +284,19 @@ def draw_preparation_phase(state: GameState, context: UIContext):
                   # Check if this specific item is selected
                   item_selected = selected_item_info and selected_item_info[0] == UnitLocation.EQUIPPED and item and selected_item_info[2].id == item.id
                   draw_item_prep(context, item_rect, item, item_selected)
+
+    # Overlay MAX on unused slots when board is full
+    board_count = len([u for u in player.board.values() if u])
+    if board_count >= player.level:
+        for r in range(BOARD_ROWS):
+            for c in range(BOARD_COLS):
+                if not player.board.get((r,c)):
+                    rect = context.get_slot_rect(UnitLocation.BOARD, (r,c))
+                    if rect:
+                        surf = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+                        surf.fill((40,40,40,100))
+                        context.screen.blit(surf, rect)
+                        draw_text(context, "MAX", rect.center, "small", RED, align='center')
     # Draw hover info LAST so it's on top
     draw_hover_info(state, context)
 

@@ -16,6 +16,7 @@ from engine.logic import (
 )
 from data.definitions import SYNERGY_DEFINITIONS
 from data.constants import REFRESH_COST, XP_BUY_COST, XP_BUY_AMOUNT, NODE_REWARDS, MAX_ITEMS_EQUIPPED
+from ui import sounds
 import math
 
 def get_clicked_object_info(pos: Tuple[int, int], state: GameState, context: UIContext) -> Optional[Tuple[UnitLocation, Any, Any]]:
@@ -183,21 +184,35 @@ def handle_game_event(event: pygame.event.Event, state: GameState, context: UICo
                 clicked_info = get_clicked_object_info(pos, state, context)
                 if clicked_info and isinstance(clicked_info[2], Unit) and clicked_info[0] in [UnitLocation.BENCH, UnitLocation.BOARD]:
                     handle_sell_unit(player, shop, clicked_info)
+                    sounds.play('buy')
                 context.clear_selection()
             elif is_left:
                 # Button clicks
-                if context.refresh_shop_button_rect and context.refresh_shop_button_rect.collidepoint(pos) and player.gold >= REFRESH_COST:
-                    player.gold -= REFRESH_COST; shop.refresh(player.level)
-                elif context.buy_xp_button_rect and context.buy_xp_button_rect.collidepoint(pos) and player.gold >= XP_BUY_COST:
-                    player.gold -= XP_BUY_COST; player.gain_xp(XP_BUY_AMOUNT)
+                if context.refresh_shop_button_rect and context.refresh_shop_button_rect.collidepoint(pos):
+                    if player.gold >= REFRESH_COST:
+                        player.gold -= REFRESH_COST
+                        shop.refresh(player.level)
+                        sounds.play('buy')
+                    else:
+                        sounds.play('error')
+                elif context.buy_xp_button_rect and context.buy_xp_button_rect.collidepoint(pos):
+                    if player.gold >= XP_BUY_COST:
+                        player.gold -= XP_BUY_COST
+                        player.gain_xp(XP_BUY_AMOUNT)
+                        sounds.play('buy')
+                    else:
+                        sounds.play('error')
                 elif not state.allow_combat_start and context.map_button_rect and context.map_button_rect.collidepoint(pos):
                     go_to_map(state)
+                    sounds.play('buy')
                 elif state.allow_combat_start and context.start_combat_button_rect and context.start_combat_button_rect.collidepoint(pos):
                     start_combat(state, state.enemy_combat_team_data_cache)
+                    sounds.play('buy')
                 # FIX: ensure sell_area_rect exists
                 elif context.selected_unit_info and context.sell_area_rect and context.sell_area_rect.collidepoint(pos):
                     if context.selected_unit_info[0] != UnitLocation.SHOP:
                         handle_sell_unit(player, shop, context.selected_unit_info)
+                        sounds.play('buy')
                     context.clear_selection()
                 else: # Slot/Object clicks
                     clicked_info = get_clicked_object_info(pos, state, context)
