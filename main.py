@@ -46,7 +46,7 @@ def main():
             run_combat_tick(state, delta_time)
             
         # --- Drawing ---
-        screen.fill(ui_c.BLACK)
+        screen.fill(ui_c.BG)
         phase = state.current_phase
         
         if phase == GamePhase.MAIN_MENU:

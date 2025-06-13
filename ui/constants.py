@@ -8,29 +8,39 @@ from data.constants import RARITY_ORDER, ATTACK_ANIM_DURATION, HIT_ANIM_DURATION
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
 FPS = 60
-FONT_NAME = None # Default font
+# Use a serif font for a more "clockwork" feel if available
+FONT_NAME = "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf"
 FONT_SIZE = 18
 SMALL_FONT_SIZE = 14
 LARGE_FONT_SIZE = 24
 MENU_FONT_SIZE = 48
 
+# Asset directories
+ASSET_DIR = "assets"
+UNIT_IMAGE_DIR = f"{ASSET_DIR}/units"
+ITEM_IMAGE_DIR = f"{ASSET_DIR}/items"
+ICON_IMAGE_DIR = f"{ASSET_DIR}/icons"
+PLACEHOLDER_IMAGE = f"{ASSET_DIR}/placeholder.png"
+
 # Colors
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
-GRAY = (150, 150, 150)
+WHITE = (240, 240, 235)
+BLACK = (12, 12, 12)
+GRAY = (140, 140, 140)
 LIGHT_GRAY = (200, 200, 200)
-DARK_GRAY = (50, 50, 50)
-GOLD = (255, 215, 0)
-RED = (200, 0, 0)
-GREEN = (0, 200, 0)
-BLUE = (0, 0, 200)
-CYAN = (0, 200, 200)
-MAGENTA = (200, 0, 200)
-YELLOW = (200, 200, 0)
-PANEL_BG = (30, 30, 40)
+DARK_GRAY = (32, 32, 32)
+GOLD = (205, 168, 72)
+RED = (176, 60, 60)
+GREEN = (80, 170, 140)
+BLUE = (70, 120, 180)
+CYAN = (0, 170, 170)
+MAGENTA = (170, 80, 170)
+YELLOW = (200, 200, 60)
+PANEL_BG = (40, 44, 52)
 BUTTON_BG = (70, 70, 90)
-BUTTON_HOVER = (100, 100, 120)
-HIGHLIGHT_COLOR = (255, 255, 100) # Renamed from HIGHLIGHT
+BUTTON_HOVER = (90, 120, 130)
+BUTTON_ACTIVE = (110, 150, 160)
+BUTTON_DISABLED = (60, 60, 60)
+HIGHLIGHT_COLOR = (0, 220, 220) # Renamed from HIGHLIGHT
 INACTIVE_SYNERGY = (100, 100, 100)
 ACTIVE_SYNERGY_BRONZE = (180, 110, 0)
 ACTIVE_SYNERGY_SILVER = (192, 192, 192)
@@ -136,14 +146,20 @@ SCALE = round(max(.75, SCREEN_HEIGHT / DESIGN_HEIGHT) * 4) / 4
 # ------------------------------------------------------------------ #
 #  Colours
 # ------------------------------------------------------------------ #
-def _c(r, g, b): return pg.Color(r, g, b)
-WHITE,  BLACK   = _c(250,250,250), _c(10, 10, 10)
-GREY,   DGREY   = _c(170,170,170), _c(40, 40, 40)
-GOLD,   RED     = _c(238,176, 34), _c(208, 50, 50)
-GREEN,  BLUE    = _c( 88,200, 70), _c( 80,160,255)
-BG        = _c(22,24,28)
-PANEL_BG  = _c(34,38,44)
-GRID_LINE = _c(70,75,85)
+def _c(r, g, b):
+    """Convenience for creating colour tuples."""
+    return pg.Color(r, g, b)
+
+# Muted steampunk inspired palette
+WHITE, BLACK = _c(240, 240, 235), _c(12, 12, 12)
+GREY, DGREY = _c(140, 140, 140), _c(32, 32, 32)
+# Brass/gold accent and a warm red
+GOLD, RED = _c(205, 168, 72), _c(176, 60, 60)
+GREEN, BLUE = _c(80, 170, 140), _c(70, 120, 180)
+# Default backgrounds
+BG = _c(24, 26, 30)
+PANEL_BG = _c(40, 44, 52)
+GRID_LINE = _c(80, 85, 95)
 
 RARITY_COL = [GREY, GREEN, BLUE, GOLD, RED]  # 0‑4 stars
 

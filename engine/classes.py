@@ -87,10 +87,10 @@ class DamageFloater:
      # draw method moved to ui/
 
 class VisualEffect:
-    from engine.utils import clamp,lerp,normalize_vector
     def __init__(self, effect_type: EffectType, x: float, y: float,
                  lifespan: float, color_key: str, target_pos: Optional[Tuple[float, float]] = None,
                  size: float = 5.0, angle: float = 0.0 ):
+        from engine.utils import clamp,lerp,normalize_vector
         self.type = effect_type
         self.x, self.y = x, y
         self.start_x, self.start_y = x,y
@@ -106,6 +106,7 @@ class VisualEffect:
                 # FIX: Ensure lifespan is not zero or negative
                 self.lifespan = max(0.01, self.dist / PROJECTILE_SPEED) # Override lifespan based on distance
     def update(self, dt: float):
+        from engine.utils import clamp,lerp,normalize_vector
         self.timer += dt
         if self.type in [EffectType.PROJECTILE_BASIC, EffectType.PROJECTILE_MAGIC]:
             if self.dist > 0 and self.lifespan > 0: # FIX: check lifespan > 0

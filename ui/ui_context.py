@@ -1,5 +1,6 @@
 # ui/ui_context.py
 import pygame
+import os
 from typing import Dict, Any, Optional, Tuple
 from ui import constants as ui_c
 from states.enums import UnitLocation
@@ -40,6 +41,12 @@ class UIContext:
         # FIX: Use correct WIDTH and HEIGHT constants
         self.combat_arena_rect = pygame.Rect(ui_c.COMBAT_ARENA_X, ui_c.COMBAT_ARENA_Y, ui_c.COMBAT_ARENA_WIDTH, ui_c.COMBAT_ARENA_HEIGHT)
 
+        # Image caches
+        self.unit_images: Dict[str, pygame.Surface] = {}
+        self.item_images: Dict[str, pygame.Surface] = {}
+        self.icon_images: Dict[str, pygame.Surface] = {}
+        self.placeholder_image = self._load_image(ui_c.PLACEHOLDER_IMAGE)
+
     def map_color(self, color_key: Optional[str]) -> Tuple[int, int, int]:
          # FIX: Handle None key
          if not color_key: return ui_c.WHITE
@@ -78,3 +85,32 @@ class UIContext:
     def clear_selection(self):
         self.selected_item_info = None
         self.selected_unit_info = None
+
+    def _load_image(self, path: str, size: Optional[tuple] = None) -> pygame.Surface:
+        """Load an image from disk or return placeholder if missing."""
+        try:
+            image = pygame.image.load(path).convert_alpha()
+        except Exception:
+            image = self.placeholder_image.copy() if hasattr(self, 'placeholder_image') else pygame.Surface((32, 32))
+            image.fill((255, 0, 255))
+        if size:
+            image = pygame.transform.smoothscale(image, size)
+        return image
+
+    def get_unit_image(self, name: str, size: tuple) -> pygame.Surface:
+        if name not in self.unit_images:
+            path = os.path.join(ui_c.UNIT_IMAGE_DIR, f"{name}.png")
+            self.unit_images[name] = self._load_image(path, size)
+        return self.unit_images[name]
+
+    def get_item_image(self, name: str, size: tuple) -> pygame.Surface:
+        if name not in self.item_images:
+            path = os.path.join(ui_c.ITEM_IMAGE_DIR, f"{name}.png")
+            self.item_images[name] = self._load_image(path, size)
+        return self.item_images[name]
+
+    def get_icon_image(self, name: str, size: tuple) -> pygame.Surface:
+        if name not in self.icon_images:
+            path = os.path.join(ui_c.ICON_IMAGE_DIR, f"{name}.png")
+            self.icon_images[name] = self._load_image(path, size)
+        return self.icon_images[name]

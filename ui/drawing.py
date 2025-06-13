@@ -9,7 +9,8 @@ from engine.utils import lerp, lerp_color, clamp
 from ui.ui_context import UIContext
 from ui.constants import (
     KEY_TO_COLOR, RARITY_COLORS, GOLD, HIGHLIGHT_COLOR, WHITE, BLACK, GRAY, RED, GREEN,
-    PANEL_BG, DARK_GRAY, BUTTON_HOVER, BUTTON_BG, ITEM_COLOR, GRID_LINE,
+    PANEL_BG, DARK_GRAY, BUTTON_HOVER, BUTTON_BG, BUTTON_ACTIVE, BUTTON_DISABLED,
+    ITEM_COLOR, GRID_LINE,
     INACTIVE_SYNERGY, ACTIVE_SYNERGY_BRONZE, ACTIVE_SYNERGY_SILVER, ACTIVE_SYNERGY_GOLD,
     MAP_NODE_BG, MAP_NODE_CURRENT, MAP_NODE_VISITED, MAP_PATH, YELLOW, LIGHT_GRAY,
     HEALTH_BAR_BG, HEALTH_BAR_COLOR,
@@ -22,6 +23,19 @@ from states.enums import GamePhase, UnitLocation
 
 
 # --- Helper Drawing Functions ---
+def _lighten(color, amt=20):
+    return tuple(min(255, c + amt) for c in color[:3])
+
+def _darken(color, amt=20):
+    return tuple(max(0, c - amt) for c in color[:3])
+
+def draw_beveled_rect(surface: pygame.Surface, rect: pygame.Rect, base_color: tuple):
+    pygame.draw.rect(surface, base_color, rect)
+    pygame.draw.line(surface, _lighten(base_color, 30), rect.topleft, (rect.right - 1, rect.top))
+    pygame.draw.line(surface, _lighten(base_color, 30), rect.topleft, (rect.left, rect.bottom - 1))
+    pygame.draw.line(surface, _darken(base_color, 30), (rect.left, rect.bottom - 1), (rect.right - 1, rect.bottom - 1))
+    pygame.draw.line(surface, _darken(base_color, 30), (rect.right - 1, rect.top), (rect.right - 1, rect.bottom - 1))
+
 def draw_text(context: UIContext, text: str, pos: tuple, font_key="default", color=WHITE, align='left', alpha=255):
     # FIX: Ensure context and screen exist
     if not context or not context.screen: return
@@ -53,13 +67,27 @@ def draw_text(context: UIContext, text: str, pos: tuple, font_key="default", col
         context.screen.blit(text_surface, (int(draw_x), int(final_y)))
         final_y += line_height
 
-def draw_button(context: UIContext, rect: Optional[pygame.Rect], text: str, font_key: str, is_hovered: bool):
-      # FIX: Check if rect exists
-     if not rect or not context or not context.screen: return
-     color = BUTTON_HOVER if is_hovered else BUTTON_BG
-     pygame.draw.rect(context.screen, color, rect, border_radius=5)
-     pygame.draw.rect(context.screen, LIGHT_GRAY, rect, 2, border_radius=5)
-     draw_text(context, text, rect.center, font_key, WHITE, align='center')
+def draw_button(context: UIContext, rect: Optional[pygame.Rect], text: str, font_key: str,
+                is_hovered: bool, is_pressed: bool = False, is_disabled: bool = False):
+    """Draw a button with simple bevel and states."""
+    if not rect or not context or not context.screen:
+        return
+
+    if is_disabled:
+        base = BUTTON_DISABLED
+        text_col = GRAY
+    elif is_pressed:
+        base = BUTTON_ACTIVE
+        text_col = WHITE
+    else:
+        base = BUTTON_HOVER if is_hovered else BUTTON_BG
+        text_col = WHITE
+
+    draw_beveled_rect(context.screen, rect, base)
+
+    offset = (1, 1) if is_pressed else (0, 0)
+    draw_text(context, text, (rect.centerx + offset[0], rect.centery + offset[1]), font_key,
+              text_col, align='center')
 
 def draw_hover_info(state: GameState, context: UIContext):
        # FIX: Check context/screen
@@ -87,32 +115,41 @@ def draw_hover_info(state: GameState, context: UIContext):
         info_rect.left = clamp(info_rect.left, 5, context.screen.get_width() - info_width - 5)
         info_rect.top = clamp(info_rect.top, 5, context.screen.get_height() - info_height - 5)
 
-        pygame.draw.rect(context.screen, BLACK, info_rect, border_radius=3)
+        # Slight transparency to allow background to show through
+        info_surf = pygame.Surface(info_rect.size, pygame.SRCALPHA)
+        info_surf.fill((*BLACK[:3], 200))
+        context.screen.blit(info_surf, info_rect.topleft)
         pygame.draw.rect(context.screen, LIGHT_GRAY, info_rect, 1, border_radius=3)
         draw_text(context, state.hovered_info, (info_rect.left + 10, info_rect.top + 5), "small", WHITE)
 
 def draw_unit_prep(context: UIContext, rect: Optional[pygame.Rect], unit: Optional[Unit], is_selected: bool):
     # FIX: Check rect
     if not rect or not context or not context.screen: return
-    pygame.draw.rect(context.screen, DARK_GRAY, rect, 0)
-    pygame.draw.rect(context.screen, GRAY, rect, 2)
+    draw_beveled_rect(context.screen, rect, DARK_GRAY)
     if unit:
         color = RARITY_COLORS.get(unit.rarity, WHITE)
-        pygame.draw.rect(context.screen, color, rect.inflate(-4,-4), 0)
-        draw_text(context, f"{unit.name[0]}", rect.center, "large", BLACK, align='center') # Use first letter
-        star_y = rect.bottom - 12 # FIX: place stars better
-        if unit.level >= 2: draw_text(context, '*' * unit.level, (rect.centerx, star_y), "small", GOLD, align='center')
-    if is_selected: pygame.draw.rect(context.screen, HIGHLIGHT_COLOR, rect, 4)
+        inner = rect.inflate(-4, -4)
+        pygame.draw.rect(context.screen, color, inner, 1)
+        img = context.get_unit_image(unit.name, (inner.width, inner.height))
+        context.screen.blit(img, inner.topleft)
+        star_y = rect.bottom - 12
+        if unit.level >= 2:
+            draw_text(context, "*" * unit.level, (rect.centerx, star_y), "small", GOLD, align="center")
+    if is_selected:
+        pygame.draw.rect(context.screen, HIGHLIGHT_COLOR, rect, 4)
 
 def draw_item_prep(context: UIContext, rect: Optional[pygame.Rect], item: Optional[Item], is_selected: bool):
       # FIX: Check rect
       if not rect or not context or not context.screen: return
-      pygame.draw.rect(context.screen, DARK_GRAY, rect, 0); pygame.draw.rect(context.screen, GRAY, rect, 1)
+      draw_beveled_rect(context.screen, rect, DARK_GRAY)
       if item:
          color = ITEM_COLOR if item.type == "COMPONENT" else GOLD
-         pygame.draw.rect(context.screen, color, rect.inflate(-4,-4), 0) # Inflate more
-         draw_text(context, item.name[0], rect.center, "small", WHITE, align='center')
-      if is_selected: pygame.draw.rect(context.screen, HIGHLIGHT_COLOR, rect, 3)
+         inner = rect.inflate(-4, -4)
+         pygame.draw.rect(context.screen, color, inner, 1)
+         img = context.get_item_image(item.name, (inner.width, inner.height))
+         context.screen.blit(img, inner.topleft)
+      if is_selected:
+         pygame.draw.rect(context.screen, HIGHLIGHT_COLOR, rect, 3)
 
 def draw_health_bar(context: UIContext, x, y, current_hp, max_hp, width, height):
       # FIX: Check context/screen
@@ -140,8 +177,7 @@ def draw_player_info(state: GameState, context: UIContext):
      # FIX: Check rect
     if not context.info_panel_rect: return
     panel_rect = pygame.Rect(context.info_panel_rect)
-    pygame.draw.rect(context.screen, PANEL_BG, panel_rect)
-    pygame.draw.rect(context.screen, GRAY, panel_rect, 1)
+    draw_beveled_rect(context.screen, panel_rect, PANEL_BG)
     player = state.player
     xp_needed = player.xp_to_next_level()
     xp_text = f"{player.xp}/{xp_needed}" if player.level < 9 else "MAX"
@@ -161,8 +197,7 @@ def draw_synergies(state: GameState, context: UIContext):
     if not context.synergy_panel_rect:
         return
     panel_rect = context.synergy_panel_rect
-    pygame.draw.rect(context.screen, PANEL_BG, panel_rect)
-    pygame.draw.rect(context.screen, GRAY, panel_rect, 1)
+    draw_beveled_rect(context.screen, panel_rect, PANEL_BG)
     draw_text(context, "SYNERGIES:", (panel_rect.x + 10, panel_rect.y + 5), "default", GOLD)
     y_offset = 30
     if not state.player.active_synergies:
@@ -184,8 +219,10 @@ def draw_synergies(state: GameState, context: UIContext):
         next_thresh = thresholds[min(level_index + 1, len(thresholds) - 1)] if thresholds else 0
         ratio = count / next_thresh if next_thresh else 1.0
         label_y = panel_rect.y + y_offset
-        draw_text(context, trait, (panel_rect.x + 10, label_y), "small", color)
-        bar_rect = pygame.Rect(panel_rect.x + 10, label_y + 12, bar_width, 6)
+        icon = context.get_icon_image(trait, (16, 16))
+        context.screen.blit(icon, (panel_rect.x + 8, label_y))
+        draw_text(context, trait, (panel_rect.x + 28, label_y), "small", color)
+        bar_rect = pygame.Rect(panel_rect.x + 28, label_y + 12, bar_width - 18, 6)
         draw_bar(context, bar_rect, ratio, color)
         draw_text(context, f"{count}/{next_thresh if next_thresh else count}", (bar_rect.right - 2, label_y + 8), "small", color, align='right')
         y_offset += 20
@@ -209,17 +246,41 @@ def draw_preparation_phase(state: GameState, context: UIContext):
              # FIX: Check rect exists
              if rect: draw_text(context, cost_text, (rect.centerx, rect.bottom + 2), "small", GOLD, align='center')
 
-    draw_button(context, context.refresh_shop_button_rect, f"Refresh ({2}G)", "default", context.hovered_button_rect == context.refresh_shop_button_rect)
-    draw_button(context, context.buy_xp_button_rect, f"Buy XP ({4}G)", "default", context.hovered_button_rect == context.buy_xp_button_rect)
+    draw_button(
+        context,
+        context.refresh_shop_button_rect,
+        f"Refresh ({2}G)",
+        "default",
+        context.hovered_button_rect == context.refresh_shop_button_rect,
+    )
+    draw_button(
+        context,
+        context.buy_xp_button_rect,
+        f"Buy XP ({4}G)",
+        "default",
+        context.hovered_button_rect == context.buy_xp_button_rect,
+    )
      # FIX: Check rect
     if context.sell_area_rect:
         pygame.draw.rect(context.screen, RED, context.sell_area_rect, 2)
         draw_text(context, "SELL", context.sell_area_rect.center, "default", RED, align='center')
 
     if state.allow_combat_start:
-         draw_button(context, context.start_combat_button_rect, "START COMBAT", "default", context.hovered_button_rect == context.start_combat_button_rect)
+         draw_button(
+             context,
+             context.start_combat_button_rect,
+             "START COMBAT",
+             "default",
+             context.hovered_button_rect == context.start_combat_button_rect,
+         )
     else:
-         draw_button(context, context.map_button_rect, "RETURN TO MAP", "default", context.hovered_button_rect == context.map_button_rect)
+         draw_button(
+             context,
+             context.map_button_rect,
+             "RETURN TO MAP",
+             "default",
+             context.hovered_button_rect == context.map_button_rect,
+         )
 
     # Item Inventory
     draw_text(context, "ITEMS:", (context.inventory_x_start, context.inventory_y - 20), "default", ITEM_COLOR)
@@ -360,7 +421,12 @@ def draw_unit_combat(context: UIContext, unit: Unit):
          # progress already calculated above
          current_color = lerp_color(base_color, BLACK, progress)
     # FIX: use int radius
-    pygame.draw.circle(context.screen, current_color, (x, y), int(current_radius))
+    img = context.get_unit_image(unit.name, (int(current_radius*2), int(current_radius*2)))
+    tinted = img.copy()
+    tint_surf = pygame.Surface(tinted.get_size(), pygame.SRCALPHA)
+    tint_surf.fill(current_color)
+    tinted.blit(tint_surf, (0,0), special_flags=pygame.BLEND_MULT)
+    context.screen.blit(tinted, (x-int(current_radius), y-int(current_radius)))
 
     # Orientation Line
     base_angle = 0
@@ -460,16 +526,30 @@ def draw_map_phase(state: GameState, context: UIContext):
            if current_node and node_id in current_node.next_nodes and current_node.visited: border_color, border_width = (YELLOW, 3)
            pygame.draw.circle(context.screen, color, (int(node.x), int(node.y)), node.radius)
            pygame.draw.circle(context.screen, border_color, (int(node.x), int(node.y)), node.radius, border_width)
-           node_text_map = {'HARD': 'H', 'MEDIUM': 'M', 'EASY': 'E', 'BOSS': 'B!', 'SHOP': '$', 'EVENT': '?'}
-           node_text = next((v for k, v in node_text_map.items() if k in node.node_type), '?')
-           draw_text(context, node_text, (node.x, node.y), "small", WHITE, align='center')
+           node_text_map = {
+               'HARD': 'combat',
+               'MEDIUM': 'combat',
+               'EASY': 'combat',
+               'BOSS': 'boss',
+               'SHOP': 'shop',
+               'EVENT': 'event',
+           }
+           icon_key = next((v for k, v in node_text_map.items() if k in node.node_type), 'event')
+           img = context.get_icon_image(icon_key, (node.radius*2, node.radius*2))
+           context.screen.blit(img, (int(node.x - node.radius), int(node.y - node.radius)))
       draw_hover_info(state, context)
 
 def draw_main_menu(state: GameState, context: UIContext):
      if not context or not context.screen: return
      draw_text(context, "CLOCKWORK REQUIEM", (context.screen.get_width()//2, context.screen.get_height()//4), "menu", GOLD, align='center')
      draw_text(context, "A Rogue-lite Auto-Battler", (context.screen.get_width()//2, context.screen.get_height()//4 + 60), "large", LIGHT_GRAY, align='center')
-     draw_button(context, context.start_menu_button_rect, "Start New Run", "large", context.hovered_button_rect == context.start_menu_button_rect)
+     draw_button(
+         context,
+         context.start_menu_button_rect,
+         "Start New Run",
+         "large",
+         context.hovered_button_rect == context.start_menu_button_rect,
+     )
 
 def draw_game_over(state: GameState, context: UIContext):
      if not context or not context.screen: return
@@ -477,14 +557,26 @@ def draw_game_over(state: GameState, context: UIContext):
      node = state.game_map.get_node(state.current_node_id)
      node_info = f"Node {state.current_node_id} ({node.node_type if node else '?'})"
      draw_text(context, f"Defeated at {node_info}", (context.screen.get_width()//2, context.screen.get_height()//2 + 10), "default", WHITE, align='center')
-     draw_button(context, context.restart_button_rect, "Restart Run", "large", context.hovered_button_rect == context.restart_button_rect)
+     draw_button(
+         context,
+         context.restart_button_rect,
+         "Restart Run",
+         "large",
+         context.hovered_button_rect == context.restart_button_rect,
+     )
 
 def draw_run_complete(state: GameState, context: UIContext):
      if not context or not context.screen: return
      draw_text(context, "RUN COMPLETE!", (context.screen.get_width()//2, context.screen.get_height()//2 - 100), "menu", GREEN, align='center')
      draw_text(context, "CONGRATULATIONS, BOSS DEFEATED", (context.screen.get_width()//2, context.screen.get_height()//2 - 20), "large", GOLD, align='center')
      draw_text(context, f"Final Health: {state.player.health}", (context.screen.get_width()//2, context.screen.get_height()//2 + 20), "default", WHITE, align='center')
-     draw_button(context, context.restart_button_rect, "Start New Run", "large", context.hovered_button_rect == context.restart_button_rect)
+     draw_button(
+         context,
+         context.restart_button_rect,
+         "Start New Run",
+         "large",
+         context.hovered_button_rect == context.restart_button_rect,
+     )
 
 def draw_event_choice(state: GameState, context: UIContext):
       if not context or not context.screen or not context.event_choice_rect: return
