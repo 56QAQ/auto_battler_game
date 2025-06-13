@@ -3,15 +3,10 @@ import sys
 
 import pygame as pg
 
-from data.constants import (
-    ATTACK_ANIM_DURATION,
-    CAST_ANIM_DURATION,
-    DEATH_ANIM_DURATION,
-    HEAL_ANIM_DURATION,
-    HIT_ANIM_DURATION,
-    MAX_ITEMS_EQUIPPED,
-    RARITY_ORDER,
-)
+from data.constants import (ATTACK_ANIM_DURATION, CAST_ANIM_DURATION,
+                            DEATH_ANIM_DURATION, HEAL_ANIM_DURATION,
+                            HIT_ANIM_DURATION, MAX_ITEMS_EQUIPPED,
+                            RARITY_ORDER)
 
 # Display
 SCREEN_WIDTH = 1280
@@ -157,12 +152,13 @@ ARENA_MIN_X = COMBAT_ARENA_X + COMBAT_UNIT_RADIUS
 ARENA_MAX_X = COMBAT_ARENA_X + COMBAT_ARENA_WIDTH - COMBAT_UNIT_RADIUS
 ARENA_MIN_Y = COMBAT_ARENA_Y + COMBAT_UNIT_RADIUS
 ARENA_MAX_Y = COMBAT_ARENA_Y + COMBAT_ARENA_HEIGHT - COMBAT_UNIT_RADIUS
-
-MAP_X_START = 50
-MAP_Y_START = 100
-MAP_WIDTH = SCREEN_WIDTH - 100
-MAP_HEIGHT = SCREEN_HEIGHT - 200
-MAP_NODE_RADIUS = 15
+DESIGN_HEIGHT = 900  # logical reference canvas (16:9)
+SCALE = round(max(0.75, SCREEN_HEIGHT / DESIGN_HEIGHT) * 4) / 4
+MAP_WIDTH = int(SCREEN_WIDTH * 0.9)
+MAP_HEIGHT = int(SCREEN_HEIGHT * 0.8)
+MAP_X_START = (SCREEN_WIDTH - MAP_WIDTH) // 2
+MAP_Y_START = (SCREEN_HEIGHT - MAP_HEIGHT) // 2
+MAP_NODE_RADIUS = int(15 * SCALE)
 
 EVENT_CHOICE_WIDTH = 500
 EVENT_CHOICE_HEIGHT = 300
@@ -177,7 +173,7 @@ EVENT_BUTTON_HEIGHT = 60
 # ------------------------------------------------------------------ #
 #  Adaptive scaling
 # ------------------------------------------------------------------ #
-DESIGN_HEIGHT = 900  # logical reference canvas (16:9)
+
 _pg_info = pg.display.Info()  # valid only *after* pg.init()!
 SCREEN_HEIGHT = _pg_info.current_h if _pg_info.current_h else 900
 # 1 × on a 900‑px tall screen, 2 × on 1800 px, etc. (rounded .25 steps)
@@ -189,7 +185,8 @@ def update_resolution(width: int, height: int) -> None:
     global SCREEN_WIDTH, SCREEN_HEIGHT, SCALE
     global BENCH_Y, BOARD_X_START, BOARD_Y_START, INVENTORY_Y
     global COMBAT_ARENA_WIDTH, COMBAT_ARENA_HEIGHT
-    global ARENA_MAX_X, ARENA_MAX_Y, MAP_WIDTH, MAP_HEIGHT
+    global ARENA_MAX_X, ARENA_MAX_Y
+    global MAP_WIDTH, MAP_HEIGHT, MAP_X_START, MAP_Y_START, MAP_NODE_RADIUS
     global EVENT_CHOICE_RECT
 
     SCREEN_WIDTH = width
@@ -206,8 +203,11 @@ def update_resolution(width: int, height: int) -> None:
     ARENA_MAX_X = COMBAT_ARENA_X + COMBAT_ARENA_WIDTH - COMBAT_UNIT_RADIUS
     ARENA_MAX_Y = COMBAT_ARENA_Y + COMBAT_ARENA_HEIGHT - COMBAT_UNIT_RADIUS
 
-    MAP_WIDTH = SCREEN_WIDTH - 100
-    MAP_HEIGHT = SCREEN_HEIGHT - 200
+    MAP_WIDTH = int(SCREEN_WIDTH * 0.9)
+    MAP_HEIGHT = int(SCREEN_HEIGHT * 0.8)
+    MAP_X_START = (SCREEN_WIDTH - MAP_WIDTH) // 2
+    MAP_Y_START = (SCREEN_HEIGHT - MAP_HEIGHT) // 2
+    MAP_NODE_RADIUS = int(15 * SCALE)
 
     EVENT_CHOICE_RECT.update(
         SCREEN_WIDTH // 2 - EVENT_CHOICE_WIDTH // 2,

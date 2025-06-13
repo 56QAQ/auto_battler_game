@@ -91,6 +91,7 @@ def end_combat(
     if current_node and not overtime_loss:
         give_node_rewards(state, node_type, player_won)
         current_node.visited = True
+        current_node.completed = True
     elif overtime_loss and not player_won:  # Only XP if player lost due to time
         # state.player.gain_xp(PASSIVE_XP) # Removed: give_node_rewards handles passive xp
         give_node_rewards(state, node_type, player_won=False)  # get passive XP only
@@ -108,6 +109,9 @@ def end_combat(
 
 
 def go_to_map(state: GameState):
+    current_node = state.game_map.get_node(state.current_node_id)
+    if current_node and not current_node.completed:
+        current_node.completed = True
     state.current_phase = GamePhase.MAP_NAVIGATION
     state.allow_combat_start = False  # Ensure button state is correct
 
@@ -178,6 +182,7 @@ def resolve_event_choice(state: GameState, choice: Dict):
     if current_node:
         give_node_rewards(state, current_node.node_type, True)
         current_node.visited = True
+        current_node.completed = True
     state.current_phase = GamePhase.MAP_NAVIGATION
     state.event_choices = []
 
@@ -221,7 +226,7 @@ def navigate_map(state: GameState, context: UIContext, target_node_id: int):
     current_node = state.game_map.get_node(state.current_node_id)
     target_node = state.game_map.get_node(target_node_id)
     if target_node and (
-        target_node_id == state.current_node_id
+        (target_node_id == state.current_node_id and not current_node.completed)
         or (
             current_node
             and target_node_id in current_node.next_nodes
@@ -273,6 +278,13 @@ def cycle_resolution(state: GameState, context: UIContext):
     from ui.fonts import load_fonts
 
     ui_c.update_resolution(width, height)
+    state.game_map.rescale(
+        ui_c.MAP_WIDTH,
+        ui_c.MAP_HEIGHT,
+        ui_c.MAP_X_START,
+        ui_c.MAP_Y_START,
+        ui_c.MAP_NODE_RADIUS,
+    )
     screen = pygame.display.set_mode((width, height))
     fonts = load_fonts()
     context.rebuild(screen, fonts)
