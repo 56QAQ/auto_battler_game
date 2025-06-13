@@ -311,13 +311,15 @@ def handle_game_event(
         ):
             open_settings(state)
             return None
+        from ui.drawing import draw_difficulty_select
         if state.current_phase == GamePhase.MAIN_MENU:
             if (
                 is_left
                 and context.start_menu_button_rect
                 and context.start_menu_button_rect.collidepoint(pos)
             ):
-                return start_new_run(state)
+                # 改为进入难度选择界面
+                state.current_phase = GamePhase.DIFFICULTY_SELECT
         elif state.current_phase in [GamePhase.GAME_OVER, GamePhase.RUN_COMPLETE]:
             if (
                 is_left
@@ -331,6 +333,33 @@ def handle_game_event(
                 and context.main_menu_button_rect.collidepoint(pos)
             ):
                 go_to_main_menu(state)
+    # ---------- 难度选择点击 ----------
+        elif state.current_phase == GamePhase.DIFFICULTY_SELECT and event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            w, h = context.screen.get_size()
+            y = event.pos[1]
+            if y < h / 3:
+                state.difficulty_level = "easy"
+            elif y < 2 * h / 3:
+                state.difficulty_level = "medium"
+            else:
+                state.difficulty_level = "hard"
+            return start_new_run(state, state.difficulty_level)
+
+    # ---------- 主题选择点击 ----------
+        elif state.current_phase == GamePhase.THEME_SELECT and event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if not state.available_themes:
+                return None
+            segment = context.screen.get_width() // len(state.available_themes)
+            idx = min(len(state.available_themes) - 1, event.pos[0] // segment)
+            chosen = state.available_themes.pop(idx)
+            state.chosen_themes.append(chosen)
+            state.current_theme = chosen
+            state.current_phase = GamePhase.MAP_NAVIGATION
+            # 进入下一幕地图
+            from engine.classes import GameMap
+            state.game_map = GameMap()
+            state.current_node_id = state.game_map.start_node_id
+            return None
         elif state.current_phase == GamePhase.EVENT_CHOICE:
             if is_left:
                 for choice in state.event_choices:

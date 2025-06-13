@@ -19,3 +19,23 @@ class EffectType(Enum):
     BUFF_AURA = auto()
     CAST_AURA = auto()
     DEATH_EFFECT = auto()
+
+class StatusCategory(Enum):
+    DOT = auto()
+    HOT = auto()
+    DEBUFF = auto()
+    BUFF = auto()
+    ACTION_BLOCK = auto()
+    SHIELD = auto()
+
+class StackRule(Enum):
+    UNLIMITED = auto()
+    UNIQUE = auto()
+    REFRESH_DURATION = auto()
+
+class RemoveReason(Enum):
+    EXPIRED = auto()
+    DISPEL = auto()
+    HOST_DEAD = auto()
+    BATTLE_END = auto()
+    CUSTOM_TRIGGER = auto()

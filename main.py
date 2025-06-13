@@ -13,7 +13,7 @@ from states.state_machine import go_to_main_menu
 from ui import constants as ui_c
 from ui.drawing import (draw_combat_phase, draw_event_choice, draw_game_over,
                         draw_main_menu, draw_map_phase, draw_preparation_phase,
-                        draw_run_complete, draw_settings)
+                        draw_run_complete, draw_settings, draw_difficulty_select, draw_theme_select)
 from ui.fonts import load_fonts
 from ui.ui_context import UIContext
 
@@ -52,6 +52,10 @@ def main():
 
         if phase == GamePhase.MAIN_MENU:
             draw_main_menu(state, context)
+        elif phase == GamePhase.DIFFICULTY_SELECT:
+            draw_difficulty_select(state, context)
+        elif phase == GamePhase.THEME_SELECT:
+            draw_theme_select(state, context)
         elif phase == GamePhase.PREPARATION:
             draw_preparation_phase(state, context)
         elif phase == GamePhase.COMBAT:

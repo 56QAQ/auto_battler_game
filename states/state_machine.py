@@ -27,11 +27,12 @@ def go_to_main_menu(state: GameState):
     state.current_phase = GamePhase.MAIN_MENU
 
 
-def start_new_run(state: GameState):
-    reset_game_state()  # state is reassigned globally
+def start_new_run(state: GameState, difficulty_level: str | None = None):
     # Must return the NEW state instance
     from engine.game_state import get_game_state
-
+    if difficulty_level is None:
+        difficulty_level = getattr(state, "difficulty_level", "medium")
+    reset_game_state(difficulty_level)
     return get_game_state()
 
 
@@ -42,7 +43,7 @@ def start_combat(state: GameState, enemy_team_data: List[Dict]):
     state.overtime_damage_timer = 0
     state.damage_floaters = []
     state.visual_effects = []
-    enemy_units = create_enemy_units(enemy_team_data)
+    enemy_units = create_enemy_units(enemy_team_data, state)
     state.player_combat_team = setup_combat_team(state.player, is_enemy=False)
     state.enemy_combat_team = setup_enemy_combat_team(enemy_units)
 
@@ -92,6 +93,8 @@ def end_combat(
         give_node_rewards(state, node_type, player_won)
         current_node.visited = True
         current_node.completed = True
+        if player_won and "COMBAT" in node_type:
+            state.nodes_cleared += 1
     elif overtime_loss and not player_won:  # Only XP if player lost due to time
         # state.player.gain_xp(PASSIVE_XP) # Removed: give_node_rewards handles passive xp
         give_node_rewards(state, node_type, player_won=False)  # get passive XP only
@@ -100,9 +103,23 @@ def end_combat(
         state.current_phase = GamePhase.GAME_OVER
         print("--- GAME OVER ---")
     elif player_won and node_type == "BOSS":
-        state.current_phase = GamePhase.RUN_COMPLETE
-        print("--- RUN COMPLETE ---")
-        state.allow_combat_start = False
+        # BOSS 击败：推进幕流程
+        state.nodes_cleared += 1
+        if state.act < 4:
+            state.act += 1
+            from engine.classes import GameMap
+            state.game_map = GameMap()             # 新地图
+            state.current_node_id = state.game_map.start_node_id
+            state.allow_combat_start = False
+            # 幕 2、3 进入主题选择
+            if state.act in (2, 3):
+                state.current_phase = GamePhase.THEME_SELECT
+            else:  # 幕 4 直接继续
+                state.current_phase = GamePhase.MAP_NAVIGATION
+        else:
+            state.current_phase = GamePhase.RUN_COMPLETE
+            print("--- RUN COMPLETE ---")
+            state.allow_combat_start = False
     else:
         state.current_phase = GamePhase.MAP_NAVIGATION
         state.allow_combat_start = False

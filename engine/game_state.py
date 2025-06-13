@@ -58,6 +58,12 @@ class GameState:
         self.allow_combat_start: bool = False
         self.current_node_type: str = ""
         self.prepare_ui_message: str = ""
+        self.difficulty_level: str = "easy"
+        self.nodes_cleared: int = 0
+        self.act: int = 1
+        self.available_themes: list[str] = ["MECHANICAL", "FROST", "ARCANE", "DESERT"]
+        self.chosen_themes: list[str] = []
+        self.current_theme: str | None = None
         self.enemy_combat_team_data_cache: List[Dict] = []
         self.event_choices: List[EventChoice] = []
         # Button rects belong in UI/States, not engine state.
@@ -67,13 +73,14 @@ class GameState:
 run_state: Optional[GameState] = None
 
 
-def reset_game_state():
+def reset_game_state(difficulty_level: str = "easy"):
     # Needs to be called by main after all modules imported
     global run_state
     from states.enums import GamePhase  # Local import
 
     print("\n======= RESET GAME STATE / NEW RUN =======\n")
     run_state = GameState()
+    run_state.difficulty_level = difficulty_level
     run_state.current_phase = GamePhase.MAP_NAVIGATION
     # Ensure map generation happens on reset
     run_state.game_map = GameMap()

@@ -1,191 +1,57 @@
-diff --git a/ui/constants.py b/ui/constants.py
-index ef0fb98dc3209a46f4cb96bcab533e0c9f085696..c6df64dd9c6554550f0be52503d5ceca201be869 100644
---- a/ui/constants.py
-+++ b/ui/constants.py
-@@ -1,39 +1,34 @@
- import math
- import sys
- 
- import pygame as pg
- 
--from data.constants import (
--    ATTACK_ANIM_DURATION,
--    CAST_ANIM_DURATION,
--    DEATH_ANIM_DURATION,
--    HEAL_ANIM_DURATION,
--    HIT_ANIM_DURATION,
--    MAX_ITEMS_EQUIPPED,
--    RARITY_ORDER,
--)
-+from data.constants import (ATTACK_ANIM_DURATION, CAST_ANIM_DURATION,
-+                            DEATH_ANIM_DURATION, HEAL_ANIM_DURATION,
-+                            HIT_ANIM_DURATION, MAX_ITEMS_EQUIPPED,
-+                            RARITY_ORDER)
- 
- # Display
- SCREEN_WIDTH = 1280
- SCREEN_HEIGHT = 720
- FPS = 60
- # Use a serif font for a more "clockwork" feel if available
- FONT_NAME = "./assets/fonts/DejaVuSerif.ttf"
- FONT_SIZE = 18
- SMALL_FONT_SIZE = 14
- LARGE_FONT_SIZE = 24
- MENU_FONT_SIZE = 48
- 
- # Asset directories
- ASSET_DIR = "assets"
- UNIT_IMAGE_DIR = f"{ASSET_DIR}/units"
- ITEM_IMAGE_DIR = f"{ASSET_DIR}/items"
- ICON_IMAGE_DIR = f"{ASSET_DIR}/icons"
- PLACEHOLDER_IMAGE = f"{ASSET_DIR}/placeholder.png"
- BUTTON_IMAGE = f"{ASSET_DIR}/ui/button.png"
- PANEL_IMAGE = f"{ASSET_DIR}/ui/panel.png"
- SHOP_BG_IMAGE = f"{ASSET_DIR}/backgrounds/shop_bg.png"
- MAP_BG_IMAGE = f"{ASSET_DIR}/backgrounds/map_bg.png"
- COMBAT_BG_IMAGE = f"{ASSET_DIR}/backgrounds/combat_bg.png"
- 
- # Colors
-diff --git a/ui/constants.py b/ui/constants.py
-index ef0fb98dc3209a46f4cb96bcab533e0c9f085696..c6df64dd9c6554550f0be52503d5ceca201be869 100644
---- a/ui/constants.py
-+++ b/ui/constants.py
-@@ -136,125 +131,129 @@ SHOP_Y = 100
- SHOP_X_START = 250
- 
- INFO_PANEL_X = 10
- INFO_PANEL_Y = 10
- SYNERGY_PANEL_X = 10
- SYNERGY_PANEL_Y = 300
- SYNERGY_LINE_HEIGHT = 18
- 
- MAX_ITEMS_INVENTORY = 6
- INVENTORY_X_START = SHOP_X_START
- INVENTORY_Y = BOARD_Y_START - SLOT_SIZE - 20
- ITEM_SLOT_SIZE = 30
- 
- BUTTON_HEIGHT = 40
- 
- COMBAT_ARENA_X = 220
- COMBAT_ARENA_Y = 100
- COMBAT_ARENA_WIDTH = SCREEN_WIDTH - 400
- COMBAT_ARENA_HEIGHT = SCREEN_HEIGHT - 200
- COMBAT_UNIT_RADIUS = 16
- ARENA_MIN_X = COMBAT_ARENA_X + COMBAT_UNIT_RADIUS
- ARENA_MAX_X = COMBAT_ARENA_X + COMBAT_ARENA_WIDTH - COMBAT_UNIT_RADIUS
- ARENA_MIN_Y = COMBAT_ARENA_Y + COMBAT_UNIT_RADIUS
- ARENA_MAX_Y = COMBAT_ARENA_Y + COMBAT_ARENA_HEIGHT - COMBAT_UNIT_RADIUS
- 
--MAP_X_START = 50
--MAP_Y_START = 100
--MAP_WIDTH = SCREEN_WIDTH - 100
--MAP_HEIGHT = SCREEN_HEIGHT - 200
--MAP_NODE_RADIUS = 15
-+MAP_WIDTH = int(SCREEN_WIDTH * 0.9)
-+MAP_HEIGHT = int(SCREEN_HEIGHT * 0.8)
-+MAP_X_START = (SCREEN_WIDTH - MAP_WIDTH) // 2
-+MAP_Y_START = (SCREEN_HEIGHT - MAP_HEIGHT) // 2
-+MAP_NODE_RADIUS = int(15 * SCALE)
- 
- EVENT_CHOICE_WIDTH = 500
- EVENT_CHOICE_HEIGHT = 300
- EVENT_CHOICE_RECT = pg.Rect(
-     SCREEN_WIDTH // 2 - EVENT_CHOICE_WIDTH // 2,
-     SCREEN_HEIGHT // 2 - EVENT_CHOICE_HEIGHT // 2,
-     EVENT_CHOICE_WIDTH,
-     EVENT_CHOICE_HEIGHT,
- )
- EVENT_BUTTON_WIDTH = 400
- EVENT_BUTTON_HEIGHT = 60
- # ------------------------------------------------------------------ #
- #  Adaptive scaling
- # ------------------------------------------------------------------ #
- DESIGN_HEIGHT = 900  # logical reference canvas (16:9)
- _pg_info = pg.display.Info()  # valid only *after* pg.init()!
- SCREEN_HEIGHT = _pg_info.current_h if _pg_info.current_h else 900
- # 1 × on a 900‑px tall screen, 2 × on 1800 px, etc. (rounded .25 steps)
- SCALE = round(max(0.75, SCREEN_HEIGHT / DESIGN_HEIGHT) * 4) / 4
- 
- 
- def update_resolution(width: int, height: int) -> None:
-     """Update layout constants to match a new resolution."""
-     global SCREEN_WIDTH, SCREEN_HEIGHT, SCALE
-     global BENCH_Y, BOARD_X_START, BOARD_Y_START, INVENTORY_Y
-     global COMBAT_ARENA_WIDTH, COMBAT_ARENA_HEIGHT
--    global ARENA_MAX_X, ARENA_MAX_Y, MAP_WIDTH, MAP_HEIGHT
-+    global ARENA_MAX_X, ARENA_MAX_Y
-+    global MAP_WIDTH, MAP_HEIGHT, MAP_X_START, MAP_Y_START, MAP_NODE_RADIUS
-     global EVENT_CHOICE_RECT
- 
-     SCREEN_WIDTH = width
-     SCREEN_HEIGHT = height
-     SCALE = round(max(0.75, SCREEN_HEIGHT / DESIGN_HEIGHT) * 4) / 4
- 
-     BENCH_Y = SCREEN_HEIGHT - 60
-     BOARD_X_START = (SCREEN_WIDTH - (BOARD_COLS * (SLOT_SIZE + SLOT_MARGIN))) // 2 + 50
-     BOARD_Y_START = SCREEN_HEIGHT - 280
-     INVENTORY_Y = BOARD_Y_START - SLOT_SIZE - 20
- 
-     COMBAT_ARENA_WIDTH = SCREEN_WIDTH - 400
-     COMBAT_ARENA_HEIGHT = SCREEN_HEIGHT - 200
-     ARENA_MAX_X = COMBAT_ARENA_X + COMBAT_ARENA_WIDTH - COMBAT_UNIT_RADIUS
-     ARENA_MAX_Y = COMBAT_ARENA_Y + COMBAT_ARENA_HEIGHT - COMBAT_UNIT_RADIUS
- 
--    MAP_WIDTH = SCREEN_WIDTH - 100
--    MAP_HEIGHT = SCREEN_HEIGHT - 200
-+    MAP_WIDTH = int(SCREEN_WIDTH * 0.9)
-+    MAP_HEIGHT = int(SCREEN_HEIGHT * 0.8)
-+    MAP_X_START = (SCREEN_WIDTH - MAP_WIDTH) // 2
-+    MAP_Y_START = (SCREEN_HEIGHT - MAP_HEIGHT) // 2
-+    MAP_NODE_RADIUS = int(15 * SCALE)
- 
-     EVENT_CHOICE_RECT.update(
-         SCREEN_WIDTH // 2 - EVENT_CHOICE_WIDTH // 2,
-         SCREEN_HEIGHT // 2 - EVENT_CHOICE_HEIGHT // 2,
-         EVENT_CHOICE_WIDTH,
-         EVENT_CHOICE_HEIGHT,
-     )
- 
- 
- # ------------------------------------------------------------------ #
- #  Colours
- # ------------------------------------------------------------------ #
- def _c(r, g, b):
-     """Convenience for creating colour tuples."""
-     return pg.Color(r, g, b)
- 
- 
- # Muted steampunk inspired palette
- WHITE, BLACK = _c(240, 240, 235), _c(12, 12, 12)
- GREY, DGREY = _c(140, 140, 140), _c(32, 32, 32)
- # Brass/gold accent and a warm red
- GOLD, RED = _c(205, 168, 72), _c(176, 60, 60)
- GREEN, BLUE = _c(80, 170, 140), _c(70, 120, 180)
- # Default backgrounds
- BG = _c(24, 26, 30)
- PANEL_BG = _c(40, 44, 52)
- GRID_LINE = _c(80, 85, 95)
- 
- RARITY_COL = [GREY, GREEN, BLUE, GOLD, RED]  # 0‑4 stars
- 
- # ------------------------------------------------------------------ #
- #  Layout (logical units)
- # ------------------------------------------------------------------ #
- BAR_H = 14
- STATUS_W = 280
- SHOP_H = 160
- BENCH_H = 110
- SYNERGY_W = 240
- PADDING = 8
- ICON = 24
- FONT_S = 18
- TINY_FONT_S = 14
- # Animation Durations (imported from data for lerping)
- ANIM_DURATIONS = {
-     "ATTACKING": ATTACK_ANIM_DURATION,
-     "HIT": HIT_ANIM_DURATION,
-     "HEALED": HEAL_ANIM_DURATION,
-     "CASTING": CAST_ANIM_DURATION,
-     "DYING": DEATH_ANIM_DURATION,
--}
-+}
+diff --git a/engine/logic.py b/engine/logic.py
+@@
+-from data.enums import TriggerTiming, TriggerTarget, StatSource, AbilityEffect, DamageType
++# 新增 DamageSource
++from data.enums import (
++    TriggerTiming, TriggerTarget, StatSource,
++    AbilityEffect, DamageType, DamageSource
++)
+@@
+-        for target in targets:
+-             if target.is_alive and target.anim_state != AnimationState.DYING:
+-                state.visual_effects.append(VisualEffect(EffectType.PROJECTILE_MAGIC, source.x, source.y, 1.0, "PROJECTILE_MAGIC_COLOR", target_pos=(target.x, target.y), size=6 ))
+-                dmg_dealt = target.take_damage(damage, dtype, state, source)
+-                if dmg_dealt > 0.1: state.damage_floaters.append(DamageFloater(target.x, target.y, f"{dmg_dealt:.0f}", color_key))
++        for target in targets:
++            if not (target.is_alive and target.anim_state != AnimationState.DYING):
++                continue
++            state.visual_effects.append(
++                VisualEffect(
++                    EffectType.PROJECTILE_MAGIC,
++                    source.x,
++                    source.y,
++                    1.0,
++                    "PROJECTILE_MAGIC_COLOR",
++                    target_pos=(target.x, target.y),
++                    size=6,
++                )
++            )
++            # 允许 Item 技能享受输出加成 / 穿刺 等（is_aoe 由数据决定）
++            outgoing = source.compute_outgoing_damage(
++                damage, dtype, DamageSource.ITEM_ABILITY, data.get("is_aoe", False), target
++            )
++            dmg_dealt = target.take_damage(
++                outgoing,
++                dtype,
++                state,
++                source,
++                source_action=DamageSource.ITEM_ABILITY,
++                is_aoe=data.get("is_aoe", False),
++            )
++            if dmg_dealt > 0.1:
++                state.damage_floaters.append(
++                    DamageFloater(target.x, target.y, f"{dmg_dealt:.0f}", color_key)
++                )
++            # 吸血 / omnivamp
++            source.apply_lifesteal(dmg_dealt, dtype)
+@@
+-         heal_amount = base_value * data.get('scale_factor', 0) + data.get('flat_value', 0)
++         heal_amount = base_value * data.get('scale_factor', 0) + data.get('flat_value', 0)
++         # 施法者的“提供治疗”加成
++         heal_amount *= source._xs("outgoing_healing_bonus", 100.0) / 100.0
+@@
+-                  healed = target.heal(heal_amount)
++                  # 目标的“受治疗”加成
++                  healed = target.heal(
++                      heal_amount * target._xs("incoming_healing_bonus", 100.0) / 100.0
++                  )

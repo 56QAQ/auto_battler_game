@@ -990,6 +990,54 @@ def draw_main_menu(state: GameState, context: UIContext):
     )
 
 
+# ----------------- 新增：难度选择 -----------------
+def draw_difficulty_select(state: GameState, context: UIContext):
+    if not context or not context.screen:
+        return
+    context.screen.fill(BLACK)
+    draw_text(
+        context,
+        "SELECT DIFFICULTY",
+        (context.screen.get_width() // 2, context.screen.get_height() // 4),
+        "menu",
+        GOLD,
+        align="center",
+    )
+    labels = ["EASY", "MEDIUM", "HARD"]
+    for i, lbl in enumerate(labels):
+        y = context.screen.get_height() // 2 + i * 60
+        draw_text(
+            context,
+            lbl,
+            (context.screen.get_width() // 2, y),
+            "large",
+            WHITE,
+            align="center",
+        )
+
+# ----------------- 新增：主题选择 -----------------
+def draw_theme_select(state: GameState, context: UIContext):
+    if not context or not context.screen:
+        return
+    context.screen.fill(BLACK)
+    draw_text(
+        context,
+        f"ACT {state.act}: CHOOSE THEME",
+        (context.screen.get_width() // 2, context.screen.get_height() // 4),
+        "menu",
+        GOLD,
+        align="center",
+    )
+    themes = state.available_themes
+    if not themes:
+        return
+    w = context.screen.get_width()
+    segment = w // len(themes)
+    for i, t in enumerate(themes):
+        x = segment * i + segment // 2
+        draw_text(context, t, (x, context.screen.get_height() // 2), "large", WHITE, align="center")
+
+
 def draw_game_over(state: GameState, context: UIContext):
     if not context or not context.screen:
         return

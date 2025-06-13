@@ -148,7 +148,7 @@ ITEM_RECIPES: Dict[Tuple[str, str], str] = {
      ("Plate", "Essence"): "Aegis Shield", ("Essence", "Plate"): "Aegis Shield",
       ("Lubricant", "Essence"): "Life Gem", ("Essence", "Lubricant"): "Life Gem",
 }
-
+THEMES: list[str] = ["MECHANICAL", "FROST", "ARCANE", "DESERT"]
 # FIX-UI: Add used_in_run flag to definition
 ARTIFACT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
      "Reinforced Plating": {"type": "GLOBAL_STAT_BUFF", "stats": {"armor": 10}, "description": "All allies gain +10 Armor.", "one_shot": False},
@@ -172,3 +172,20 @@ NODE_REWARDS: Dict[str, Dict[str, Any]] = {
      'SHOP': {'gold': 5, 'xp': 0, 'items': [], 'artifacts': []}, 
      'EVENT': {'gold': 0, 'xp': 0, 'items': [], 'artifacts': []}, 
 }
+def _split(base: list[str]) -> dict[str, list[str]]:
+    pools = {"ACT1": [], "ACT4": []}
+    for t in THEMES:
+        pools[t] = []
+    for i, n in enumerate(base):
+        bucket = list(pools.keys())[i % len(pools)]
+        pools[bucket].append(n)
+    # 占位补足
+    for k, v in pools.items():
+        while len(v) < 3:
+            v.append(f"{v[0]}_{len(v)+1}" if v else f"Placeholder_{k}_{len(v)+1}")
+    return pools
+EVENT_POOLS      = _split(list(NODE_REWARDS.keys()))
+ITEM_POOLS       = _split(list(ITEM_DEFINITIONS.keys()))
+ARTIFACT_POOLS   = _split(list(ARTIFACT_DEFINITIONS.keys()))
+ENEMY_TEAM_POOLS = _split(list(ENEMY_TEAM_DEFINITIONS.keys()))
+BOSS_POOLS       = _split([k for k in ENEMY_TEAM_DEFINITIONS if "BOSS" in k])

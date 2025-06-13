@@ -33,3 +33,10 @@ class DamageType(Enum):
     PHYSICAL = 'physical'
     MAGIC = 'magic'
     TRUE = 'true'
+
+class DamageSource(Enum):
+    BASIC_ATTACK   = auto()
+    ITEM_ABILITY   = auto()
+    SYNERGY        = auto()
+    ARTIFACT       = auto()
+    MAP_EFFECT     = auto()

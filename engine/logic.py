@@ -17,7 +17,11 @@ from data.constants import (
      MAX_COMBAT_DURATION, OVERTIME_START, OVERTIME_DAMAGE_INTERVAL, OVERTIME_DAMAGE_PERCENT,
       PASSIVE_XP, HEAL_ANIM_DURATION, CAST_ANIM_DURATION, DEATH_ANIM_DURATION
 )
-from data.enums import TriggerTiming, TriggerTarget, StatSource, AbilityEffect, DamageType
+# 新增 DamageSource
+from data.enums import (
+    TriggerTiming, TriggerTarget, StatSource,
+    AbilityEffect, DamageType, DamageSource
+)
 # Engine imports
 from engine.classes import (
      Player, Shop, Unit, Item, Artifact, VisualEffect, DamageFloater,
@@ -26,6 +30,7 @@ from engine.classes import (
       )
 from engine.enums import AnimationState, EffectType
 from engine.utils import clamp
+from engine.enums import RemoveReason
 # Conditional imports
 if TYPE_CHECKING:
     from engine.game_state import GameState, SynergyStatus
@@ -409,10 +414,35 @@ def execute_ability(ability: Dict, source: Unit, targets: List[Unit], base_value
         color_map = {DamageType.PHYSICAL: "DAMAGE_PHYSICAL_COLOR", DamageType.MAGIC: "DAMAGE_MAGIC_COLOR", DamageType.TRUE: "DAMAGE_TRUE_COLOR"}
         color_key = color_map.get(dtype, "WHITE")
         for target in targets:
-             if target.is_alive and target.anim_state != AnimationState.DYING:
-                state.visual_effects.append(VisualEffect(EffectType.PROJECTILE_MAGIC, source.x, source.y, 1.0, "PROJECTILE_MAGIC_COLOR", target_pos=(target.x, target.y), size=6 ))
-                dmg_dealt = target.take_damage(damage, dtype, state, source)
-                if dmg_dealt > 0.1: state.damage_floaters.append(DamageFloater(target.x, target.y, f"{dmg_dealt:.0f}", color_key))
+            if not (target.is_alive and target.anim_state != AnimationState.DYING):
+                continue
+            state.visual_effects.append(
+                VisualEffect(
+                    EffectType.PROJECTILE_MAGIC,
+                    source.x,
+                    source.y,
+                    1.0,
+                    "PROJECTILE_MAGIC_COLOR",
+                    target_pos=(target.x, target.y),
+                    size=6,
+                )
+            )
+            outgoing = source.compute_outgoing_damage(
+                damage, dtype, DamageSource.ITEM_ABILITY, data.get("is_aoe", False), target
+            )
+            dmg_dealt = target.take_damage(
+                outgoing,
+                dtype,
+                state,
+                source,
+                source_action=DamageSource.ITEM_ABILITY,
+                is_aoe=data.get("is_aoe", False),
+            )
+            if dmg_dealt > 0.1:
+                state.damage_floaters.append(
+                    DamageFloater(target.x, target.y, f"{dmg_dealt:.0f}", color_key)
+                )
+            source.apply_lifesteal(dmg_dealt, dtype)
     elif effect_type == AbilityEffect.APPLY_BUFF:
          # FIX: Check required keys in data
          if all (k in data for k in ['stat', 'value', 'duration']):
@@ -425,10 +455,13 @@ def execute_ability(ability: Dict, source: Unit, targets: List[Unit], base_value
                      state.damage_floaters.append(DamageFloater(target.x, target.y - 10, f"{stat} {val_str}", "BUFF_COLOR"))
     elif effect_type == AbilityEffect.HEAL:
          heal_amount = base_value * data.get('scale_factor', 0) + data.get('flat_value', 0)
+         heal_amount *= source._xs("outgoing_healing_bonus", 100.0) / 100.0
          if heal_amount <= 0.1: return
          for target in targets:
               if target.is_alive and target.anim_state != AnimationState.DYING:
-                  healed = target.heal(heal_amount)
+                  healed = target.heal(
+                      heal_amount * target._xs("incoming_healing_bonus", 100.0) / 100.0
+                  )
                   if healed > 0.1:
                        state.visual_effects.append(VisualEffect(EffectType.HEAL_AURA, target.x, target.y, HEAL_ANIM_DURATION, "HEAL_COLOR", size=target.radius))
                        state.damage_floaters.append(DamageFloater(target.x, target.y, f"+{healed:.0f}", "HEAL_COLOR"))
@@ -494,13 +527,33 @@ def setup_enemy_combat_team(enemy_units: List[Unit]) -> List[Unit]:
         combat_unit.is_enemy = True; combat_unit.base_color_key = "ENEMY_COLOR"; combat_unit.current_color_key = "ENEMY_COLOR"; team.append(combat_unit)
      return team
 
-def create_enemy_units(enemy_data: List[Dict]) -> List[Unit]:
-     enemies = []
-     if not enemy_data: return enemies # FIX: check not None/empty
-     for data in enemy_data:
-          name = data.get('name'); level = data.get('level', 1) # FIX: use .get
-          if name and name in UNIT_DEFINITIONS: enemies.append(Unit(name, UNIT_DEFINITIONS[name], level=level, is_enemy=True))
-     return enemies
+# -------------------- 难度 / 进度 动态加成 --------------------
+def _get_enemy_scaling(nodes_cleared: int, difficulty: str) -> tuple[float, float, float]:
+    """返回 (HP乘数, 额外伤害%, 额外减伤%)"""
+    coeff = {"easy": 0.08, "medium": 0.13, "hard": 0.20}.get(difficulty, 0.13)
+    factor = 1.0 + coeff * (nodes_cleared ** 0.65)
+    # HP × factor；伤害、减伤用百分比（在 Unit 里以 100 为基准的字段）
+    return factor, 100.0 + (factor - 1.0) * 100.0, 100.0 + (factor - 1.0) * 50.0
+
+def create_enemy_units(enemy_data: List[Dict], state: "GameState") -> List[Unit]:
+    enemies: List[Unit] = []
+    if not enemy_data:
+        return enemies
+    hp_mul, dmg_bonus_pct, dmg_reduc_pct = _get_enemy_scaling(
+        state.nodes_cleared, state.difficulty_level
+    )
+    for data in enemy_data:
+        name = data.get("name")
+        level = data.get("level", 1)
+        if name and name in UNIT_DEFINITIONS:
+            u = Unit(name, UNIT_DEFINITIONS[name], level=level, is_enemy=True)
+            # 应用加成
+            u.current_stats["hp"] *= hp_mul
+            u.current_hp = u.current_stats["hp"]
+            u.current_stats["percentage_damage_bonus"] *= dmg_bonus_pct / 100.0
+            u.current_stats["percentage_damage_reduction"] *= dmg_reduc_pct / 100.0
+            enemies.append(u)
+    return enemies
 
 def apply_artifact_effect(player: Player, artifact: Artifact):
      # FIX: check artifact and definition validity
@@ -581,7 +634,9 @@ def run_combat_tick(state: 'GameState', delta_time: float):
      # Process buffs and overtime damage ONLY for alive units
      all_units_processing = player_alive + enemy_alive
      for unit in all_units_processing:
-          if unit._remove_expired_buffs(state.combat_timer): unit._recalculate_stats(state.combat_timer)
+          if unit._remove_expired_buffs(state.combat_timer):
+               unit._recalculate_stats(state.combat_timer)
+          unit.process_statuses(delta_time)
 
      if is_overtime:
           state.overtime_damage_timer += delta_time

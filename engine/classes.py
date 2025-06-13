@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 import random
 import uuid
-from collections import defaultdict
+from collections import defaultdict, deque
 # FIX: Add Callable to typing imports
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 
@@ -24,9 +24,11 @@ from data.constants import (ATTACK_ANIM_DURATION, ATTACK_LUNGE_ANGLE,
 # Data imports
 from data.definitions import (ARTIFACT_DEFINITIONS, ITEM_DEFINITIONS,
                               UNIT_DEFINITIONS)
-from data.enums import DamageType, StatSource, TriggerTiming
+# 新增 DamageSource
+from data.enums import DamageType, StatSource, TriggerTiming, DamageSource
 # Engine imports
-from engine.enums import AnimationState, EffectType
+from engine.enums import AnimationState, EffectType, RemoveReason
+from engine.status_effects import ActionDenialEffect, StackRule, StatusEffect
 # from engine.utils import clamp, lerp, normalize_vector
 # UI Constants used for positioning/size - ideally pass these in, but for now:
 from ui.constants import ARENA_MAX_Y  # Need bounds for collision
@@ -188,10 +190,41 @@ class Unit:
         if "ap" not in self.base_stats:
             self.base_stats["ap"] = 0
 
+        _extended_defaults = {
+            "percentage_damage_bonus":        100.0,
+            "flat_damage_bonus":              0.0,
+            "percentage_damage_reduction":    100.0,
+            "flat_damage_reduction":          0.0,
+
+            "outgoing_healing_bonus":         100.0,
+            "incoming_healing_bonus":         100.0,
+
+            "physical_lifesteal":             0.0,
+            "spell_lifesteal":                0.0,
+            "omnivamp":                       0.0,
+
+            "flat_physical_penetration":      0.0,
+            "flat_magic_penetration":         0.0,
+            "percentage_physical_penetration":0.0,
+            "percentage_magic_penetration":   0.0,
+
+            "critical_chance":                5.0,
+            "critical_damage":                150.0,
+            "dodge_chance":                   5.0,
+            "accuracy":                       0.0,
+        }
+        for _k, _v in _extended_defaults.items():
+            self.base_stats.setdefault(_k, _v)
+
         self.current_stats = self.base_stats.copy()
         self.current_hp = self.current_stats["hp"]
         self.applied_buffs: List["Buff"] = []
         self.synergy_artifact_buffs: List[Dict] = []
+        # -------- 新增：状态效果挂载点 --------
+        # key = status.name  ; value = List[StatusEffect]
+        self.statuses: Dict[str, List[StatusEffect]] = defaultdict(list)
+        # 待移除队列，避免遍历时修改列表
+        self._pending_status_removals: "deque[tuple[StatusEffect, RemoveReason]]" = deque()
 
         self.x: float = 0.0
         self.y: float = 0.0
@@ -208,7 +241,8 @@ class Unit:
         self.rotation_offset: float = 0.0
         self.flash_color_key: Optional[str] = None  # UI maps key
         self._recalculate_stats(0)
-
+        self._last_outgoing_was_crit: bool = False
+        self._last_outgoing_missed: bool = False
     def __repr__(self):
         return f"<Unit {self.name} L{self.level} {'E' if self.is_enemy else 'P'}>"
 
@@ -277,6 +311,53 @@ class Unit:
         self.current_hp = min(self.current_hp, self.current_stats.get("hp", 1))
         if self.current_hp <= 0 and self.is_alive:
             self.current_hp = self.current_stats.get("hp", 1)  # Use .get for safety
+        # 清空新状态体系（可被战斗结束调用）
+        self.clear_statuses(RemoveReason.BATTLE_END)
+
+    # ======== Status‑Effect System API ========
+    def add_status(self, status: StatusEffect) -> None:
+        """将已实例化的 StatusEffect 附加到宿主。"""
+        bucket = self.statuses[status.name]
+        if status.stack_rule == StackRule.UNIQUE and bucket:
+            # 覆盖：移除旧实例
+            old = bucket[0]
+            self._queue_status_removal(old, RemoveReason.DISPEL)
+            bucket.clear()
+        bucket.append(status)
+        status.on_apply()
+
+    def _queue_status_removal(self, status: StatusEffect, reason: RemoveReason):
+        self._pending_status_removals.append((status, reason))
+
+    def clear_statuses(self, reason: RemoveReason):
+        for bucket in self.statuses.values():
+            for st in bucket:
+                st.on_remove(reason)
+        self.statuses.clear()
+
+    def process_statuses(self, dt: float):
+        """每帧/回合调用；驱动持续时间、tick、到期移除等"""
+        for bucket in list(self.statuses.values()):
+            for st in list(bucket):
+                if st._update(dt):
+                    self._queue_status_removal(st, RemoveReason.EXPIRED)
+        # 处理需要在循环外移除的实例
+        while self._pending_status_removals:
+            st, reason = self._pending_status_removals.popleft()
+            if st in self.statuses.get(st.name, []):
+                self.statuses[st.name].remove(st)
+                st.on_remove(reason)
+            if not self.statuses.get(st.name):
+                self.statuses.pop(st.name, None)
+
+    # -----------------------------------------
+    def _is_action_blocked(self) -> bool:
+        """若至少存在一个 ActionDenialEffect，则本回合不能进行攻击/移动等。"""
+        for bucket in self.statuses.values():
+            for st in bucket:
+                if st.blocks_action():
+                    return True
+        return False
 
     def _recalculate_stats(self, current_time: float):
         # FIX: Handle division by zero if max hp is 0
@@ -349,34 +430,101 @@ class Unit:
         self.anim_timer = random.uniform(0, 5)
         self.current_color_key = self.base_color_key
 
+    def heal(self, amount: float) -> float:
+        if not self.is_alive or self.anim_state == AnimationState.DYING or amount <= 0:
+            return 0
+        # FIX: use .get for safety
+        actual_heal = min(amount, self.current_stats.get("hp", 0) - self.current_hp)
+        if actual_heal > 0.1:  # FIX: Check meaningful heal
+            self.current_hp += actual_heal
+            self.anim_state = AnimationState.HEALED
+            self.anim_timer = 0
+            self.flash_color_key = "HEAL_FLASH_COLOR"
+        return actual_heal
+
+    def _xs(self, key: str, default: float = 0.0) -> float:
+        return self.current_stats.get(key, default)
+
+    def compute_outgoing_damage(
+        self,
+        base_damage: float,
+        dmg_type: DamageType,
+        source_action: DamageSource,
+        is_aoe: bool,
+        target: "Unit",
+    ) -> float:
+        if base_damage <= 0 or not target:
+            return 0.0
+        self._last_outgoing_was_crit = False
+        self._last_outgoing_missed = False
+        # --- MISS / DODGE ---------------------------------------------------
+        if source_action == DamageSource.BASIC_ATTACK:
+            dodge = max(
+                0.0,
+                min(
+                    95.0,
+                    target._xs("dodge_chance", 5.0) - self._xs("accuracy", 0.0),
+                ),
+            )
+            if random.random() < dodge / 100.0:
+                self._last_outgoing_missed = True
+                return 0.0  # 被闪避
+
+            # --- CRIT -------------------------------------------------------
+            if random.random() < self._xs("critical_chance", 5.0) / 100.0:
+                base_damage *= self._xs("critical_damage", 150.0) / 100.0
+                self._last_outgoing_was_crit = True
+
+        base_damage *= self._xs("percentage_damage_bonus", 100.0) / 100.0
+
+
+        base_damage += self._xs("flat_damage_bonus", 0.0)
+
+        return max(0.0, base_damage)
+
     def take_damage(
         self,
         damage: float,
         damage_type: DamageType,
         state: "GameState",
         source: Optional["Unit"],
+        source_action: DamageSource = DamageSource.BASIC_ATTACK,
+        is_aoe: bool = False,
     ) -> float:
-        if not self.is_alive or self.anim_state == AnimationState.DYING:
-            return 0
+
+        if not self.is_alive or self.anim_state == AnimationState.DYING or damage <= 0:
+            return 0.0
+
+        damage *= self._xs("percentage_damage_reduction", 100.0) / 100.0
+
         resistance = 0.0
         if damage_type == DamageType.PHYSICAL:
-            resistance = self.current_stats.get("armor", 0)
+            resistance = self.current_stats.get("armor", 0.0)
+            if source:
+                resistance -= source._xs("flat_physical_penetration", 0.0)
+                resistance *= 1.0 - source._xs("percentage_physical_penetration", 0.0) / 100.0
         elif damage_type == DamageType.MAGIC:
-            resistance = self.current_stats.get("mr", 0)
-        damage_multiplier = 1.0
-        if damage_type != DamageType.TRUE:
-            # FIX: Avoid division by zero if resistance is exactly -100
-            if resistance >= 0:
-                damage_multiplier = 100.0 / (100.0 + resistance)
-            elif resistance > -100:
-                damage_multiplier = 2.0 - (
-                    100.0 / (100.0 - resistance)
-                )  # resistance is negative
-            else:
-                damage_multiplier = 2.0  # Cap damage amp
+            resistance = self.current_stats.get("mr", 0.0)
+            if source:
+                resistance -= source._xs("flat_magic_penetration", 0.0)
+                resistance *= 1.0 - source._xs("percentage_magic_penetration", 0.0) / 100.0
 
-        effective_damage = damage * damage_multiplier
-        # FIX: only trigger animations if damage is meaningful
+        dmg_mul = 1.0
+        if damage_type != DamageType.TRUE:
+            if resistance >= 0:
+                dmg_mul = 100.0 / (100.0 + resistance)
+            elif resistance > -100:
+                dmg_mul = 2.0 - 100.0 / (100.0 - resistance)
+            else:
+                dmg_mul = 2.0
+        damage *= dmg_mul
+
+
+        damage -= self._xs("flat_damage_reduction", 0.0)
+        if damage <= 0.0:
+            return 0.0
+
+        effective_damage = damage
         if effective_damage > 0.1:
             self.anim_state = AnimationState.HIT
             self.anim_timer = 0
@@ -394,7 +542,6 @@ class Unit:
                 )
         self.current_hp -= effective_damage
 
-        # FIX: Call resolve_trigger_func with keyword argument (which is now valid)
         if (
             state
             and self.trigger
@@ -421,7 +568,6 @@ class Unit:
                         size=self.radius,
                     )
                 )
-                # FIX: Call resolve_trigger_func with keyword argument
                 if (
                     self.trigger
                     and self.trigger["timing_type"] == TriggerTiming.ON_DEATH
@@ -432,17 +578,22 @@ class Unit:
                     )
         return effective_damage
 
-    def heal(self, amount: float) -> float:
-        if not self.is_alive or self.anim_state == AnimationState.DYING or amount <= 0:
-            return 0
-        # FIX: use .get for safety
-        actual_heal = min(amount, self.current_stats.get("hp", 0) - self.current_hp)
-        if actual_heal > 0.1:  # FIX: Check meaningful heal
-            self.current_hp += actual_heal
-            self.anim_state = AnimationState.HEALED
-            self.anim_timer = 0
-            self.flash_color_key = "HEAL_FLASH_COLOR"
-        return actual_heal
+    def apply_lifesteal(self, dealt: float, dmg_type: DamageType):
+        heal_amount = 0.0
+        if dealt <= 0:
+            return
+        if dmg_type == DamageType.PHYSICAL:
+            heal_amount += dealt * self._xs("physical_lifesteal", 0.0) / 100.0
+        if dmg_type == DamageType.MAGIC:
+            heal_amount += dealt * self._xs("spell_lifesteal", 0.0) / 100.0
+        heal_amount += dealt * self._xs("omnivamp", 0.0) / 100.0
+
+        if heal_amount <= 0:
+            return
+
+        heal_amount *= self._xs("outgoing_healing_bonus", 100.0) / 100.0
+        heal_amount *= self._xs("incoming_healing_bonus", 100.0) / 100.0
+        self.heal(heal_amount)
 
     def find_nearest_target(self, potential_targets: List["Unit"]):
         nearest_target = None
@@ -544,22 +695,46 @@ class Unit:
                         )
                     )
 
-                damage = self.current_stats.get("ad", 0)  # FIX: .get
-                current_attack_damage = self.target.take_damage(
-                    damage, damage_type=DamageType.PHYSICAL, state=state, source=self
+                raw = self.current_stats.get("ad", 0)
+                outgoing = self.compute_outgoing_damage(
+                    raw, DamageType.PHYSICAL, DamageSource.BASIC_ATTACK, False, self.target
                 )
+                current_attack_damage = self.target.take_damage(
+                    outgoing,
+                    DamageType.PHYSICAL,
+                    state,
+                    self,
+                    source_action=DamageSource.BASIC_ATTACK,
+                    is_aoe=False,
+                )
+                self.apply_lifesteal(current_attack_damage, DamageType.PHYSICAL)
                 damage_dealt += current_attack_damage  # Accumulate damage
                 # FIX: only create floater if damage > 0
                 if current_attack_damage > 0.1:
+                    if self._last_outgoing_was_crit:
+                        floater_text = f"{current_attack_damage:.0f}!"
+                        floater_color = "DAMAGE_CRIT_COLOR"
+                    else:
+                        floater_text = f"{current_attack_damage:.0f}"
+                        floater_color = "DAMAGE_PHYSICAL_COLOR"
                     state.damage_floaters.append(
                         DamageFloater(
                             self.target.x,
                             self.target.y,
-                            f"{current_attack_damage:.0f}",
-                            "DAMAGE_PHYSICAL_COLOR",
+                            floater_text,
+                            floater_color,
                         )
                     )
-
+                else:
+                    if self._last_outgoing_missed:
+                        state.damage_floaters.append(
+                            DamageFloater(
+                                self.target.x,
+                                self.target.y,
+                                "MISS",
+                                "BLACK",
+                                )
+                                )
                 if any(b["source_id"] == "SYNERGY_NOBLE" for b in self.applied_buffs):
                     healed = self.heal(10)
                     if healed > 0.1:  # FIX: check meaningful heal
@@ -611,6 +786,10 @@ class Unit:
                 resolve_trigger_func(
                     self, TriggerTiming.TIMED, state, event_target=None
                 )
+
+        if self._is_action_blocked():
+            # 仍更新动画，跳过搜敌/攻击/移动
+            return
 
         if (
             not self.target
