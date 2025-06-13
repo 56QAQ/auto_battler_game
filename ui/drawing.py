@@ -11,19 +11,50 @@ from engine.enums import AnimationState, EffectType
 from engine.game_state import GameState
 from engine.utils import clamp, lerp, lerp_color
 from states.enums import GamePhase, UnitLocation
-from ui.constants import (ACTIVE_SYNERGY_BRONZE, ACTIVE_SYNERGY_GOLD,
-                          ACTIVE_SYNERGY_SILVER, ANIM_DURATIONS, BENCH_SLOTS,
-                          BENCH_X_START, BENCH_Y, BLACK, BOARD_COLS,
-                          BOARD_ROWS, BOARD_X_START, BOARD_Y_START,
-                          BUTTON_ACTIVE, BUTTON_BG, BUTTON_DISABLED,
-                          BUTTON_HOVER, DARK_GRAY, DEATH_ANIM_DURATION, GOLD,
-                          GRAY, GREEN, GRID_LINE, HEALTH_BAR_BG,
-                          HEALTH_BAR_COLOR, HIGHLIGHT_COLOR, INACTIVE_SYNERGY,
-                          ITEM_COLOR, KEY_TO_COLOR, LIGHT_GRAY, MAP_NODE_BG,
-                          MAP_NODE_CURRENT, MAP_NODE_VISITED, MAP_PATH,
-                          MAX_ITEMS_EQUIPPED, PANEL_BG, RARITY_COLORS, RED,
-                          SLOT_MARGIN, SLOT_SIZE, SYNERGY_LINE_HEIGHT, WHITE,
-                          YELLOW)
+from ui.constants import (
+    ACTIVE_SYNERGY_BRONZE,
+    ACTIVE_SYNERGY_GOLD,
+    ACTIVE_SYNERGY_SILVER,
+    ANIM_DURATIONS,
+    BENCH_SLOTS,
+    BENCH_X_START,
+    BENCH_Y,
+    BLACK,
+    BOARD_COLS,
+    BOARD_ROWS,
+    BOARD_X_START,
+    BOARD_Y_START,
+    BUTTON_ACTIVE,
+    BUTTON_BG,
+    BUTTON_DISABLED,
+    BUTTON_HOVER,
+    DARK_GRAY,
+    DEATH_ANIM_DURATION,
+    GOLD,
+    GRAY,
+    GREEN,
+    GRID_LINE,
+    HEALTH_BAR_BG,
+    HEALTH_BAR_COLOR,
+    HIGHLIGHT_COLOR,
+    INACTIVE_SYNERGY,
+    ITEM_COLOR,
+    KEY_TO_COLOR,
+    LIGHT_GRAY,
+    MAP_NODE_BG,
+    MAP_NODE_CURRENT,
+    MAP_NODE_VISITED,
+    MAP_PATH,
+    MAX_ITEMS_EQUIPPED,
+    PANEL_BG,
+    RARITY_COLORS,
+    RED,
+    SLOT_MARGIN,
+    SLOT_SIZE,
+    SYNERGY_LINE_HEIGHT,
+    WHITE,
+    YELLOW,
+)
 from ui.ui_context import UIContext
 
 
@@ -36,8 +67,17 @@ def _darken(color, amt=20):
     return tuple(max(0, c - amt) for c in color[:3])
 
 
-def draw_beveled_rect(surface: pygame.Surface, rect: pygame.Rect, base_color: tuple):
-    pygame.draw.rect(surface, base_color, rect)
+def draw_beveled_rect(
+    surface: pygame.Surface,
+    rect: pygame.Rect,
+    base_color: tuple,
+    texture: Optional[pygame.Surface] = None,
+):
+    if texture:
+        scaled = pygame.transform.smoothscale(texture, rect.size)
+        surface.blit(scaled, rect.topleft)
+    else:
+        pygame.draw.rect(surface, base_color, rect)
     pygame.draw.line(
         surface, _lighten(base_color, 30), rect.topleft, (rect.right - 1, rect.top)
     )
@@ -128,7 +168,8 @@ def draw_button(
         base = BUTTON_HOVER if is_hovered else BUTTON_BG
         text_col = WHITE
 
-    draw_beveled_rect(context.screen, rect, base)
+    texture = context.get_ui_image("button", (rect.width, rect.height))
+    draw_beveled_rect(context.screen, rect, base, texture)
 
     offset = (1, 1) if is_pressed else (0, 0)
     draw_text(
@@ -199,7 +240,8 @@ def draw_unit_prep(
     # FIX: Check rect
     if not rect or not context or not context.screen:
         return
-    draw_beveled_rect(context.screen, rect, DARK_GRAY)
+    texture = context.get_ui_image("panel", (rect.width, rect.height))
+    draw_beveled_rect(context.screen, rect, DARK_GRAY, texture)
     if unit:
         color = RARITY_COLORS.get(unit.rarity, WHITE)
         inner = rect.inflate(-4, -4)
@@ -229,7 +271,8 @@ def draw_item_prep(
     # FIX: Check rect
     if not rect or not context or not context.screen:
         return
-    draw_beveled_rect(context.screen, rect, DARK_GRAY)
+    texture = context.get_ui_image("panel", (rect.width, rect.height))
+    draw_beveled_rect(context.screen, rect, DARK_GRAY, texture)
     if item:
         color = ITEM_COLOR if item.type == "COMPONENT" else GOLD
         inner = rect.inflate(-4, -4)
@@ -282,7 +325,8 @@ def draw_player_info(state: GameState, context: UIContext):
     if not context.info_panel_rect:
         return
     panel_rect = pygame.Rect(context.info_panel_rect)
-    draw_beveled_rect(context.screen, panel_rect, PANEL_BG)
+    texture = context.get_ui_image("panel", (panel_rect.width, panel_rect.height))
+    draw_beveled_rect(context.screen, panel_rect, PANEL_BG, texture)
     player = state.player
     xp_needed = player.xp_to_next_level()
     xp_text = f"{player.xp}/{xp_needed}" if player.level < 9 else "MAX"
@@ -317,7 +361,8 @@ def draw_synergies(state: GameState, context: UIContext):
     if not context.synergy_panel_rect:
         return
     panel_rect = context.synergy_panel_rect
-    draw_beveled_rect(context.screen, panel_rect, PANEL_BG)
+    texture = context.get_ui_image("panel", (panel_rect.width, panel_rect.height))
+    draw_beveled_rect(context.screen, panel_rect, PANEL_BG, texture)
     draw_text(
         context, "SYNERGIES:", (panel_rect.x + 10, panel_rect.y + 5), "default", GOLD
     )
@@ -364,6 +409,8 @@ def draw_synergies(state: GameState, context: UIContext):
 
 
 def draw_preparation_phase(state: GameState, context: UIContext):
+    bg = context.get_background_image("shop")
+    context.screen.blit(bg, (0, 0))
     player = state.player
     shop = state.shop
     selected_unit_info = context.selected_unit_info
@@ -609,8 +656,9 @@ def draw_preparation_phase(state: GameState, context: UIContext):
 
 # ... (rest of drawing.py remains the same) ...
 def draw_combat_phase(state: GameState, context: UIContext):
+    bg = context.get_background_image("combat")
+    context.screen.blit(bg, (0, 0))
     # Arena BG
-    # FIX: check rect
     if context.combat_arena_rect:
         pygame.draw.rect(context.screen, DARK_GRAY, context.combat_arena_rect)
         pygame.draw.rect(context.screen, LIGHT_GRAY, context.combat_arena_rect, 2)
@@ -832,6 +880,8 @@ def draw_map_phase(state: GameState, context: UIContext):
     # FIX: Check context/screen
     if not context or not context.screen:
         return
+    bg = context.get_background_image("map")
+    context.screen.blit(bg, (0, 0))
     draw_player_info(state, context)
     draw_text(
         context,
@@ -1037,9 +1087,10 @@ def draw_run_complete(state: GameState, context: UIContext):
 def draw_event_choice(state: GameState, context: UIContext):
     if not context or not context.screen or not context.event_choice_rect:
         return
-    pygame.draw.rect(
-        context.screen, PANEL_BG, context.event_choice_rect, border_radius=10
+    tex = context.get_ui_image(
+        "panel", (context.event_choice_rect.width, context.event_choice_rect.height)
     )
+    draw_beveled_rect(context.screen, context.event_choice_rect, PANEL_BG, tex)
     pygame.draw.rect(
         context.screen, GRAY, context.event_choice_rect, 2, border_radius=10
     )

@@ -1,7 +1,17 @@
-import pygame as pg
 import math
 import sys
-from data.constants import RARITY_ORDER, ATTACK_ANIM_DURATION, HIT_ANIM_DURATION, HEAL_ANIM_DURATION, CAST_ANIM_DURATION, DEATH_ANIM_DURATION, MAX_ITEMS_EQUIPPED
+
+import pygame as pg
+
+from data.constants import (
+    ATTACK_ANIM_DURATION,
+    CAST_ANIM_DURATION,
+    DEATH_ANIM_DURATION,
+    HEAL_ANIM_DURATION,
+    HIT_ANIM_DURATION,
+    MAX_ITEMS_EQUIPPED,
+    RARITY_ORDER,
+)
 
 # Display
 SCREEN_WIDTH = 1280
@@ -20,6 +30,11 @@ UNIT_IMAGE_DIR = f"{ASSET_DIR}/units"
 ITEM_IMAGE_DIR = f"{ASSET_DIR}/items"
 ICON_IMAGE_DIR = f"{ASSET_DIR}/icons"
 PLACEHOLDER_IMAGE = f"{ASSET_DIR}/placeholder.png"
+BUTTON_IMAGE = f"{ASSET_DIR}/ui/button.png"
+PANEL_IMAGE = f"{ASSET_DIR}/ui/panel.png"
+SHOP_BG_IMAGE = f"{ASSET_DIR}/backgrounds/shop_bg.png"
+MAP_BG_IMAGE = f"{ASSET_DIR}/backgrounds/map_bg.png"
+COMBAT_BG_IMAGE = f"{ASSET_DIR}/backgrounds/combat_bg.png"
 
 # Colors
 WHITE = (240, 240, 235)
@@ -39,7 +54,7 @@ BUTTON_BG = (70, 70, 90)
 BUTTON_HOVER = (90, 120, 130)
 BUTTON_ACTIVE = (110, 150, 160)
 BUTTON_DISABLED = (60, 60, 60)
-HIGHLIGHT_COLOR = (0, 220, 220) # Renamed from HIGHLIGHT
+HIGHLIGHT_COLOR = (0, 220, 220)  # Renamed from HIGHLIGHT
 INACTIVE_SYNERGY = (100, 100, 100)
 ACTIVE_SYNERGY_BRONZE = (180, 110, 0)
 ACTIVE_SYNERGY_SILVER = (192, 192, 192)
@@ -47,7 +62,7 @@ ACTIVE_SYNERGY_GOLD = GOLD
 HEALTH_BAR_BG = (50, 50, 50)
 HEALTH_BAR_COLOR = (0, 220, 0)
 ENEMY_COLOR = (220, 50, 50)
-ALLY_COLOR = BLUE # For engine mapping
+ALLY_COLOR = BLUE  # For engine mapping
 MAP_NODE_BG = (60, 60, 80)
 MAP_NODE_CURRENT = (100, 200, 100)
 MAP_NODE_VISITED = (40, 40, 50)
@@ -68,17 +83,40 @@ PROJECTILE_MAGIC_COLOR = MAGENTA
 SLASH_COLOR = WHITE
 HIT_SPARK_COLOR = (255, 200, 0)
 
-RARITY_COLORS = {'COMMON': GRAY, 'UNCOMMON': GREEN, 'RARE': BLUE, 'EPIC': MAGENTA, 'LEGENDARY': GOLD}
+RARITY_COLORS = {
+    "COMMON": GRAY,
+    "UNCOMMON": GREEN,
+    "RARE": BLUE,
+    "EPIC": MAGENTA,
+    "LEGENDARY": GOLD,
+}
 
 # Map color keys from engine to actual colors
 KEY_TO_COLOR = {
-    "WHITE": WHITE, "RED": RED, "GREEN": GREEN, "BLUE": BLUE, "YELLOW": YELLOW, "CYAN": CYAN, "MAGENTA": MAGENTA, "BLACK": BLACK,
-    "ALLY_COLOR": ALLY_COLOR, "ENEMY_COLOR": ENEMY_COLOR,
-    "DAMAGE_PHYSICAL_COLOR": DAMAGE_PHYSICAL_COLOR, "DAMAGE_MAGIC_COLOR": DAMAGE_MAGIC_COLOR, "DAMAGE_TRUE_COLOR": DAMAGE_TRUE_COLOR,
-    "HEAL_COLOR": HEAL_COLOR, "BUFF_COLOR": BUFF_COLOR, "OVERTIME_COLOR": OVERTIME_COLOR,
-     "HIT_FLASH_COLOR": HIT_FLASH_COLOR, "HEAL_FLASH_COLOR": HEAL_FLASH_COLOR, "CAST_FLASH_COLOR": CAST_FLASH_COLOR,
-     "DEATH_COLOR": DEATH_COLOR, "PROJECTILE_BASIC_COLOR": PROJECTILE_BASIC_COLOR, "PROJECTILE_MAGIC_COLOR": PROJECTILE_MAGIC_COLOR,
-     "SLASH_COLOR": SLASH_COLOR, "HIT_SPARK_COLOR": HIT_SPARK_COLOR,
+    "WHITE": WHITE,
+    "RED": RED,
+    "GREEN": GREEN,
+    "BLUE": BLUE,
+    "YELLOW": YELLOW,
+    "CYAN": CYAN,
+    "MAGENTA": MAGENTA,
+    "BLACK": BLACK,
+    "ALLY_COLOR": ALLY_COLOR,
+    "ENEMY_COLOR": ENEMY_COLOR,
+    "DAMAGE_PHYSICAL_COLOR": DAMAGE_PHYSICAL_COLOR,
+    "DAMAGE_MAGIC_COLOR": DAMAGE_MAGIC_COLOR,
+    "DAMAGE_TRUE_COLOR": DAMAGE_TRUE_COLOR,
+    "HEAL_COLOR": HEAL_COLOR,
+    "BUFF_COLOR": BUFF_COLOR,
+    "OVERTIME_COLOR": OVERTIME_COLOR,
+    "HIT_FLASH_COLOR": HIT_FLASH_COLOR,
+    "HEAL_FLASH_COLOR": HEAL_FLASH_COLOR,
+    "CAST_FLASH_COLOR": CAST_FLASH_COLOR,
+    "DEATH_COLOR": DEATH_COLOR,
+    "PROJECTILE_BASIC_COLOR": PROJECTILE_BASIC_COLOR,
+    "PROJECTILE_MAGIC_COLOR": PROJECTILE_MAGIC_COLOR,
+    "SLASH_COLOR": SLASH_COLOR,
+    "HIT_SPARK_COLOR": HIT_SPARK_COLOR,
 }
 
 # Layout
@@ -128,19 +166,22 @@ MAP_NODE_RADIUS = 15
 
 EVENT_CHOICE_WIDTH = 500
 EVENT_CHOICE_HEIGHT = 300
-EVENT_CHOICE_RECT = pg.Rect(SCREEN_WIDTH // 2 - EVENT_CHOICE_WIDTH // 2,
-                                SCREEN_HEIGHT // 2 - EVENT_CHOICE_HEIGHT// 2,
-                                EVENT_CHOICE_WIDTH, EVENT_CHOICE_HEIGHT)
+EVENT_CHOICE_RECT = pg.Rect(
+    SCREEN_WIDTH // 2 - EVENT_CHOICE_WIDTH // 2,
+    SCREEN_HEIGHT // 2 - EVENT_CHOICE_HEIGHT // 2,
+    EVENT_CHOICE_WIDTH,
+    EVENT_CHOICE_HEIGHT,
+)
 EVENT_BUTTON_WIDTH = 400
 EVENT_BUTTON_HEIGHT = 60
 # ------------------------------------------------------------------ #
 #  Adaptive scaling
 # ------------------------------------------------------------------ #
-DESIGN_HEIGHT = 900          # logical reference canvas (16:9)
-_pg_info = pg.display.Info() # valid only *after* pg.init()!
+DESIGN_HEIGHT = 900  # logical reference canvas (16:9)
+_pg_info = pg.display.Info()  # valid only *after* pg.init()!
 SCREEN_HEIGHT = _pg_info.current_h if _pg_info.current_h else 900
 # 1 × on a 900‑px tall screen, 2 × on 1800 px, etc. (rounded .25 steps)
-SCALE = round(max(.75, SCREEN_HEIGHT / DESIGN_HEIGHT) * 4) / 4
+SCALE = round(max(0.75, SCREEN_HEIGHT / DESIGN_HEIGHT) * 4) / 4
 
 
 def update_resolution(width: int, height: int) -> None:
@@ -175,12 +216,14 @@ def update_resolution(width: int, height: int) -> None:
         EVENT_CHOICE_HEIGHT,
     )
 
+
 # ------------------------------------------------------------------ #
 #  Colours
 # ------------------------------------------------------------------ #
 def _c(r, g, b):
     """Convenience for creating colour tuples."""
     return pg.Color(r, g, b)
+
 
 # Muted steampunk inspired palette
 WHITE, BLACK = _c(240, 240, 235), _c(12, 12, 12)
@@ -198,20 +241,20 @@ RARITY_COL = [GREY, GREEN, BLUE, GOLD, RED]  # 0‑4 stars
 # ------------------------------------------------------------------ #
 #  Layout (logical units)
 # ------------------------------------------------------------------ #
-BAR_H          = 14
-STATUS_W       = 280
-SHOP_H         = 160
-BENCH_H        = 110
-SYNERGY_W      = 240
-PADDING        = 8
-ICON           = 24
-FONT_S         = 18
-TINY_FONT_S    = 14
+BAR_H = 14
+STATUS_W = 280
+SHOP_H = 160
+BENCH_H = 110
+SYNERGY_W = 240
+PADDING = 8
+ICON = 24
+FONT_S = 18
+TINY_FONT_S = 14
 # Animation Durations (imported from data for lerping)
 ANIM_DURATIONS = {
-     'ATTACKING': ATTACK_ANIM_DURATION,
-     'HIT': HIT_ANIM_DURATION,
-     'HEALED': HEAL_ANIM_DURATION,
-     'CASTING': CAST_ANIM_DURATION,
-     'DYING': DEATH_ANIM_DURATION
+    "ATTACKING": ATTACK_ANIM_DURATION,
+    "HIT": HIT_ANIM_DURATION,
+    "HEALED": HEAL_ANIM_DURATION,
+    "CASTING": CAST_ANIM_DURATION,
+    "DYING": DEATH_ANIM_DURATION,
 }

@@ -121,6 +121,8 @@ class UIContext:
         self.item_images: Dict[str, pygame.Surface] = {}
         self.icon_images: Dict[str, pygame.Surface] = {}
         self.placeholder_image = self._load_image(ui_c.PLACEHOLDER_IMAGE)
+        self.ui_images: Dict[str, pygame.Surface] = {}
+        self.background_images: Dict[str, pygame.Surface] = {}
 
     def map_color(self, color_key: Optional[str]) -> Tuple[int, int, int]:
         # FIX: Handle None key
@@ -228,6 +230,32 @@ class UIContext:
             path = os.path.join(ui_c.ICON_IMAGE_DIR, f"{name}.png")
             self.icon_images[name] = self._load_image(path, size)
         return self.icon_images[name]
+
+    def get_ui_image(self, key: str, size: tuple) -> pygame.Surface:
+        """Return a scaled UI texture (button or panel)."""
+        cache_key = f"{key}_{size[0]}x{size[1]}"
+        if cache_key not in self.ui_images:
+            path_map = {
+                "button": ui_c.BUTTON_IMAGE,
+                "panel": ui_c.PANEL_IMAGE,
+            }
+            path = path_map.get(key, ui_c.PLACEHOLDER_IMAGE)
+            self.ui_images[cache_key] = self._load_image(path, size)
+        return self.ui_images[cache_key]
+
+    def get_background_image(self, key: str) -> pygame.Surface:
+        """Return a background image scaled to the current screen size."""
+        size = (self.screen.get_width(), self.screen.get_height())
+        cache_key = f"{key}_{size[0]}x{size[1]}"
+        if cache_key not in self.background_images:
+            path_map = {
+                "shop": ui_c.SHOP_BG_IMAGE,
+                "map": ui_c.MAP_BG_IMAGE,
+                "combat": ui_c.COMBAT_BG_IMAGE,
+            }
+            path = path_map.get(key, ui_c.PLACEHOLDER_IMAGE)
+            self.background_images[cache_key] = self._load_image(path, size)
+        return self.background_images[cache_key]
 
     def rebuild(self, screen: pygame.Surface, fonts: Dict[str, pygame.font.Font]):
         UIContext.__init__(self, screen, fonts)
