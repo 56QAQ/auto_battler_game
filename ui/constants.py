@@ -1,4 +1,3 @@
-
 import pygame as pg
 import math
 import sys
@@ -9,7 +8,7 @@ SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
 FPS = 60
 # Use a serif font for a more "clockwork" feel if available
-FONT_NAME = "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf"
+FONT_NAME = "./assets/fonts/DejaVuSerif.ttf"
 FONT_SIZE = 18
 SMALL_FONT_SIZE = 14
 LARGE_FONT_SIZE = 24
@@ -102,7 +101,7 @@ INFO_PANEL_X = 10
 INFO_PANEL_Y = 10
 SYNERGY_PANEL_X = 10
 SYNERGY_PANEL_Y = 300
-SYNERGY_LINE_HEIGHT = 18 
+SYNERGY_LINE_HEIGHT = 18
 
 MAX_ITEMS_INVENTORY = 6
 INVENTORY_X_START = SHOP_X_START
@@ -115,7 +114,7 @@ COMBAT_ARENA_X = 220
 COMBAT_ARENA_Y = 100
 COMBAT_ARENA_WIDTH = SCREEN_WIDTH - 400
 COMBAT_ARENA_HEIGHT = SCREEN_HEIGHT - 200
-COMBAT_UNIT_RADIUS = 16 
+COMBAT_UNIT_RADIUS = 16
 ARENA_MIN_X = COMBAT_ARENA_X + COMBAT_UNIT_RADIUS
 ARENA_MAX_X = COMBAT_ARENA_X + COMBAT_ARENA_WIDTH - COMBAT_UNIT_RADIUS
 ARENA_MIN_Y = COMBAT_ARENA_Y + COMBAT_UNIT_RADIUS
@@ -129,8 +128,8 @@ MAP_NODE_RADIUS = 15
 
 EVENT_CHOICE_WIDTH = 500
 EVENT_CHOICE_HEIGHT = 300
-EVENT_CHOICE_RECT = pg.Rect(SCREEN_WIDTH // 2 - EVENT_CHOICE_WIDTH // 2, 
-                                SCREEN_HEIGHT // 2 - EVENT_CHOICE_HEIGHT// 2, 
+EVENT_CHOICE_RECT = pg.Rect(SCREEN_WIDTH // 2 - EVENT_CHOICE_WIDTH // 2,
+                                SCREEN_HEIGHT // 2 - EVENT_CHOICE_HEIGHT// 2,
                                 EVENT_CHOICE_WIDTH, EVENT_CHOICE_HEIGHT)
 EVENT_BUTTON_WIDTH = 400
 EVENT_BUTTON_HEIGHT = 60
@@ -142,6 +141,39 @@ _pg_info = pg.display.Info() # valid only *after* pg.init()!
 SCREEN_HEIGHT = _pg_info.current_h if _pg_info.current_h else 900
 # 1 × on a 900‑px tall screen, 2 × on 1800 px, etc. (rounded .25 steps)
 SCALE = round(max(.75, SCREEN_HEIGHT / DESIGN_HEIGHT) * 4) / 4
+
+
+def update_resolution(width: int, height: int) -> None:
+    """Update layout constants to match a new resolution."""
+    global SCREEN_WIDTH, SCREEN_HEIGHT, SCALE
+    global BENCH_Y, BOARD_X_START, BOARD_Y_START, INVENTORY_Y
+    global COMBAT_ARENA_WIDTH, COMBAT_ARENA_HEIGHT
+    global ARENA_MAX_X, ARENA_MAX_Y, MAP_WIDTH, MAP_HEIGHT
+    global EVENT_CHOICE_RECT
+
+    SCREEN_WIDTH = width
+    SCREEN_HEIGHT = height
+    SCALE = round(max(0.75, SCREEN_HEIGHT / DESIGN_HEIGHT) * 4) / 4
+
+    BENCH_Y = SCREEN_HEIGHT - 60
+    BOARD_X_START = (SCREEN_WIDTH - (BOARD_COLS * (SLOT_SIZE + SLOT_MARGIN))) // 2 + 50
+    BOARD_Y_START = SCREEN_HEIGHT - 280
+    INVENTORY_Y = BOARD_Y_START - SLOT_SIZE - 20
+
+    COMBAT_ARENA_WIDTH = SCREEN_WIDTH - 400
+    COMBAT_ARENA_HEIGHT = SCREEN_HEIGHT - 200
+    ARENA_MAX_X = COMBAT_ARENA_X + COMBAT_ARENA_WIDTH - COMBAT_UNIT_RADIUS
+    ARENA_MAX_Y = COMBAT_ARENA_Y + COMBAT_ARENA_HEIGHT - COMBAT_UNIT_RADIUS
+
+    MAP_WIDTH = SCREEN_WIDTH - 100
+    MAP_HEIGHT = SCREEN_HEIGHT - 200
+
+    EVENT_CHOICE_RECT.update(
+        SCREEN_WIDTH // 2 - EVENT_CHOICE_WIDTH // 2,
+        SCREEN_HEIGHT // 2 - EVENT_CHOICE_HEIGHT // 2,
+        EVENT_CHOICE_WIDTH,
+        EVENT_CHOICE_HEIGHT,
+    )
 
 # ------------------------------------------------------------------ #
 #  Colours

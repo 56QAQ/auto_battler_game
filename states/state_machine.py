@@ -272,8 +272,7 @@ def cycle_resolution(state: GameState, context: UIContext):
     import ui.constants as ui_c
     from ui.fonts import load_fonts
 
-    ui_c.SCREEN_WIDTH = width
-    ui_c.SCREEN_HEIGHT = height
+    ui_c.update_resolution(width, height)
     screen = pygame.display.set_mode((width, height))
     fonts = load_fonts()
-    context.__init__(screen, fonts)
+    context.rebuild(screen, fonts)
