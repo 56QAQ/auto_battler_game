@@ -6,30 +6,50 @@ import math
 import random
 import uuid
 from collections import defaultdict, deque
+
 # FIX: Add Callable to typing imports
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 
 
-from ai.behaviors import BehaviorContext                            # NEW
+from ai.behaviors import BehaviorContext  # NEW
 
-from data.constants import (ATTACK_ANIM_DURATION, ATTACK_LUNGE_ANGLE,
-                            BOSS_NODES, CAST_ANIM_DURATION,
-                            DEATH_ANIM_DURATION, FLOATER_LIFESPAN,
-                            FLOATER_SPEED, HARD_NODES, HEAL_ANIM_DURATION,
-                            HIT_ANIM_DURATION, HIT_RECOIL_ANGLE,
-                            IDLE_WOBBLE_ANGLE, IDLE_WOBBLE_SPEED,
-                            LEVEL_PROBABILITIES, MAP_DEPTH, MAX_COMBINED_ITEMS,
-                            MAX_ITEMS_EQUIPPED, MAX_LEVEL, MEDIUM_NODES,
-                            NODE_TYPE_DISTRIBUTION, NODES_PER_LAYER,
-                            PROJECTILE_SPEED, RARITY_COST, RARITY_ORDER,
-                            STARTING_HEALTH,
-                            UNIT_POOL_SIZE_MULTIPLIER, XP_PER_LEVEL)
+from data.constants import (
+    ATTACK_ANIM_DURATION,
+    ATTACK_LUNGE_ANGLE,
+    BOSS_NODES,
+    CAST_ANIM_DURATION,
+    DEATH_ANIM_DURATION,
+    FLOATER_LIFESPAN,
+    FLOATER_SPEED,
+    HARD_NODES,
+    HEAL_ANIM_DURATION,
+    HIT_ANIM_DURATION,
+    HIT_RECOIL_ANGLE,
+    IDLE_WOBBLE_ANGLE,
+    IDLE_WOBBLE_SPEED,
+    LEVEL_PROBABILITIES,
+    MAP_DEPTH,
+    MAX_COMBINED_ITEMS,
+    MAX_ITEMS_EQUIPPED,
+    MAX_LEVEL,
+    MEDIUM_NODES,
+    NODE_TYPE_DISTRIBUTION,
+    NODES_PER_LAYER,
+    PROJECTILE_SPEED,
+    RARITY_COST,
+    RARITY_ORDER,
+    STARTING_HEALTH,
+    UNIT_POOL_SIZE_MULTIPLIER,
+    XP_PER_LEVEL,
+)
+
 # Data imports
 from data.definitions import (
     ARTIFACT_DEFINITIONS,
     ITEM_DEFINITIONS,
     UNIT_DEFINITIONS,
 )
+
 # 新增 DamageSource
 from data.enums import (
     DamageType,
@@ -38,6 +58,7 @@ from data.enums import (
     DamageSource,
     ItemType,
     Color,
+    AbilityEffect,
 )
 
 # Engine imports
@@ -48,16 +69,32 @@ from engine.status_effects import (
     ActionDenialEffect,
     StatModifierEffect,
 )
+
 # from engine.utils import clamp, lerp, normalize_vector
 # UI Constants used for positioning/size - ideally pass these in, but for now:
 from ui.constants import ARENA_MAX_Y  # Need bounds for collision
-from ui.constants import (ARENA_MAX_X, ARENA_MIN_X, ARENA_MIN_Y, BENCH_SLOTS,
-                          BOARD_COLS, BOARD_ROWS, COMBAT_ARENA_HEIGHT,
-                          COMBAT_ARENA_WIDTH, COMBAT_ARENA_X, COMBAT_ARENA_Y,
-                          COMBAT_UNIT_RADIUS, MAP_HEIGHT, MAP_NODE_RADIUS,
-                          MAP_WIDTH, MAP_X_START, MAP_Y_START,
-                          MAX_ITEMS_INVENTORY, SHOP_SLOTS, SLOT_MARGIN,
-                          SLOT_SIZE)
+from ui.constants import (
+    ARENA_MAX_X,
+    ARENA_MIN_X,
+    ARENA_MIN_Y,
+    BENCH_SLOTS,
+    BOARD_COLS,
+    BOARD_ROWS,
+    COMBAT_ARENA_HEIGHT,
+    COMBAT_ARENA_WIDTH,
+    COMBAT_ARENA_X,
+    COMBAT_ARENA_Y,
+    COMBAT_UNIT_RADIUS,
+    MAP_HEIGHT,
+    MAP_NODE_RADIUS,
+    MAP_WIDTH,
+    MAP_X_START,
+    MAP_Y_START,
+    MAX_ITEMS_INVENTORY,
+    SHOP_SLOTS,
+    SLOT_MARGIN,
+    SLOT_SIZE,
+)
 
 # Conditional type import to avoid circular dependency
 if TYPE_CHECKING:
@@ -275,27 +312,23 @@ class Unit:
             self.base_stats["ap"] = 0
 
         _extended_defaults = {
-            "percentage_damage_bonus":        100.0,
-            "flat_damage_bonus":              0.0,
-            "percentage_damage_reduction":    100.0,
-            "flat_damage_reduction":          0.0,
-
-            "outgoing_healing_bonus":         100.0,
-            "incoming_healing_bonus":         100.0,
-
-            "physical_lifesteal":             0.0,
-            "spell_lifesteal":                0.0,
-            "omnivamp":                       0.0,
-
-            "flat_physical_penetration":      0.0,
-            "flat_magic_penetration":         0.0,
-            "percentage_physical_penetration":0.0,
-            "percentage_magic_penetration":   0.0,
-
-            "critical_chance":                5.0,
-            "critical_damage":                150.0,
-            "dodge_chance":                   5.0,
-            "accuracy":                       0.0,
+            "percentage_damage_bonus": 100.0,
+            "flat_damage_bonus": 0.0,
+            "percentage_damage_reduction": 100.0,
+            "flat_damage_reduction": 0.0,
+            "outgoing_healing_bonus": 100.0,
+            "incoming_healing_bonus": 100.0,
+            "physical_lifesteal": 0.0,
+            "spell_lifesteal": 0.0,
+            "omnivamp": 0.0,
+            "flat_physical_penetration": 0.0,
+            "flat_magic_penetration": 0.0,
+            "percentage_physical_penetration": 0.0,
+            "percentage_magic_penetration": 0.0,
+            "critical_chance": 5.0,
+            "critical_damage": 150.0,
+            "dodge_chance": 5.0,
+            "accuracy": 0.0,
         }
         for _k, _v in _extended_defaults.items():
             self.base_stats.setdefault(_k, _v)
@@ -309,7 +342,9 @@ class Unit:
         # key = status.name  ; value = List[StatusEffect]
         self.statuses: Dict[str, List[StatusEffect]] = defaultdict(list)
         # 待移除队列，避免遍历时修改列表
-        self._pending_status_removals: "deque[tuple[StatusEffect, RemoveReason]]" = deque()
+        self._pending_status_removals: "deque[tuple[StatusEffect, RemoveReason]]" = (
+            deque()
+        )
 
         self.x: float = 0.0
         self.y: float = 0.0
@@ -329,8 +364,9 @@ class Unit:
         self._last_outgoing_was_crit: bool = False
         self._last_outgoing_missed: bool = False
         # ========== AI runtime fields ========== #
-        self.behavior = BehaviorContext(self)          # smart‑AI wrapper
-        self._blocked_time: float = 0.0                # for targeting helper
+        self.behavior = BehaviorContext(self)  # smart‑AI wrapper
+        self.behavior = BehaviorContext(self)  # smart‑AI wrapper
+        self._blocked_time: float = 0.0  # for targeting helper
         # Last pos for stuck detection handled by BehaviorContext
 
     def __repr__(self):
@@ -425,7 +461,9 @@ class Unit:
         source_id: str,
         is_percent: bool = False,
     ):
-        self._create_or_refresh_stat_effect(stat, value, duration, source_id, is_percent)
+        self._create_or_refresh_stat_effect(
+            stat, value, duration, source_id, is_percent
+        )
 
     # 旧接口占位，逻辑已交由状态系统管理
     def _remove_expired_buffs(self, current_time: float) -> bool:
@@ -459,7 +497,10 @@ class Unit:
     def clear_statuses(self, reason: RemoveReason):
         for name in list(self.statuses.keys()):
             for st in list(self.statuses[name]):
-                if st.undispellable and reason in (RemoveReason.BATTLE_END, RemoveReason.HOST_DEAD):
+                if st.undispellable and reason in (
+                    RemoveReason.BATTLE_END,
+                    RemoveReason.HOST_DEAD,
+                ):
                     continue  # 保留
                 self._queue_status_removal(st, reason)
         # 立即处理
@@ -557,8 +598,35 @@ class Unit:
         self.anim_timer = random.uniform(0, 5)
         self.current_color_key = self.base_color_key
         from ai.behaviors import BehaviorState
+
         self.behavior.state = BehaviorState.IDLE
         self._blocked_time = 0.0
+        # Re-apply module effects that only exist during combat
+        for item in self.equipped_items:
+            if not item or getattr(item, "item_type", None) != ItemType.MODULE:
+                continue
+            for stat, val in item.stats.items():
+                self.add_stat_modifier(
+                    stat,
+                    val,
+                    None,
+                    item.id,
+                    stat.endswith("_percent"),
+                )
+            if (
+                item.ability
+                and item.ability.get("effect_type") == AbilityEffect.APPLY_BUFF
+            ):
+                data = item.ability.get("effect_data", {})
+                if "stat" in data and "value" in data:
+                    self.add_stat_modifier(
+                        data["stat"],
+                        data["value"],
+                        data.get("duration"),
+                        item.id,
+                        data.get("is_percent", False),
+                    )
+
     def heal(self, amount: float) -> float:
         if not self.is_alive or self.anim_state == AnimationState.DYING or amount <= 0:
             return 0
@@ -606,7 +674,6 @@ class Unit:
 
         base_damage *= self._xs("percentage_damage_bonus", 100.0) / 100.0
 
-
         base_damage += self._xs("flat_damage_bonus", 0.0)
 
         return max(0.0, base_damage)
@@ -638,12 +705,16 @@ class Unit:
             resistance = self.current_stats.get("armor", 0.0)
             if source:
                 resistance -= source._xs("flat_physical_penetration", 0.0)
-                resistance *= 1.0 - source._xs("percentage_physical_penetration", 0.0) / 100.0
+                resistance *= (
+                    1.0 - source._xs("percentage_physical_penetration", 0.0) / 100.0
+                )
         elif damage_type == DamageType.MAGIC:
             resistance = self.current_stats.get("mr", 0.0)
             if source:
                 resistance -= source._xs("flat_magic_penetration", 0.0)
-                resistance *= 1.0 - source._xs("percentage_magic_penetration", 0.0) / 100.0
+                resistance *= (
+                    1.0 - source._xs("percentage_magic_penetration", 0.0) / 100.0
+                )
 
         dmg_mul = 1.0
         if damage_type != DamageType.TRUE:
@@ -654,7 +725,6 @@ class Unit:
             else:
                 dmg_mul = 2.0
         damage *= dmg_mul
-
 
         damage -= self._xs("flat_damage_reduction", 0.0)
         if damage <= 0.0:
@@ -835,7 +905,11 @@ class Unit:
 
                 raw = self.current_stats.get("ad", 0)
                 outgoing = self.compute_outgoing_damage(
-                    raw, DamageType.PHYSICAL, DamageSource.BASIC_ATTACK, False, self.target
+                    raw,
+                    DamageType.PHYSICAL,
+                    DamageSource.BASIC_ATTACK,
+                    False,
+                    self.target,
                 )
                 current_attack_damage = self.target.take_damage(
                     outgoing,
@@ -871,8 +945,8 @@ class Unit:
                                 self.target.y,
                                 "MISS",
                                 "BLACK",
-                                )
-                                )
+                            )
+                        )
                 noble_proc = False
                 for _bucket in self.statuses.values():
                     for _st in _bucket:
@@ -929,7 +1003,9 @@ class Unit:
             interval = self.trigger.get("timing_data", {}).get("interval", 999.0)
             while self.trigger_timer >= interval and interval > 0:
                 self.trigger_timer -= interval
-                resolve_trigger_func(self, TriggerTiming.TIMED, state, event_target=None)
+                resolve_trigger_func(
+                    self, TriggerTiming.TIMED, state, event_target=None
+                )
 
         # 3) hand the rest to behaviour context (handles blocking / kiting / attack etc.)
         self.behavior.update(potential_targets, state)
@@ -981,7 +1057,8 @@ class Player:
         self.health: int = STARTING_HEALTH
         self.gold: int = 0
         from data.constants import STARTING_MATERIALS, STARTING_CRYSTAL
-        self.materials: dict[str,int] = STARTING_MATERIALS.copy()
+
+        self.materials: dict[str, int] = STARTING_MATERIALS.copy()
         self.crystals: int = STARTING_CRYSTAL
         self.level: int = 1
         self.xp: int = 0
@@ -1016,11 +1093,14 @@ class Player:
             self.xp -= self.xp_to_next_level()
             self.level += 1
             print(f"DEBUG: Player leveled up to {self.level}!")
-    def can_pay_materials(self, bundle: dict[str,int]) -> bool:
-        return all(self.materials.get(k,0) >= v for k,v in bundle.items())
-    def pay_materials(self, bundle: dict[str,int]):
-        for k,v in bundle.items():
-            self.materials[k] = max(0, self.materials.get(k,0)-v)
+
+    def can_pay_materials(self, bundle: dict[str, int]) -> bool:
+        return all(self.materials.get(k, 0) >= v for k, v in bundle.items())
+
+    def pay_materials(self, bundle: dict[str, int]):
+        for k, v in bundle.items():
+            self.materials[k] = max(0, self.materials.get(k, 0) - v)
+
     def get_all_units(self) -> List[Unit]:
         units = [u for u in self.bench if u]
         units.extend([u for u in self.board.values() if u])

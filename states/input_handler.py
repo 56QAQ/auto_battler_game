@@ -12,6 +12,8 @@ from data.constants import (
     REFRESH_COST,
     XP_BUY_AMOUNT,
     XP_BUY_COST,
+    REFRESH_CRYSTAL_COST,
+    XP_BUY_CRYSTAL_COST
 )
 from data.definitions import SYNERGY_DEFINITIONS
 from data.enums import ItemType

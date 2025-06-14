@@ -5,11 +5,92 @@ from __future__ import annotations
 import random
 from typing import Dict
 
-from data.enums import Color, ItemType
+from data.enums import AbilityEffect, Color, DamageType, ItemType
 from data.constants import CRAFT_RARITY_BREAKPOINTS, DISMANTLE_REFUND_RATIO
 from engine.classes import Item, Unit
 
-__all__ = ["craft", "dismantle", "can_craft"]
+# ------------------------------------------------------------ #
+#                   Disk ability templates                     #
+# ------------------------------------------------------------ #
+
+DiskAbilityRegistry: dict[Color, dict] = {
+    Color.RED: {
+        "name": "Power Strike",
+        "effect_type": AbilityEffect.DEAL_DAMAGE,
+        "effect_data": {
+            "damage_type": DamageType.PHYSICAL,
+            "scale_factor": 1.5,
+            "flat_value": 0,
+        },
+    },
+    Color.GREEN: {
+        "name": "Rejuvenation",
+        "effect_type": AbilityEffect.HEAL,
+        "effect_data": {
+            "scale_factor": 1.0,
+            "flat_value": 0,
+        },
+    },
+    Color.BLUE: {
+        "name": "Arcane Bolt",
+        "effect_type": AbilityEffect.DEAL_DAMAGE,
+        "effect_data": {
+            "damage_type": DamageType.MAGIC,
+            "scale_factor": 1.5,
+            "flat_value": 0,
+        },
+    },
+    Color.YELLOW: {
+        "name": "Fortify",
+        "effect_type": AbilityEffect.APPLY_BUFF,
+        "effect_data": {
+            "stat": "percentage_damage_reduction",
+            "value": 20,
+            "duration": 3.0,
+            "is_percent": False,
+        },
+    },
+    Color.PURPLE: {
+        "name": "Void Pulse",
+        "effect_type": AbilityEffect.DEAL_DAMAGE,
+        "effect_data": {
+            "damage_type": DamageType.TRUE,
+            "scale_factor": 1.2,
+            "flat_value": 0,
+        },
+    },
+    Color.CYAN: {
+        "name": "Weakening Beam",
+        "effect_type": AbilityEffect.APPLY_BUFF,
+        "effect_data": {
+            "stat": "ad",
+            "value": -10,
+            "duration": 4.0,
+            "is_percent": False,
+        },
+    },
+    Color.BLACK: {
+        "name": "Annihilation",
+        "effect_type": AbilityEffect.DEAL_DAMAGE,
+        "effect_data": {
+            "damage_type": DamageType.TRUE,
+            "scale_factor": 2.0,
+            "flat_value": 0,
+        },
+    },
+    Color.WHITE: {
+        "name": "Inspiration",
+        "effect_type": AbilityEffect.APPLY_BUFF,
+        "effect_data": {
+            "stat": "ap",
+            "value": 10,
+            "duration": 5.0,
+            "is_percent": False,
+        },
+    },
+}
+
+__all__ = ["craft", "dismantle", "can_craft", "DiskAbilityRegistry"]
 
 # ------------------------------------------------------------ #
 #                 internal helper  (color math)                #
@@ -67,14 +148,24 @@ def craft(item_type: ItemType, materials: Dict[str, int]) -> Item:
 
     # ---- very light placeholder stats ---- #
     stats = {}
+    ability = None
     if item_type == ItemType.ARMAMENT:
-        stats = {"armor": 20 + 10 * ("UNCOMMON RARE EPIC".split().index(rarity) if rarity != "COMMON" else 0)}
+        stats = {
+            "armor": 20
+            + 10
+            * ("UNCOMMON RARE EPIC".split().index(rarity) if rarity != "COMMON" else 0)
+        }
     elif item_type == ItemType.DISK:
-        stats = {"ap": 10 + 10 * ("UNCOMMON RARE EPIC".split().index(rarity) if rarity != "COMMON" else 0)}
+        stats = {
+            "ap": 10
+            + 10
+            * ("UNCOMMON RARE EPIC".split().index(rarity) if rarity != "COMMON" else 0)
+        }
+        ability = DiskAbilityRegistry.get(color)
     elif item_type == ItemType.MODULE:
         stats = {}
 
-    return Item(
+    new_item = Item(
         name,
         item_type=item_type,
         color=color,
@@ -82,7 +173,9 @@ def craft(item_type: ItemType, materials: Dict[str, int]) -> Item:
         material_cost=total,
         stats_override=stats,
     )
-
+    if ability:
+        new_item.ability = ability.copy()
+    return new_item
 
 def dismantle(item: Item) -> Dict[str, int]:
     """
