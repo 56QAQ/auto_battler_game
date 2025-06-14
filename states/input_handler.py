@@ -22,7 +22,8 @@ from states.state_machine import (change_volume, close_settings,
                                   start_combat, start_new_run)
 from ui import sounds
 from ui.ui_context import UIContext
-
+from ui.drag_manager import get_drag_manager
+from ui.details_window import DetailsWindow
 
 def get_clicked_object_info(
     pos: Tuple[int, int], state: GameState, context: UIContext
@@ -113,6 +114,15 @@ def handle_game_event(
 
     if event.type == pygame.MOUSEMOTION:
         pos = event.pos
+        # -------- 若正在拖拽，更新并短路其余 Hover 逻辑 -------- #
+        drag_mgr = get_drag_manager(context)
+        context.set_drag_manager(drag_mgr)
+        drag_mgr.update(pos)
+        if drag_mgr.active:
+            return None
+        if drag_mgr.active:
+            drag_mgr.update(pos)
+            return None
         state.hovered_info = None
         context.clear_hover()
         if context.settings_button_rect and context.settings_button_rect.collidepoint(
@@ -227,34 +237,14 @@ def handle_game_event(
 
                     if obj:  # Generate hover text only if an object exists
                         if isinstance(obj, Unit):
-                            cost = (
-                                obj.get_cost()
-                                if loc == UnitLocation.SHOP
-                                else obj.get_sell_price()
-                            )
-                            cost_label = "Cost" if loc == UnitLocation.SHOP else "Sell"
-                            # FIX: use .get safely
-                            stats_str = ", ".join(
-                                [
-                                    f"{k.upper()}:{v:.0f}"
-                                    for k, v in obj.current_stats.items()
-                                    if k != "range"
+                            cs = obj.current_stats
+                            info_lines = [
+                                f"HP: {int(obj.current_hp)}/{int(cs['hp'])}",
+                                f"Phys {int(cs['ad'])} / {int(cs['armor'])}",
+                                f"Magic {int(cs['ap'])} / {int(cs['mr'])}",
+                                f"Bonus {int(cs.get('percentage_damage_bonus',100))}% / Red {int(cs.get('percentage_damage_reduction',100))}%",
                                 ]
-                            )
-                            items_str = (
-                                ", ".join(
-                                    [item.name for item in obj.equipped_items if item]
-                                )
-                                or "None"
-                            )
-                            trigger_info = "None"
-                            # FIX: Access trigger data safely
-                            if obj.trigger:
-                                tr = obj.trigger
-                                interval = tr.get("timing_data", {}).get("interval", "")
-                                interval_txt = f"({interval}s)" if interval else ""
-                                # Add more trigger info display if needed
-                            state.hovered_info = f"{obj.name} L{obj.level}\nTraits: {', '.join(obj.traits)}\nItems: {items_str}\n{cost_label}:{cost}G\n{stats_str}"
+                            state.hovered_info = "\n".join(info_lines)
                         elif isinstance(obj, Item):
                             state.hovered_info = (
                                 f"{obj.name} ({obj.type})\n{obj.description}"
@@ -286,11 +276,13 @@ def handle_game_event(
                 all_combat_units.extend(state.enemy_combat_team)
             for unit in all_combat_units:
                 if unit and math.dist((unit.x, unit.y), pos) < unit.radius:
-                    # FIX use .get
-                    stats_str = ", ".join(
-                        [f"{k.upper()}:{v:.0f}" for k, v in unit.current_stats.items()]
-                    )
-                    state.hovered_info = f"{unit.name} L{unit.level}\nHP: {unit.current_hp:.0f}/{unit.current_stats.get('hp',0):.0f}\n{stats_str}"
+                    cs = unit.current_stats
+                    info_lines = [
+                        f"HP: {int(unit.current_hp)}/{int(cs['hp'])}",
+                        f"Phys {int(cs['ad'])} / Def {int(cs['armor'])}",
+                        f"Magic {int(cs['ap'])} / Res {int(cs['mr'])}",
+                        f"Bonus {int(cs.get('percentage_damage_bonus',100))}% / Red {int(cs.get('percentage_damage_reduction',100))}%"]
+                    state.hovered_info = "\n".join(info_lines)
                     # FIX: Set hovered rect for combat units
                     context.hovered_rect = pygame.Rect(
                         unit.x - unit.radius,
@@ -304,6 +296,9 @@ def handle_game_event(
         pos = event.pos
         is_left = event.button == 1
         is_right = event.button == 3
+
+        drag_mgr = get_drag_manager(context)
+        context.set_drag_manager(drag_mgr)
         if (
             is_left
             and context.settings_button_rect
@@ -409,7 +404,21 @@ def handle_game_event(
             ):
                 go_to_main_menu(state)
         elif state.current_phase == GamePhase.PREPARATION:
-            if is_right:  # Right click always deselects or sells
+            # ---------------- 开始拖拽判定 ---------------- #
+            drag_mgr = get_drag_manager(context)
+            if is_left:
+                clicked_info = get_clicked_object_info(pos, state, context)
+                # 能够拖拽的对象：单位或物品，且当前没有进行中的拖拽
+                if (
+                    clicked_info
+                    and clicked_info[0] != UnitLocation.SHOP
+                    and isinstance(clicked_info[2], (Unit, Item))
+                ):
+                    drag_mgr.prepare(clicked_info, pos)
+                    return None
+
+            # ---------- 右键保留原有逻辑 ----------
+            if is_right and not drag_mgr.active:
                 clicked_info = get_clicked_object_info(pos, state, context)
                 if (
                     clicked_info
@@ -538,4 +547,75 @@ def handle_game_event(
                                 loc == UnitLocation.INVENTORY
                             ):  # Select item from inventory
                                 context.selected_item_info = (loc, idx, obj)
-    return None  # No state change by default
+                            else:
+                                context.details_window = DetailsWindow(obj, pos)
+    # ---------------- MOUSEBUTTONUP：处理拖拽释放 ---------------- #
+    if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+        context.details_window = None
+    if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+        pos = event.pos
+        if context.details_window:
+            context.details_window.handle_event(event, context)
+        drag_mgr = get_drag_manager(context)
+        if drag_mgr.active and drag_mgr.obj_info:
+            loc0, idx0, obj0 = drag_mgr.obj_info
+            drag_mgr.end()
+
+            # 根据释放位置判断目标
+            mx, my = pos
+            target_info = get_clicked_object_info((mx, my), state, context)
+
+            if isinstance(obj0, Unit):
+                # 卖出判定
+                if context.sell_area_rect and context.sell_area_rect.collidepoint(
+                    (mx, my)
+                ):
+                    handle_sell_unit(state.player, state.shop, (loc0, idx0, obj0))
+                # 目标槽位逻辑
+                elif target_info and target_info[0] in [
+                    UnitLocation.BENCH,
+                    UnitLocation.BOARD,
+                ]:
+                    handle_unit_placement(
+                        state.player, (loc0, idx0, obj0), target_info[1], target_info[0]
+                    )
+            elif isinstance(obj0, Item):
+                if (
+                    target_info
+                    and isinstance(target_info[2], Unit)
+                    and target_info[0] in [UnitLocation.BENCH, UnitLocation.BOARD]
+                ):
+                    attempt_equip_item(state.player, (loc0, idx0, obj0), target_info)
+                elif (
+                    target_info
+                    and target_info[0] == UnitLocation.INVENTORY
+                    and loc0 == UnitLocation.EQUIPPED
+                ):
+                    attempt_unequip_item(
+                        state.player, (loc0, idx0, obj0), target_info[1]
+                    )
+        
+            # 拖拽结束，清理 hover/selection
+            context.clear_selection()
+            context.clear_hover()
+        elif drag_mgr.candidate_info:
+            click_info = drag_mgr.candidate_info
+            drag_mgr.cancel()
+            loc, idx, obj = click_info
+            if state.current_phase == GamePhase.PREPARATION:
+                if isinstance(obj, Unit):
+                    context.details_window = DetailsWindow(obj, pos)
+                context.selected_unit_info = click_info if isinstance(obj, Unit) else None
+                if isinstance(obj, Item):
+                    context.selected_item_info = click_info
+            elif state.current_phase == GamePhase.COMBAT and isinstance(obj, Unit):
+                context.details_window = DetailsWindow(obj, pos)
+            return None
+        if context.details_window:
+            context.details_window.handle_event(event, context)
+        return None
+
+    if context.details_window:
+        context.details_window.handle_event(event, context)
+        return None
+    return None  # 默认不切换状态

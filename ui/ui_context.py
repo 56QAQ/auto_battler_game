@@ -123,6 +123,8 @@ class UIContext:
         self.placeholder_image = self._load_image(ui_c.PLACEHOLDER_IMAGE)
         self.ui_images: Dict[str, pygame.Surface] = {}
         self.background_images: Dict[str, pygame.Surface] = {}
+        self.drag_mgr = None
+        self.details_window = None
 
     def map_color(self, color_key: Optional[str]) -> Tuple[int, int, int]:
         # FIX: Handle None key
@@ -197,7 +199,8 @@ class UIContext:
     def clear_selection(self):
         self.selected_item_info = None
         self.selected_unit_info = None
-
+        self.details_window = None
+        
     def _load_image(self, path: str, size: Optional[tuple] = None) -> pygame.Surface:
         """Load an image from disk or return placeholder if missing."""
         try:
@@ -259,3 +262,11 @@ class UIContext:
 
     def rebuild(self, screen: pygame.Surface, fonts: Dict[str, pygame.font.Font]):
         UIContext.__init__(self, screen, fonts)
+    def set_drag_manager(self, mgr):
+        self.drag_mgr = mgr
+    def draw_drag_preview(self):
+        if not (self.drag_mgr and self.drag_mgr.active and self.drag_mgr.preview):
+            return
+        mx, my = pygame.mouse.get_pos()
+        ox, oy = self.drag_mgr.offset
+        self.screen.blit(self.drag_mgr.preview, (mx - ox, my - oy))

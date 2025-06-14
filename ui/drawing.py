@@ -667,7 +667,10 @@ def draw_preparation_phase(state: GameState, context: UIContext):
                         )
     # Draw hover info LAST so it's on top
     draw_hover_info(state, context)
-
+    if context.drag_mgr:
+        context.draw_drag_preview()
+    if context.details_window:
+        context.details_window.draw(context)
 
 # ... (rest of drawing.py remains the same) ...
 def draw_combat_phase(state: GameState, context: UIContext):
