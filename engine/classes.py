@@ -72,6 +72,7 @@ class Item:
         name: str,
         *,
         item_type: ItemType | None = None,
+        type: ItemType | None = None,
         color: Color | None = None,
         rarity: str | None = None,
         material_cost: int = 0,
@@ -81,7 +82,9 @@ class Item:
         # ---------- 旧数据表 ---------- #
         definition = ITEM_DEFINITIONS.get(name)
         if definition and not item_type:
-            self.item_type = ItemType(definition.get("type", "UNKNOWN"))
+            type_str = definition.get("type", "ARMAMENT")
+            self.item_type = ItemType.__members__.get(type_str, ItemType.ARMAMENT)
+            self.type = self.item_type
             self.color = Color.WHITE
             self.rarity = "COMMON"
             self.stats = definition.get("stats", {})
@@ -89,6 +92,7 @@ class Item:
         else:
             # ---------- 新 Color‑Item 模式 ---------- #
             self.item_type = item_type or ItemType.ARMAMENT
+            self.type = self.item_type
             self.color = color or Color.WHITE
             self.rarity = rarity or "COMMON"
             self.stats = stats_override or {}
@@ -119,7 +123,7 @@ class Item:
             Color.BLACK: {Color.BLACK},
         }
         return self.color in allowed.get(ucol, set())
-        
+
     def __repr__(self):
         return f"<Item {self.name}>"
 

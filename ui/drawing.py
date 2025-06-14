@@ -288,7 +288,7 @@ def draw_item_prep(
     texture = context.get_ui_image("panel", (rect.width, rect.height))
     draw_beveled_rect(context.screen, rect, DARK_GRAY, texture)
     if item:
-        color = ITEM_COLOR if item.type == "COMPONENT" else GOLD
+        color = ITEM_COLOR if item.item_type == "COMPONENT" else GOLD
         inner = rect.inflate(-4, -4)
         pygame.draw.rect(context.screen, color, inner, 1)
         img = context.get_item_image(item.name, (inner.width, inner.height))
@@ -697,7 +697,8 @@ def draw_preparation_phase(state: GameState, context: UIContext):
         context.draw_drag_preview()
     if context.details_window:
         context.details_window.draw(context)
-
+    if context.crafting_window:
+        context.crafting_window.draw()
 
 # ... (rest of drawing.py remains the same) ...
 def draw_combat_phase(state: GameState, context: UIContext):

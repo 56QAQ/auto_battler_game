@@ -139,6 +139,7 @@ class UIContext:
         self.background_images: Dict[str, pygame.Surface] = {}
         self.drag_mgr = None
         self.details_window = None
+        self.crafting_window = None
 
     def map_color(self, color_key: Optional[str]) -> Tuple[int, int, int]:
         # FIX: Handle None key
@@ -203,7 +204,7 @@ class UIContext:
                 )
             # Default or invalid
             return None  # pygame.Rect(0, 0, 0, 0)
-        except TypeError:  # e.g., index is not a number or tuple
+        except TypeError:  # e.g., ndex is not a number or tuple
             return None
     def get_artifact_rect(self, index: int) -> pygame.Rect | None:
         if not self.info_panel_rect:

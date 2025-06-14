@@ -133,7 +133,7 @@ def _attempt_equip_item(player: Player, item_info: SelectedItemInfo, target_unit
     # Try combining first
     for i in range(MAX_ITEMS_EQUIPPED):
          existing_item = unit.equipped_items[i]
-         if existing_item and existing_item.type == 'COMPONENT' and item.type == 'COMPONENT':
+         if existing_item and existing_item.item_type == 'COMPONENT' and item.item_type == 'COMPONENT':
               # Check if making a combined item exceeds limit
               if combined_item_count < MAX_COMBINED_ITEMS:
                    combined_item = _check_item_combine(item, existing_item)
@@ -143,7 +143,7 @@ def _attempt_equip_item(player: Player, item_info: SelectedItemInfo, target_unit
     # Try equipping to empty slot
     for i in range(MAX_ITEMS_EQUIPPED):
         if unit.equipped_items[i] is None:
-             if item.type == 'COMBINED' and combined_item_count >= MAX_COMBINED_ITEMS:
+             if item.item_type == 'COMBINED' and combined_item_count >= MAX_COMBINED_ITEMS:
                    print(f"DEBUG: Cannot equip, limit of {MAX_COMBINED_ITEMS} combined item(s) reached."); return False
              # Allow component equip even if max combined reached, player might combine later
              unit.equipped_items[i] = item
@@ -169,9 +169,9 @@ def _attempt_unequip_item(player: Player, item_info: SelectedItemInfo, target_in
      target_item = player.item_inventory[target_inv_idx]
      if target_item: # Swap logic
          num_other_combined = sum(1 for it in unit.equipped_items if it and it.type == 'COMBINED' and it.id != item.id)
-         if item.type == 'COMBINED' and target_item.type == 'COMBINED':
+         if item.item_type == 'COMBINED' and target_item.item_type == 'COMBINED':
               print("DEBUG: Cannot swap two combined items"); return False
-         if target_item.type == 'COMBINED' and num_other_combined >= MAX_COMBINED_ITEMS:
+         if target_item.item_type == 'COMBINED' and num_other_combined >= MAX_COMBINED_ITEMS:
               print("DEBUG: Swap failed, max combined items reached"); return False
       # Perform swap or move
      player.item_inventory[target_inv_idx] = item; unit.equipped_items[item_equipped_idx] = target_item
