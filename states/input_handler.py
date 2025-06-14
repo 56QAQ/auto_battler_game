@@ -13,23 +13,35 @@ from data.constants import (
     XP_BUY_AMOUNT,
     XP_BUY_COST,
 )
-
 from data.definitions import SYNERGY_DEFINITIONS
 from engine.classes import Item, Unit
 from engine.game_state import GameState
-from engine.logic import (attempt_equip_item, attempt_unequip_item,
-                          buy_unit_from_shop, handle_sell_unit,
-                          handle_unit_placement)
+from engine.logic import (
+    attempt_equip_item,
+    attempt_unequip_item,
+    buy_unit_from_shop,
+    handle_sell_unit,
+    handle_unit_placement,
+)
 from states.enums import GamePhase, UnitLocation
-from states.state_machine import (change_volume, close_settings,
-                                  cycle_resolution, go_to_main_menu, go_to_map,
-                                  navigate_map, open_settings,
-                                  resolve_event_choice, run_preparation_phase,
-                                  start_combat, start_new_run)
+from states.state_machine import (
+    change_volume,
+    close_settings,
+    cycle_resolution,
+    go_to_main_menu,
+    go_to_map,
+    navigate_map,
+    open_settings,
+    resolve_event_choice,
+    run_preparation_phase,
+    start_combat,
+    start_new_run,
+)
 from ui import sounds
-from ui.ui_context import UIContext
-from ui.drag_manager import get_drag_manager
 from ui.details_window import DetailsWindow
+from ui.drag_manager import get_drag_manager
+from ui.ui_context import UIContext
+
 
 def get_clicked_object_info(
     pos: Tuple[int, int], state: GameState, context: UIContext
@@ -117,6 +129,21 @@ def handle_game_event(
     # FIX: Ensure state and context are valid
     if not state or not context:
         return None
+
+    # Give the details window priority to handle interactions and
+    # consume events that occur within its bounds. This prevents other
+    # UI logic from reacting to clicks or drags intended for the
+    # window, which previously made the close button and dragging
+    # unreliable.
+    if context.details_window:
+        dw = context.details_window
+        dw.handle_event(event, context)
+        if event.type == pygame.KEYDOWN:
+            return None
+        if getattr(event, "pos", None) and dw.rect.collidepoint(event.pos):
+            return None
+        if dw.dragging or context.details_window is None:
+            return None
 
     if event.type == pygame.MOUSEMOTION:
         pos = event.pos
@@ -249,7 +276,7 @@ def handle_game_event(
                                 f"Phys {int(cs['ad'])} / {int(cs['armor'])}",
                                 f"Magic {int(cs['ap'])} / {int(cs['mr'])}",
                                 f"Bonus {int(cs.get('percentage_damage_bonus',100))}% / Red {int(cs.get('percentage_damage_reduction',100))}%",
-                                ]
+                            ]
                             state.hovered_info = "\n".join(info_lines)
                         elif isinstance(obj, Item):
                             state.hovered_info = (
@@ -287,7 +314,8 @@ def handle_game_event(
                         f"HP: {int(unit.current_hp)}/{int(cs['hp'])}",
                         f"Phys {int(cs['ad'])} / Def {int(cs['armor'])}",
                         f"Magic {int(cs['ap'])} / Res {int(cs['mr'])}",
-                        f"Bonus {int(cs.get('percentage_damage_bonus',100))}% / Red {int(cs.get('percentage_damage_reduction',100))}%"]
+                        f"Bonus {int(cs.get('percentage_damage_bonus',100))}% / Red {int(cs.get('percentage_damage_reduction',100))}%",
+                    ]
                     state.hovered_info = "\n".join(info_lines)
                     # FIX: Set hovered rect for combat units
                     context.hovered_rect = pygame.Rect(
@@ -313,6 +341,7 @@ def handle_game_event(
             open_settings(state)
             return None
         from ui.drawing import draw_difficulty_select
+
         if state.current_phase == GamePhase.MAIN_MENU:
             if (
                 is_left
@@ -334,8 +363,12 @@ def handle_game_event(
                 and context.main_menu_button_rect.collidepoint(pos)
             ):
                 go_to_main_menu(state)
-    # ---------- 难度选择点击 ----------
-        elif state.current_phase == GamePhase.DIFFICULTY_SELECT and event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+        # ---------- 难度选择点击 ----------
+        elif (
+            state.current_phase == GamePhase.DIFFICULTY_SELECT
+            and event.type == pygame.MOUSEBUTTONDOWN
+            and event.button == 1
+        ):
             w, h = context.screen.get_size()
             y = event.pos[1]
             if y < h / 3:
@@ -346,8 +379,12 @@ def handle_game_event(
                 state.difficulty_level = "hard"
             return start_new_run(state, state.difficulty_level)
 
-    # ---------- 主题选择点击 ----------
-        elif state.current_phase == GamePhase.THEME_SELECT and event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+        # ---------- 主题选择点击 ----------
+        elif (
+            state.current_phase == GamePhase.THEME_SELECT
+            and event.type == pygame.MOUSEBUTTONDOWN
+            and event.button == 1
+        ):
             if not state.available_themes:
                 return None
             segment = context.screen.get_width() // len(state.available_themes)
@@ -358,6 +395,7 @@ def handle_game_event(
             state.current_phase = GamePhase.MAP_NAVIGATION
             # 进入下一幕地图
             from engine.classes import GameMap
+
             state.game_map = GameMap()
             state.current_node_id = state.game_map.start_node_id
             return None
@@ -611,7 +649,7 @@ def handle_game_event(
                     attempt_unequip_item(
                         state.player, (loc0, idx0, obj0), target_info[1]
                     )
-        
+
             # 拖拽结束，清理 hover/selection
             context.clear_selection()
             context.clear_hover()
@@ -622,7 +660,9 @@ def handle_game_event(
             if state.current_phase == GamePhase.PREPARATION:
                 if isinstance(obj, Unit):
                     context.details_window = DetailsWindow(obj, context)
-                context.selected_unit_info = click_info if isinstance(obj, Unit) else None
+                context.selected_unit_info = (
+                    click_info if isinstance(obj, Unit) else None
+                )
                 if isinstance(obj, Item):
                     context.selected_item_info = click_info
             elif state.current_phase == GamePhase.COMBAT and isinstance(obj, Unit):

@@ -9,6 +9,9 @@ from collections import defaultdict, deque
 # FIX: Add Callable to typing imports
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 
+
+from ai.behaviors import BehaviorContext                            # NEW
+
 from data.constants import (ATTACK_ANIM_DURATION, ATTACK_LUNGE_ANGLE,
                             BOSS_NODES, CAST_ANIM_DURATION,
                             DEATH_ANIM_DURATION, FLOATER_LIFESPAN,
@@ -249,6 +252,11 @@ class Unit:
         self._recalculate_stats(0)
         self._last_outgoing_was_crit: bool = False
         self._last_outgoing_missed: bool = False
+        # ========== AI runtime fields ========== #
+        self.behavior = BehaviorContext(self)          # smart‑AI wrapper
+        self._blocked_time: float = 0.0                # for targeting helper
+        # Last pos for stuck detection handled by BehaviorContext
+
     def __repr__(self):
         return f"<Unit {self.name} L{self.level} {'E' if self.is_enemy else 'P'}>"
 
@@ -469,7 +477,9 @@ class Unit:
         self.anim_state = AnimationState.IDLE
         self.anim_timer = random.uniform(0, 5)
         self.current_color_key = self.base_color_key
-
+        from ai.behaviors import BehaviorState
+        self.behavior.state = BehaviorState.IDLE
+        self._blocked_time = 0.0
     def heal(self, amount: float) -> float:
         if not self.is_alive or self.anim_state == AnimationState.DYING or amount <= 0:
             return 0
@@ -826,57 +836,24 @@ class Unit:
         return damage_dealt
 
     def combat_update(self, potential_targets: List["Unit"], state: "GameState"):
-        delta_time = state.delta_time_combat
-        self.update_animation(delta_time)
-        if not self.is_alive and self.anim_state != AnimationState.DYING:
-            return
-        if self.anim_state == AnimationState.DYING:
-            return
+        """Overridden: delegate high‑level decisions to AI behaviour tree."""
+        # 1) keep legacy animations
+        self.update_animation(state.delta_time_combat)
 
-        # FIX: Call resolve_trigger_func with keyword argument
+        # 2) still run timed triggers exactly as before (no change)
         if (
             self.trigger
             and self.trigger["timing_type"] == TriggerTiming.TIMED
             and resolve_trigger_func
         ):
-            self.trigger_timer += delta_time
+            self.trigger_timer += state.delta_time_combat
             interval = self.trigger.get("timing_data", {}).get("interval", 999.0)
-            # FIX: allow multiple triggers if time elapsed
             while self.trigger_timer >= interval and interval > 0:
                 self.trigger_timer -= interval
-                resolve_trigger_func(
-                    self, TriggerTiming.TIMED, state, event_target=None
-                )
+                resolve_trigger_func(self, TriggerTiming.TIMED, state, event_target=None)
 
-        if self._is_action_blocked():
-            # 仍更新动画，跳过搜敌/攻击/移动
-            return
-
-        if (
-            not self.target
-            or not self.target.is_alive
-            or self.target.anim_state == AnimationState.DYING
-        ):
-            self.find_nearest_target(potential_targets)
-
-        if self.target:
-            dist_sq = (self.x - self.target.x) ** 2 + (self.y - self.target.y) ** 2
-            # FIX: .get
-            range_val = self.current_stats.get("range", 50)
-            range_sq = max(range_val**2, (self.radius + self.target.radius + 5) ** 2)
-            damage_dealt = 0.0
-            if dist_sq <= range_sq:
-                damage_dealt = self.attack_target(state)
-            else:
-                # FIX: Increased move speed slightly
-                self.move_towards_target(move_speed=80.0 * delta_time)
-                # FIX: Reset attack timer when out of range to attack immediately upon re-entering
-                self.attack_timer = max(
-                    0.0, self.attack_timer - delta_time * 0.5
-                )  # decay timer
-            # FIX: Floater creation moved into attack_target
-            # if damage_dealt > 0 :
-            #     state.damage_floaters.append(DamageFloater(self.target.x, self.target.y, f"{damage_dealt:.0f}", "DAMAGE_PHYSICAL_COLOR"))
+        # 3) hand the rest to behaviour context (handles blocking / kiting / attack etc.)
+        self.behavior.update(potential_targets, state)
 
     def update_animation(self, dt: float):
         from engine.utils import clamp, lerp

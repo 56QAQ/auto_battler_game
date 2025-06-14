@@ -3,7 +3,7 @@ import math
 from typing import Tuple, Dict, Any, Optional, List
 # FIX-UI: Import enums for formatting
 from data.enums import TriggerTiming, TriggerTarget, StatSource, AbilityEffect, DamageType
-from engine.classes import Item # FIX-UI
+#from engine.classes import Item # FIX-UI
 
 def lerp(a: float, b: float, t: float) -> float:
     return a + (b - a) * t
@@ -22,7 +22,7 @@ def normalize_vector(dx: float, dy: float, dist: float) -> Tuple[float, float, f
     return dx / dist, dy / dist, dist
 
 # FIX-UI: New function for tooltips
-def format_trigger_description(trigger: Optional[Dict], items: List[Optional[Item]]) -> str:
+def format_trigger_description(trigger: Optional[Dict], items) -> str:
     if not trigger: return "Passive"
     
     timing_map = {
