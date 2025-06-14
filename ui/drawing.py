@@ -713,6 +713,8 @@ def draw_combat_phase(state: GameState, context: UIContext):
                 draw_damage_floater(context, floater)
 
     draw_hover_info(state, context)
+    if context.details_window:
+        context.details_window.draw(context)
 
 
 def draw_unit_combat(context: UIContext, unit: Unit):
