@@ -1,12 +1,9 @@
-import math
-import sys
-
 import pygame as pg
 
+from data.constants import MAX_ITEMS_EQUIPPED  # noqa: F401 - re-exported
 from data.constants import (ATTACK_ANIM_DURATION, CAST_ANIM_DURATION,
                             DEATH_ANIM_DURATION, HEAL_ANIM_DURATION,
-                            HIT_ANIM_DURATION, MAX_ITEMS_EQUIPPED,
-                            RARITY_ORDER)
+                            HIT_ANIM_DURATION)
 
 # Display
 SCREEN_WIDTH = 1280
@@ -115,14 +112,14 @@ KEY_TO_COLOR = {
     "SLASH_COLOR": SLASH_COLOR,
     "HIT_SPARK_COLOR": HIT_SPARK_COLOR,
 }
-STATUS_ICON_SIZE   = 14
+STATUS_ICON_SIZE = 14
 STATUS_ICON_SPACING = 2
 STATUS_ICON_KEYS = {
-    "DOT":    "status_dot",
-    "HOT":    "status_hot",
-    "STUN":   "status_stun",
+    "DOT": "status_dot",
+    "HOT": "status_hot",
+    "STUN": "status_stun",
     "SHIELD": "status_shield",
-    "BUFF":   "status_buff",
+    "BUFF": "status_buff",
     "DEBUFF": "status_debuff",
 }
 # Layout
@@ -145,7 +142,7 @@ INFO_PANEL_X = 10
 INFO_PANEL_Y = 10
 SYNERGY_PANEL_X = 10
 SYNERGY_PANEL_Y = 300
-SYNERGY_LINE_HEIGHT = 18
+SYNERGY_LINE_HEIGHT = 40
 
 MAX_ITEMS_INVENTORY = 6
 INVENTORY_X_START = SHOP_X_START

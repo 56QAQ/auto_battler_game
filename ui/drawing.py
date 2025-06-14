@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, Optional
+from typing import Optional
 
 import pygame
 
@@ -9,55 +9,22 @@ from data.definitions import SYNERGY_DEFINITIONS
 from engine.classes import DamageFloater, Item, Unit, VisualEffect
 from engine.enums import AnimationState, EffectType, StatusCategory
 from engine.game_state import GameState
-from engine.utils import clamp, lerp, lerp_color
+from engine.utils import clamp, lerp_color
 from states.enums import GamePhase, UnitLocation
-from ui.constants import (
-    ACTIVE_SYNERGY_BRONZE,
-    ACTIVE_SYNERGY_GOLD,
-    ACTIVE_SYNERGY_SILVER,
-    ANIM_DURATIONS,
-    BENCH_SLOTS,
-    BENCH_X_START,
-    BENCH_Y,
-    BLACK,
-    BOARD_COLS,
-    BOARD_ROWS,
-    BOARD_X_START,
-    BOARD_Y_START,
-    BUTTON_ACTIVE,
-    BUTTON_BG,
-    BUTTON_DISABLED,
-    BUTTON_HOVER,
-    DARK_GRAY,
-    DEATH_ANIM_DURATION,
-    GOLD,
-    GRAY,
-    GREEN,
-    GRID_LINE,
-    HEALTH_BAR_BG,
-    HEALTH_BAR_COLOR,
-    HIGHLIGHT_COLOR,
-    INACTIVE_SYNERGY,
-    ITEM_COLOR,
-    KEY_TO_COLOR,
-    LIGHT_GRAY,
-    MAP_NODE_BG,
-    MAP_NODE_CURRENT,
-    MAP_NODE_VISITED,
-    MAP_PATH,
-    MAX_ITEMS_EQUIPPED,
-    PANEL_BG,
-    RARITY_COLORS,
-    RED,
-    SLOT_MARGIN,
-    SLOT_SIZE,
-    SYNERGY_LINE_HEIGHT,
-    WHITE,
-    YELLOW,
-    STATUS_ICON_SIZE,
-    STATUS_ICON_SPACING,
-    STATUS_ICON_KEYS,
-)
+from ui.constants import (ACTIVE_SYNERGY_BRONZE, ACTIVE_SYNERGY_GOLD,
+                          ACTIVE_SYNERGY_SILVER, ANIM_DURATIONS, BENCH_SLOTS,
+                          BENCH_X_START, BENCH_Y, BLACK, BLUE, BOARD_COLS,
+                          BOARD_ROWS, BOARD_X_START, BOARD_Y_START,
+                          BUTTON_ACTIVE, BUTTON_BG, BUTTON_DISABLED,
+                          BUTTON_HOVER, CYAN, DARK_GRAY, DEATH_ANIM_DURATION,
+                          GOLD, GRAY, GREEN, GRID_LINE, HEALTH_BAR_BG,
+                          HEALTH_BAR_COLOR, HIGHLIGHT_COLOR, INACTIVE_SYNERGY,
+                          ITEM_COLOR, LIGHT_GRAY, MAP_NODE_BG,
+                          MAP_NODE_CURRENT, MAP_NODE_VISITED, MAP_PATH,
+                          MAX_ITEMS_EQUIPPED, PANEL_BG, RARITY_COLORS, RED,
+                          SLOT_MARGIN, SLOT_SIZE, STATUS_ICON_KEYS,
+                          STATUS_ICON_SIZE, STATUS_ICON_SPACING,
+                          SYNERGY_LINE_HEIGHT, WHITE, YELLOW)
 from ui.ui_context import UIContext
 
 # --------------------------------------------------------------- #
@@ -143,11 +110,6 @@ def draw_text(
         surfaces.append(text_surface)
 
     final_y = y
-    x_offset = 0
-    if align == "center":
-        x_offset = -max_width / 2.0
-    elif align == "right":
-        x_offset = -max_width
 
     for text_surface in surfaces:
         draw_x = pos[0]
@@ -187,10 +149,12 @@ def draw_button(
     draw_beveled_rect(context.screen, rect, base, texture)
 
     offset = (1, 1) if is_pressed else (0, 0)
+    font_obj = context.get_font(font_key)
+    text_y = rect.centery - font_obj.get_linesize() // 2 + offset[1]
     draw_text(
         context,
         text,
-        (rect.centerx + offset[0], rect.centery + offset[1]),
+        (rect.centerx + offset[0], text_y),
         font_key,
         text_col,
         align="center",
@@ -348,27 +312,22 @@ def draw_player_info(state: GameState, context: UIContext):
     board_count = len([u for u in player.board.values() if u])
     max_board = player.level
     info = [
-        f"Health: {player.health}",
-        f"Gold: {player.gold}",
-        f"Level: {player.level}",
-        f"XP: {xp_text}",
-        f"Units: {board_count}/{max_board}",
-        "--- Artifacts ---",
+        (f"Health: {player.health}", HEALTH_BAR_COLOR),
+        (f"Gold: {player.gold}", GOLD),
+        (f"Level: {player.level}", BLUE),
+        (f"XP: {xp_text}", YELLOW),
+        (f"Units: {board_count}/{max_board}", CYAN),
     ]
-    info.extend(
-        [a.name for a in player.artifacts if a] if player.artifacts else ["None"]
-    )
-    line_height = context.get_font("default").get_linesize()
-    for i, line in enumerate(info):
-        font_key = "small" if i > 4 else "default"
-        # Adjust y offset based on font size change
-        current_y = panel_rect.y + 10 + i * line_height
-        if i > 4:
-            current_y -= (i - 4) * (
-                context.get_font("default").get_linesize()
-                - context.get_font("small").get_linesize()
-            )
-        draw_text(context, line, (panel_rect.x + 10, current_y), font_key)
+
+    line_height = context.get_font("default").get_linesize() + 4
+    for i, (line, col) in enumerate(info):
+        draw_text(
+            context,
+            line,
+            (panel_rect.x + 10, panel_rect.y + 10 + i * line_height),
+            "default",
+            col,
+        )
 
 
 def draw_synergies(state: GameState, context: UIContext):
@@ -410,17 +369,30 @@ def draw_synergies(state: GameState, context: UIContext):
         icon = context.get_icon_image(trait, (16, 16))
         context.screen.blit(icon, (panel_rect.x + 8, label_y))
         draw_text(context, trait, (panel_rect.x + 28, label_y), "small", color)
-        bar_rect = pygame.Rect(panel_rect.x + 28, label_y + 12, bar_width - 18, 6)
+        if definition.get("description"):
+            draw_text(
+                context,
+                definition["description"],
+                (panel_rect.x + 28, label_y + 14),
+                "small",
+                WHITE,
+            )
+        bar_rect = pygame.Rect(
+            panel_rect.x + 28,
+            label_y + 28,
+            bar_width - 18,
+            6,
+        )
         draw_bar(context, bar_rect, ratio, color)
         draw_text(
             context,
             f"{count}/{next_thresh if next_thresh else count}",
-            (bar_rect.right - 2, label_y + 8),
+            (bar_rect.right - 2, bar_rect.y - 4),
             "small",
             color,
             align="right",
         )
-        y_offset += 20
+        y_offset += SYNERGY_LINE_HEIGHT
 
 
 def draw_preparation_phase(state: GameState, context: UIContext):
@@ -468,14 +440,14 @@ def draw_preparation_phase(state: GameState, context: UIContext):
         context,
         context.refresh_shop_button_rect,
         f"Refresh ({2}G)",
-        "default",
+        "small",
         context.hovered_button_rect == context.refresh_shop_button_rect,
     )
     draw_button(
         context,
         context.buy_xp_button_rect,
         f"Buy XP ({4}G)",
-        "default",
+        "small",
         context.hovered_button_rect == context.buy_xp_button_rect,
     )
     # FIX: Check rect
@@ -495,7 +467,7 @@ def draw_preparation_phase(state: GameState, context: UIContext):
             context,
             context.start_combat_button_rect,
             "START COMBAT",
-            "default",
+            "small",
             context.hovered_button_rect == context.start_combat_button_rect,
         )
     else:
@@ -503,7 +475,7 @@ def draw_preparation_phase(state: GameState, context: UIContext):
             context,
             context.map_button_rect,
             "RETURN TO MAP",
-            "default",
+            "small",
             context.hovered_button_rect == context.map_button_rect,
         )
 
@@ -1006,7 +978,7 @@ def draw_map_phase(state: GameState, context: UIContext):
         context,
         context.settings_button_rect,
         "Settings",
-        "default",
+        "small",
         context.hovered_button_rect == context.settings_button_rect,
     )
 
@@ -1041,7 +1013,7 @@ def draw_main_menu(state: GameState, context: UIContext):
         context,
         context.settings_button_rect,
         "Settings",
-        "default",
+        "small",
         context.hovered_button_rect == context.settings_button_rect,
     )
 
@@ -1133,7 +1105,7 @@ def draw_game_over(state: GameState, context: UIContext):
         context,
         context.settings_button_rect,
         "Settings",
-        "default",
+        "small",
         context.hovered_button_rect == context.settings_button_rect,
     )
 
@@ -1183,7 +1155,7 @@ def draw_run_complete(state: GameState, context: UIContext):
         context,
         context.settings_button_rect,
         "Settings",
-        "default",
+        "small",
         context.hovered_button_rect == context.settings_button_rect,
     )
 
@@ -1211,12 +1183,12 @@ def draw_event_choice(state: GameState, context: UIContext):
         is_hovered = (
             context.hovered_button_rect and rect and context.hovered_button_rect == rect
         )
-        draw_button(context, rect, choice.get("text", "?"), "default", is_hovered)
+        draw_button(context, rect, choice.get("text", "?"), "small", is_hovered)
     draw_button(
         context,
         context.settings_button_rect,
         "Settings",
-        "default",
+        "small",
         context.hovered_button_rect == context.settings_button_rect,
     )
 
@@ -1267,7 +1239,7 @@ def draw_settings(state: GameState, context: UIContext):
         context,
         context.resolution_rect,
         "Change",
-        "default",
+        "small",
         context.hovered_button_rect == context.resolution_rect,
     )
     draw_button(
@@ -1282,6 +1254,6 @@ def draw_settings(state: GameState, context: UIContext):
             context,
             context.settings_abandon_button_rect,
             "Abandon Run",
-            "default",
+            "small",
             context.hovered_button_rect == context.settings_abandon_button_rect,
         )
