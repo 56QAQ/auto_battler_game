@@ -634,8 +634,6 @@ def run_combat_tick(state: 'GameState', delta_time: float):
      # Process buffs and overtime damage ONLY for alive units
      all_units_processing = player_alive + enemy_alive
      for unit in all_units_processing:
-          if unit._remove_expired_buffs(state.combat_timer):
-               unit._recalculate_stats(state.combat_timer)
           unit.process_statuses(delta_time)
 
      if is_overtime:

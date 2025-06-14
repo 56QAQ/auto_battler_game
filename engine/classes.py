@@ -28,7 +28,12 @@ from data.definitions import (ARTIFACT_DEFINITIONS, ITEM_DEFINITIONS,
 from data.enums import DamageType, StatSource, TriggerTiming, DamageSource
 # Engine imports
 from engine.enums import AnimationState, EffectType, RemoveReason
-from engine.status_effects import ActionDenialEffect, StackRule, StatusEffect
+from engine.status_effects import (
+    StatusEffect,
+    StackRule,
+    ActionDenialEffect,
+    StatModifierEffect,
+)
 # from engine.utils import clamp, lerp, normalize_vector
 # UI Constants used for positioning/size - ideally pass these in, but for now:
 from ui.constants import ARENA_MAX_Y  # Need bounds for collision
@@ -218,6 +223,7 @@ class Unit:
 
         self.current_stats = self.base_stats.copy()
         self.current_hp = self.current_stats["hp"]
+        # 以下两容器仅为兼容旧代码，实际已由状态系统接管
         self.applied_buffs: List["Buff"] = []
         self.synergy_artifact_buffs: List[Dict] = []
         # -------- 新增：状态效果挂载点 --------
@@ -260,10 +266,58 @@ class Unit:
         return max(0, self.get_cost())
 
     def apply_synergy_artifact_buff(self, buff: Dict, current_time: float = 0):
-        self.synergy_artifact_buffs.append(buff)
-        self._recalculate_stats(current_time)
+        for stat, val in buff.items():
+            if stat.endswith("_percent"):
+                self.add_stat_modifier(stat[:-8], val, None, f"SYNERGY_{stat}", True)
+            else:
+                self.add_stat_modifier(stat, val, None, f"SYNERGY_{stat}", False)
 
-    def add_timed_buff(
+    # ---------- 新 Buff API（向后兼容旧签名） ----------
+    def _create_or_refresh_stat_effect(
+        self,
+        stat: str,
+        value: float,
+        duration: Optional[float],
+        source_id: str,
+        is_percent: bool,
+    ):
+        existing = None
+        for st in self.statuses.get(StatModifierEffect.name, []):
+            if (
+                isinstance(st, StatModifierEffect)
+                and st.source_id == source_id
+                and st.params["stat"] == stat
+            ):
+                existing = st
+                break
+        if existing:
+            existing.duration = duration
+            existing.remaining = duration
+            if is_percent:
+                existing.params["percent"] = value
+                existing.params["flat"] = 0.0
+            else:
+                existing.params["flat"] = value
+                existing.params["percent"] = 0.0
+            self._recalculate_stats(0)
+            return
+
+        params = {
+            "stat": stat,
+            "flat": 0.0 if is_percent else value,
+            "percent": value if is_percent else 0.0,
+        }
+        effect = StatModifierEffect(
+            host=self,
+            source_id=source_id,
+            duration=duration,
+            stacks=1,
+            stack_rule=StackRule.UNIQUE,
+            params=params,
+        )
+        self.add_status(effect)
+
+    def add_timed_buff(  # 旧调用保持可用
         self,
         buff_stat: str,
         value: float,
@@ -272,40 +326,26 @@ class Unit:
         source_id: str,
         is_percent: bool,
     ):
-        # Remove existing buff from same source and stat if duration limited
-        self.applied_buffs = [
-            b
-            for b in self.applied_buffs
-            if not (
-                b["source_id"] == source_id
-                and b["stat"] == buff_stat
-                and b["duration"] is not None
-                and duration is not None
-            )
-        ]
-        new_buff: "Buff" = {
-            "stat": buff_stat,
-            "value": value,
-            "duration": duration,
-            "timestamp": current_time,
-            "source_id": source_id,
-            "is_percent": is_percent,
-        }
-        self.applied_buffs.append(new_buff)
-        self._recalculate_stats(current_time)
+        self._create_or_refresh_stat_effect(
+            buff_stat, value, duration, source_id, is_percent
+        )
 
+    def add_stat_modifier(
+        self,
+        stat: str,
+        value: float,
+        duration: Optional[float],
+        source_id: str,
+        is_percent: bool = False,
+    ):
+        self._create_or_refresh_stat_effect(stat, value, duration, source_id, is_percent)
+
+    # 旧接口占位，逻辑已交由状态系统管理
     def _remove_expired_buffs(self, current_time: float) -> bool:
-        original_count = len(self.applied_buffs)
-        self.applied_buffs = [
-            b
-            for b in self.applied_buffs
-            if b["duration"] is None or current_time < b["timestamp"] + b["duration"]
-        ]
-        return len(self.applied_buffs) < original_count
+        return False
 
     def remove_all_buffs(self):
-        self.synergy_artifact_buffs = []
-        self.applied_buffs = []
+        self.clear_statuses(RemoveReason.DISPEL)
         self._recalculate_stats(0)
         # FIX: ensure HP does not exceed max after buffs removed
         self.current_hp = min(self.current_hp, self.current_stats.get("hp", 1))
@@ -330,10 +370,13 @@ class Unit:
         self._pending_status_removals.append((status, reason))
 
     def clear_statuses(self, reason: RemoveReason):
-        for bucket in self.statuses.values():
-            for st in bucket:
-                st.on_remove(reason)
-        self.statuses.clear()
+        for name in list(self.statuses.keys()):
+            for st in list(self.statuses[name]):
+                if st.undispellable and reason in (RemoveReason.BATTLE_END, RemoveReason.HOST_DEAD):
+                    continue  # 保留
+                self._queue_status_removal(st, reason)
+        # 立即处理
+        self.process_statuses(0.0)
 
     def process_statuses(self, dt: float):
         """每帧/回合调用；驱动持续时间、tick、到期移除等"""
@@ -367,27 +410,24 @@ class Unit:
         temp_stats = self.base_stats.copy()
         percent_buffs = defaultdict(float)
         flat_buffs = defaultdict(float)
-        active_timed_buffs = [
-            b
-            for b in self.applied_buffs
-            if b["duration"] is None or current_time < b["timestamp"] + b["duration"]
-        ]
-        sources: List[Dict] = []
+
+        # 装备静态加成
         for item in self.equipped_items:
-            sources.append(item.stats if item else {})
-        sources.extend(self.synergy_artifact_buffs)
-        for source in sources:
-            for stat, value in source.items():
+            if not item:
+                continue
+            for stat, val in item.stats.items():
                 if stat.endswith("_percent"):
-                    percent_buffs[stat.replace("_percent", "")] += value
+                    percent_buffs[stat[:-8]] += val
                 else:
-                    flat_buffs[stat] += value
-        for buff in active_timed_buffs:
-            if buff["stat"] in ["ad", "ap", "hp", "armor", "mr", "as"]:
-                if buff["is_percent"]:
-                    percent_buffs[buff["stat"]] += buff["value"]
-                else:
-                    flat_buffs[buff["stat"]] += buff["value"]
+                    flat_buffs[stat] += val
+
+        # 状态效果加成
+        for bucket in self.statuses.values():
+            for st in bucket:
+                if isinstance(st, StatModifierEffect):
+                    key = st.params["stat"]
+                    flat_buffs[key] += st.get_flat()
+                    percent_buffs[key] += st.get_percent()
 
         for stat, value in flat_buffs.items():
             if stat in temp_stats:
@@ -495,6 +535,13 @@ class Unit:
         if not self.is_alive or self.anim_state == AnimationState.DYING or damage <= 0:
             return 0.0
 
+        # 先让可拦截的状态（护盾等）修改伤害
+        for _bucket in self.statuses.values():
+            for _st in _bucket:
+                damage = _st.intercept_incoming_damage(damage)
+                if damage <= 0:
+                    return 0.0
+
         damage *= self._xs("percentage_damage_reduction", 100.0) / 100.0
 
         resistance = 0.0
@@ -557,6 +604,8 @@ class Unit:
             self.is_alive = False
             self.anim_state = AnimationState.DYING
             self.anim_timer = 0
+            # 死亡时移除可消散状态
+            self.clear_statuses(RemoveReason.HOST_DEAD)
             if state:
                 state.visual_effects.append(
                     VisualEffect(
@@ -735,7 +784,19 @@ class Unit:
                                 "BLACK",
                                 )
                                 )
-                if any(b["source_id"] == "SYNERGY_NOBLE" for b in self.applied_buffs):
+                noble_proc = False
+                for _bucket in self.statuses.values():
+                    for _st in _bucket:
+                        if (
+                            isinstance(_st, StatModifierEffect)
+                            and _st.source_id == "SYNERGY_NOBLE"
+                            and _st.params.get("stat") == "heal_on_hit"
+                        ):
+                            noble_proc = True
+                            break
+                    if noble_proc:
+                        break
+                if noble_proc:
                     healed = self.heal(10)
                     if healed > 0.1:  # FIX: check meaningful heal
                         state.damage_floaters.append(

@@ -115,7 +115,16 @@ KEY_TO_COLOR = {
     "SLASH_COLOR": SLASH_COLOR,
     "HIT_SPARK_COLOR": HIT_SPARK_COLOR,
 }
-
+STATUS_ICON_SIZE   = 14
+STATUS_ICON_SPACING = 2
+STATUS_ICON_KEYS = {
+    "DOT":    "status_dot",
+    "HOT":    "status_hot",
+    "STUN":   "status_stun",
+    "SHIELD": "status_shield",
+    "BUFF":   "status_buff",
+    "DEBUFF": "status_debuff",
+}
 # Layout
 BENCH_SLOTS = 8
 BENCH_Y = SCREEN_HEIGHT - 60

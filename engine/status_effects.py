@@ -114,8 +114,43 @@ class StatModifierEffect(StatusEffect):
     name = "STAT_MOD"
     category = StatusCategory.BUFF
 
+    def __init__(
+        self,
+        host: "Unit",
+        source_id: str,
+        duration: Optional[float],
+        stacks: int = 1,
+        undispellable: bool = False,
+        stack_rule: StackRule = StackRule.UNLIMITED,
+        params: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(
+            host, source_id, duration, stacks, undispellable, stack_rule, params
+        )
+        if "stat" not in self.params:
+            raise ValueError("StatModifierEffect requires 'stat'")
+
+        # 兼容旧 value/is_percent 写法
+        if "value" in self.params and "flat" not in self.params and "percent" not in self.params:
+            if self.params.get("is_percent", False):
+                self.params["percent"] = self.params["value"]
+                self.params["flat"] = 0.0
+            else:
+                self.params["flat"] = self.params["value"]
+                self.params["percent"] = 0.0
+
+        self.params.setdefault("flat", 0.0)
+        self.params.setdefault("percent", 0.0)
+
+    # ---- 提供给 Unit 统计 ----
+    def get_flat(self) -> float:
+        return self.params["flat"] * self.stacks
+
+    def get_percent(self) -> float:
+        return self.params["percent"] * self.stacks
+
     def on_apply(self):
-        self.host._recalculate_stats(0)  # 立即刷新
+        self.host._recalculate_stats(0)
 
     def on_remove(self, reason: RemoveReason):
         self.host._recalculate_stats(0)

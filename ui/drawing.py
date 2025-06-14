@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, Optional  # FIX: add Optional
+from typing import Any, Dict, Optional
 
 import pygame
 
 from data.definitions import SYNERGY_DEFINITIONS
 from engine.classes import DamageFloater, Item, Unit, VisualEffect
-from engine.enums import AnimationState, EffectType
+from engine.enums import AnimationState, EffectType, StatusCategory
 from engine.game_state import GameState
 from engine.utils import clamp, lerp, lerp_color
 from states.enums import GamePhase, UnitLocation
@@ -54,8 +54,23 @@ from ui.constants import (
     SYNERGY_LINE_HEIGHT,
     WHITE,
     YELLOW,
+    STATUS_ICON_SIZE,
+    STATUS_ICON_SPACING,
+    STATUS_ICON_KEYS,
 )
 from ui.ui_context import UIContext
+
+# --------------------------------------------------------------- #
+#  Status‑Effect icon map (Enum → icon‑key defined in constants)  #
+# --------------------------------------------------------------- #
+_CATEGORY_ICON_MAP: dict[StatusCategory, str] = {
+    StatusCategory.DOT: STATUS_ICON_KEYS["DOT"],
+    StatusCategory.HOT: STATUS_ICON_KEYS["HOT"],
+    StatusCategory.ACTION_BLOCK: STATUS_ICON_KEYS["STUN"],
+    StatusCategory.SHIELD: STATUS_ICON_KEYS["SHIELD"],
+    StatusCategory.BUFF: STATUS_ICON_KEYS["BUFF"],
+    StatusCategory.DEBUFF: STATUS_ICON_KEYS["DEBUFF"],
+}
 
 
 # --- Helper Drawing Functions ---
@@ -790,6 +805,42 @@ def draw_unit_combat(context: UIContext, unit: Unit):
             hb_width,
             hb_height,
         )  # FIX .get
+
+        # ---------------- 状态效果图标 ---------------- #
+        if unit.statuses:
+            # 汇总：同名多层 → 取首个对象并累加层数
+            summaries: list[tuple[StatusCategory, str, int]] = []
+            for name, bucket in unit.statuses.items():
+                if not bucket:
+                    continue
+                cat = bucket[0].category
+                stacks = sum(st.stacks for st in bucket)
+                icon_key = _CATEGORY_ICON_MAP.get(cat)
+                if icon_key:
+                    summaries.append((cat, icon_key, stacks))
+            if summaries:
+                # 排序：先 Debuff → Dot → Hot → 其他
+                summaries.sort(key=lambda s: s[0].value)
+                total = len(summaries)
+                row_w = total * STATUS_ICON_SIZE + (total - 1) * STATUS_ICON_SPACING
+                start_x = x - row_w / 2
+                icon_y = hb_y + hb_height + 2
+                for idx, (_, icon_key, stacks) in enumerate(summaries):
+                    draw_x = start_x + idx * (STATUS_ICON_SIZE + STATUS_ICON_SPACING)
+                    icon_img = context.get_icon_image(
+                        icon_key, (STATUS_ICON_SIZE, STATUS_ICON_SIZE)
+                    )
+                    context.screen.blit(icon_img, (int(draw_x), int(icon_y)))
+                    # 叠层数字（>1 时显示）
+                    if stacks > 1:
+                        draw_text(
+                            context,
+                            str(stacks),
+                            (draw_x + STATUS_ICON_SIZE / 2, icon_y + STATUS_ICON_SIZE / 2),
+                            "small",
+                            WHITE,
+                            align="center",
+                        )
 
 
 def draw_visual_effect(context: UIContext, effect: VisualEffect):
