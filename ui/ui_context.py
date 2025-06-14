@@ -90,6 +90,16 @@ class UIContext:
             200,
             ui_c.BUTTON_HEIGHT,
         )
+        self.difficulty_button_rects = [
+            pygame.Rect(
+                ui_c.SCREEN_WIDTH // 2 - 100,
+                ui_c.SCREEN_HEIGHT // 2 - 70 + i * 70,
+                200,
+                60,
+            )
+            for i in range(3)
+        ]
+        self.theme_button_rects: list[pygame.Rect] = []
         self.synergy_panel_rect = pygame.Rect(
             ui_c.SYNERGY_PANEL_X,
             ui_c.SYNERGY_PANEL_Y,
@@ -120,6 +130,7 @@ class UIContext:
         self.unit_images: Dict[str, pygame.Surface] = {}
         self.item_images: Dict[str, pygame.Surface] = {}
         self.icon_images: Dict[str, pygame.Surface] = {}
+        self.artifact_images: Dict[str, pygame.Surface] = {}
         self.placeholder_image = self._load_image(ui_c.PLACEHOLDER_IMAGE)
         self.ui_images: Dict[str, pygame.Surface] = {}
         self.background_images: Dict[str, pygame.Surface] = {}
@@ -226,7 +237,11 @@ class UIContext:
             path = os.path.join(ui_c.ITEM_IMAGE_DIR, f"{name}.png")
             self.item_images[name] = self._load_image(path, size)
         return self.item_images[name]
-
+    def get_artifact_image(self, name: str, size: tuple) -> pygame.Surface:
+        if name not in self.artifact_images:
+            path = os.path.join(ui_c.ARTIFACT_IMAGE_DIR, f"{name}.png")
+            self.artifact_images[name] = self._load_image(path, size)
+        return self.artifact_images[name]
     def get_icon_image(self, name: str, size: tuple) -> pygame.Surface:
         if name not in self.icon_images:
             path = os.path.join(ui_c.ICON_IMAGE_DIR, f"{name}.png")

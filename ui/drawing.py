@@ -11,20 +11,54 @@ from engine.enums import AnimationState, EffectType, StatusCategory
 from engine.game_state import GameState
 from engine.utils import clamp, lerp_color
 from states.enums import GamePhase, UnitLocation
-from ui.constants import (ACTIVE_SYNERGY_BRONZE, ACTIVE_SYNERGY_GOLD,
-                          ACTIVE_SYNERGY_SILVER, ANIM_DURATIONS, BENCH_SLOTS,
-                          BENCH_X_START, BENCH_Y, BLACK, BLUE, BOARD_COLS,
-                          BOARD_ROWS, BOARD_X_START, BOARD_Y_START,
-                          BUTTON_ACTIVE, BUTTON_BG, BUTTON_DISABLED,
-                          BUTTON_HOVER, CYAN, DARK_GRAY, DEATH_ANIM_DURATION,
-                          GOLD, GRAY, GREEN, GRID_LINE, HEALTH_BAR_BG,
-                          HEALTH_BAR_COLOR, HIGHLIGHT_COLOR, INACTIVE_SYNERGY,
-                          ITEM_COLOR, LIGHT_GRAY, MAP_NODE_BG,
-                          MAP_NODE_CURRENT, MAP_NODE_VISITED, MAP_PATH,
-                          MAX_ITEMS_EQUIPPED, PANEL_BG, RARITY_COLORS, RED,
-                          SLOT_MARGIN, SLOT_SIZE, STATUS_ICON_KEYS,
-                          STATUS_ICON_SIZE, STATUS_ICON_SPACING,
-                          SYNERGY_LINE_HEIGHT, WHITE, YELLOW)
+from ui.constants import (
+    ACTIVE_SYNERGY_BRONZE,
+    ACTIVE_SYNERGY_GOLD,
+    ACTIVE_SYNERGY_SILVER,
+    ANIM_DURATIONS,
+    BENCH_SLOTS,
+    BENCH_X_START,
+    BENCH_Y,
+    BLACK,
+    BLUE,
+    BOARD_COLS,
+    BOARD_ROWS,
+    BOARD_X_START,
+    BOARD_Y_START,
+    BUTTON_ACTIVE,
+    BUTTON_BG,
+    BUTTON_DISABLED,
+    BUTTON_HOVER,
+    CYAN,
+    DARK_GRAY,
+    DEATH_ANIM_DURATION,
+    GOLD,
+    GRAY,
+    GREEN,
+    GRID_LINE,
+    HEALTH_BAR_BG,
+    HEALTH_BAR_COLOR,
+    HIGHLIGHT_COLOR,
+    INACTIVE_SYNERGY,
+    ITEM_COLOR,
+    LIGHT_GRAY,
+    MAP_NODE_BG,
+    MAP_NODE_CURRENT,
+    MAP_NODE_VISITED,
+    MAP_PATH,
+    MAX_ITEMS_EQUIPPED,
+    PANEL_BG,
+    RARITY_COLORS,
+    RED,
+    SLOT_MARGIN,
+    SLOT_SIZE,
+    STATUS_ICON_KEYS,
+    STATUS_ICON_SIZE,
+    STATUS_ICON_SPACING,
+    SYNERGY_LINE_HEIGHT,
+    WHITE,
+    YELLOW,
+)
 from ui.ui_context import UIContext
 
 # --------------------------------------------------------------- #
@@ -328,6 +362,15 @@ def draw_player_info(state: GameState, context: UIContext):
             "default",
             col,
         )
+
+    # Draw player's relics beneath the info lines
+    relic_size = 24
+    start_y = panel_rect.y + 10 + len(info) * line_height + 10
+    for idx, art in enumerate(player.artifacts):
+        x = panel_rect.x + 10 + (idx % 4) * (relic_size + 4)
+        y = start_y + (idx // 4) * (relic_size + 4)
+        img = context.get_artifact_image(art.name, (relic_size, relic_size))
+        context.screen.blit(img, (x, y))
 
 
 def draw_synergies(state: GameState, context: UIContext):
@@ -644,6 +687,7 @@ def draw_preparation_phase(state: GameState, context: UIContext):
     if context.details_window:
         context.details_window.draw(context)
 
+
 # ... (rest of drawing.py remains the same) ...
 def draw_combat_phase(state: GameState, context: UIContext):
     bg = context.get_background_image("combat")
@@ -813,7 +857,10 @@ def draw_unit_combat(context: UIContext, unit: Unit):
                         draw_text(
                             context,
                             str(stacks),
-                            (draw_x + STATUS_ICON_SIZE / 2, icon_y + STATUS_ICON_SIZE / 2),
+                            (
+                                draw_x + STATUS_ICON_SIZE / 2,
+                                icon_y + STATUS_ICON_SIZE / 2,
+                            ),
                             "small",
                             WHITE,
                             align="center",
@@ -1032,16 +1079,24 @@ def draw_difficulty_select(state: GameState, context: UIContext):
         align="center",
     )
     labels = ["EASY", "MEDIUM", "HARD"]
-    for i, lbl in enumerate(labels):
-        y = context.screen.get_height() // 2 + i * 60
-        draw_text(
-            context,
-            lbl,
-            (context.screen.get_width() // 2, y),
-            "large",
-            WHITE,
-            align="center",
+    context.difficulty_button_rects = [
+        pygame.Rect(
+            context.screen.get_width() // 2 - 100,
+            context.screen.get_height() // 2 - 70 + i * 70,
+            200,
+            60,
         )
+        for i in range(len(labels))
+    ]
+    for lbl, rect in zip(labels, context.difficulty_button_rects):
+        draw_button(
+            context,
+            rect,
+            lbl.title(),
+            "large",
+            context.hovered_button_rect == rect,
+        )
+
 
 # ----------------- 新增：主题选择 -----------------
 def draw_theme_select(state: GameState, context: UIContext):
@@ -1060,10 +1115,23 @@ def draw_theme_select(state: GameState, context: UIContext):
     if not themes:
         return
     w = context.screen.get_width()
-    segment = w // len(themes)
+    context.theme_button_rects = []
+    segment = w // max(1, len(themes))
     for i, t in enumerate(themes):
-        x = segment * i + segment // 2
-        draw_text(context, t, (x, context.screen.get_height() // 2), "large", WHITE, align="center")
+        rect = pygame.Rect(
+            segment * i + segment // 2 - 100,
+            context.screen.get_height() // 2,
+            200,
+            60,
+        )
+        context.theme_button_rects.append(rect)
+        draw_button(
+            context,
+            rect,
+            t.title(),
+            "large",
+            context.hovered_button_rect == rect,
+        )
 
 
 def draw_game_over(state: GameState, context: UIContext):

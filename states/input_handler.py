@@ -180,6 +180,16 @@ def handle_game_event(
                 and context.main_menu_button_rect.collidepoint(pos)
             ):
                 context.hovered_button_rect = context.main_menu_button_rect
+        elif state.current_phase == GamePhase.DIFFICULTY_SELECT:
+            for rect in context.difficulty_button_rects:
+                if rect.collidepoint(pos):
+                    context.hovered_button_rect = rect
+                    break
+        elif state.current_phase == GamePhase.THEME_SELECT:
+            for rect in context.theme_button_rects:
+                if rect.collidepoint(pos):
+                    context.hovered_button_rect = rect
+                    break
         elif state.current_phase == GamePhase.EVENT_CHOICE:
             for choice in state.event_choices:
                 # FIX: check if rect exists
@@ -369,15 +379,11 @@ def handle_game_event(
             and event.type == pygame.MOUSEBUTTONDOWN
             and event.button == 1
         ):
-            w, h = context.screen.get_size()
-            y = event.pos[1]
-            if y < h / 3:
-                state.difficulty_level = "easy"
-            elif y < 2 * h / 3:
-                state.difficulty_level = "medium"
-            else:
-                state.difficulty_level = "hard"
-            return start_new_run(state, state.difficulty_level)
+            for idx, rect in enumerate(context.difficulty_button_rects):
+                if rect.collidepoint(pos):
+                    levels = ["easy", "medium", "hard"]
+                    state.difficulty_level = levels[idx]
+                    return start_new_run(state, state.difficulty_level)
 
         # ---------- 主题选择点击 ----------
         elif (
@@ -387,9 +393,14 @@ def handle_game_event(
         ):
             if not state.available_themes:
                 return None
-            segment = context.screen.get_width() // len(state.available_themes)
-            idx = min(len(state.available_themes) - 1, event.pos[0] // segment)
-            chosen = state.available_themes.pop(idx)
+            chosen = None
+            for idx, rect in enumerate(context.theme_button_rects):
+                if rect.collidepoint(pos):
+                    if idx < len(state.available_themes):
+                        chosen = state.available_themes.pop(idx)
+                    break
+            if not chosen:
+                return None
             state.chosen_themes.append(chosen)
             state.current_theme = chosen
             state.current_phase = GamePhase.MAP_NAVIGATION
