@@ -40,3 +40,21 @@ class DamageSource(Enum):
     SYNERGY        = auto()
     ARTIFACT       = auto()
     MAP_EFFECT     = auto()
+class Color(Enum):
+    RED   = "RED"
+    GREEN = "GREEN"
+    BLUE  = "BLUE"
+    YELLOW = "YELLOW"   # RED+GREEN
+    PURPLE = "PURPLE"   # RED+BLUE
+    CYAN   = "CYAN"     # BLUE+GREEN
+    BLACK  = "BLACK"    # RED+GREEN+BLUE
+    WHITE  = "WHITE"    # wildcard / neutral
+class ItemType(Enum):
+    ARMAMENT = "ARMAMENT"
+    DISK     = "DISK"
+    MODULE   = "MODULE"
+class ResourceType(Enum):
+    MATERIAL_RED   = "MATERIAL_RED"
+    MATERIAL_GREEN = "MATERIAL_GREEN"
+    MATERIAL_BLUE  = "MATERIAL_BLUE"
+    CRYSTAL        = "CRYSTAL"

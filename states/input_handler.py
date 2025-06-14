@@ -5,7 +5,7 @@ import math
 from typing import Any, Dict, Optional, Tuple
 
 import pygame
-
+from engine.crafting import craft, dismantle
 from data.constants import (
     MAX_ITEMS_EQUIPPED,
     NODE_REWARDS,
@@ -14,7 +14,8 @@ from data.constants import (
     XP_BUY_COST,
 )
 from data.definitions import SYNERGY_DEFINITIONS
-from engine.classes import Item, Unit
+from data.enums import ItemType
+from engine.classes import Artifact, Item, Unit
 from engine.game_state import GameState
 from engine.logic import (
     attempt_equip_item,
@@ -41,7 +42,7 @@ from ui import sounds
 from ui.details_window import DetailsWindow
 from ui.drag_manager import get_drag_manager
 from ui.ui_context import UIContext
-
+from ui.crafting_window import CraftingWindow
 
 def get_clicked_object_info(
     pos: Tuple[int, int], state: GameState, context: UIContext
@@ -250,7 +251,13 @@ def handle_game_event(
                 # Instead, determine hover target rect here based on pos.
                 hover_rect = None
                 clicked_info = get_clicked_object_info(pos, state, context)
-
+                if not clicked_info:
+                    for idx, art in enumerate(state.player.artifacts):
+                        rect = context.get_artifact_rect(idx)
+                        if rect and rect.collidepoint(pos):
+                            context.hovered_rect = rect
+                            state.hovered_info = f"{art.name}\n{art.description}"
+                            break
                 if clicked_info:
                     loc, idx, obj = clicked_info
                     # FIX: Determine the correct rect for hovering highlight and info text
@@ -282,6 +289,7 @@ def handle_game_event(
                         if isinstance(obj, Unit):
                             cs = obj.current_stats
                             info_lines = [
+                                obj.name,
                                 f"HP: {int(obj.current_hp)}/{int(cs['hp'])}",
                                 f"Phys {int(cs['ad'])} / {int(cs['armor'])}",
                                 f"Magic {int(cs['ap'])} / {int(cs['mr'])}",
@@ -300,6 +308,14 @@ def handle_game_event(
                     # Logic to find which synergy is hovered
                     pass  # Simplified for now
         elif state.current_phase == GamePhase.MAP_NAVIGATION:
+            clicked_info = get_clicked_object_info(pos, state, context)
+            if not clicked_info:
+                for idx, art in enumerate(state.player.artifacts):
+                    rect = context.get_artifact_rect(idx)
+                    if rect and rect.collidepoint(pos):
+                        context.hovered_rect = rect
+                        state.hovered_info = f"{art.name}\n{art.description}"
+                        break
             for node in state.game_map.nodes.values():
                 if node and node.collidepoint(pos):
                     context.hovered_rect = pygame.Rect(
@@ -321,6 +337,7 @@ def handle_game_event(
                 if unit and math.dist((unit.x, unit.y), pos) < unit.radius:
                     cs = unit.current_stats
                     info_lines = [
+                        unit.name,
                         f"HP: {int(unit.current_hp)}/{int(cs['hp'])}",
                         f"Phys {int(cs['ad'])} / Def {int(cs['armor'])}",
                         f"Magic {int(cs['ap'])} / Res {int(cs['mr'])}",
@@ -500,18 +517,28 @@ def handle_game_event(
                     context.refresh_shop_button_rect
                     and context.refresh_shop_button_rect.collidepoint(pos)
                 ):
-                    if player.gold >= REFRESH_COST:
-                        player.gold -= REFRESH_COST
+                    if player.crystals >= REFRESH_CRYSTAL_COST:
+                        player.crystals -= REFRESH_CRYSTAL_COST
                         shop.refresh(player.level)
                         sounds.play("buy")
                     else:
                         sounds.play("error")
                 elif (
+                    context.craft_button_rect
+                    and context.craft_button_rect.collidepoint(pos)
+                ):
+                    context.crafting_window = CraftingWindow(state, context)
+                elif (
+                    context.crafting_window
+                    and context.crafting_window.handle_click(event)
+                ):
+                    pass
+                elif (
                     context.buy_xp_button_rect
                     and context.buy_xp_button_rect.collidepoint(pos)
                 ):
-                    if player.gold >= XP_BUY_COST:
-                        player.gold -= XP_BUY_COST
+                    if player.crystals >= XP_BUY_CRYSTAL_COST:
+                        player.crystals -= XP_BUY_CRYSTAL_COST
                         player.gain_xp(XP_BUY_AMOUNT)
                         sounds.play("buy")
                     else:

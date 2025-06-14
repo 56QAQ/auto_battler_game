@@ -11,11 +11,13 @@ from data.definitions import (
     ARTIFACT_DEFINITIONS, UNIT_DEFINITIONS, NODE_REWARDS,
     ENEMY_TEAM_DEFINITIONS, POSSIBLE_EVENT_ITEMS, POSSIBLE_EVENT_ARTIFACTS
 )
+# 新引入常量
 from data.constants import (
      MAX_COMBINED_ITEMS, MAX_ITEMS_EQUIPPED, MAX_ITEMS_INVENTORY,
      MAX_UNITS_ON_BOARD, BENCH_SLOTS, BOARD_ROWS, BOARD_COLS, SLOT_SIZE, SLOT_MARGIN,
      MAX_COMBAT_DURATION, OVERTIME_START, OVERTIME_DAMAGE_INTERVAL, OVERTIME_DAMAGE_PERCENT,
-      PASSIVE_XP, HEAL_ANIM_DURATION, CAST_ANIM_DURATION, DEATH_ANIM_DURATION
+     PASSIVE_XP, HEAL_ANIM_DURATION, CAST_ANIM_DURATION, DEATH_ANIM_DURATION,
+     COST_BY_RARITY_MATERIALS
 )
 # 新增 DamageSource
 from data.enums import (
@@ -118,7 +120,16 @@ def _attempt_equip_item(player: Player, item_info: SelectedItemInfo, target_unit
     start_loc, start_idx, item = item_info
     target_loc, target_idx, unit = target_unit_info
     if not item or not unit or start_loc != UnitLocation.INVENTORY: return False
-    combined_item_count = sum(1 for it in unit.equipped_items if it and it.type == 'COMBINED')
+    if hasattr(item, "item_type"):
+        if any(it and getattr(it, "item_type", None) == item.item_type for it in unit.equipped_items):
+            print("DEBUG: Unit already has this item‑type equipped.")
+            return False
+        if not item.can_equip(unit):
+            print("DEBUG: Color / Module restriction not met.")
+            return False
+    combined_item_count = sum(
+        1 for it in unit.equipped_items if it and getattr(it, "type", "") == "COMBINED"
+    )
     # Try combining first
     for i in range(MAX_ITEMS_EQUIPPED):
          existing_item = unit.equipped_items[i]
@@ -135,7 +146,9 @@ def _attempt_equip_item(player: Player, item_info: SelectedItemInfo, target_unit
              if item.type == 'COMBINED' and combined_item_count >= MAX_COMBINED_ITEMS:
                    print(f"DEBUG: Cannot equip, limit of {MAX_COMBINED_ITEMS} combined item(s) reached."); return False
              # Allow component equip even if max combined reached, player might combine later
-             unit.equipped_items[i] = item; player.item_inventory[start_idx] = None; unit._recalculate_stats(0)
+             unit.equipped_items[i] = item
+             player.item_inventory[start_idx] = None
+             unit._recalculate_stats(0)
              # print(f"DEBUG: Equipped {item.name} on {unit.name}");
              return True
     print(f"DEBUG: {unit.name} has no free item slots / Cannot combine / Cannot equip."); return False
@@ -293,18 +306,49 @@ def apply_artifact_buffs(team: List[Unit], artifacts: List[Artifact], current_ti
 def remove_synergy_buffs(team: List[Unit]):
      for unit in team: unit.remove_all_buffs()
 
+def _material_cost_bundle(unit: Unit) -> dict[str,int]:
+    """Return a dict like {'RED':2,'GREEN':2} representing purchase price."""
+    total = COST_BY_RARITY_MATERIALS[unit.rarity]
+    primary = unit.traits[0] if unit.traits else "RED"  # fallback
+    # map trait‑color (simple heuristic ‑ adapt as needed)
+    trait_color = {"RED":"RED","GREEN":"GREEN","BLUE":"BLUE",
+                   "PURPLE":"RED_BLUE","YELLOW":"RED_GREEN",
+                   "CYAN":"BLUE_GREEN","BLACK":"RGB","WHITE":"FREE"}.get(primary,"RED")
+    bundle: dict[str,int] = {"RED":0,"GREEN":0,"BLUE":0}
+    if trait_color == "RED":     bundle["RED"]   = total
+    elif trait_color == "GREEN": bundle["GREEN"] = total
+    elif trait_color == "BLUE":  bundle["BLUE"]  = total
+    elif trait_color == "RED_GREEN":
+        bundle["RED"]=total//2; bundle["GREEN"]=total-bundle["RED"]
+    elif trait_color == "RED_BLUE":
+        bundle["RED"]=total//2; bundle["BLUE"]=total-bundle["RED"]
+    elif trait_color == "BLUE_GREEN":
+        bundle["BLUE"]=total//2; bundle["GREEN"]=total-bundle["BLUE"]
+    elif trait_color == "RGB":
+        each = total//3; bundle = {k:each for k in bundle}
+    # WHITE → free
+    return bundle
+
 def buy_unit_from_shop(player: Player, shop: Shop, slot_index: int) -> bool:
-     # FIX: Check index bounds
-     if not (0 <= slot_index < len(shop.slots)): return False
-     unit_to_buy = shop.slots[slot_index]
-     if not unit_to_buy: return False
-     cost = unit_to_buy.get_cost()
-     if player.gold >= cost:
-        unit = shop.buy(slot_index)
-        if unit:
-             if add_unit_to_bench(player, unit): player.gold -= cost; return True
-             else: shop.slots[slot_index] = unit; shop.return_to_pool(unit.name); return False
-     return False
+    if not (0 <= slot_index < len(shop.slots)):
+        return False
+    unit = shop.slots[slot_index]
+    if not unit:
+        return False
+    # White units are free
+    if unit.traits and unit.traits[0] == "WHITE":
+        bundle = {}
+    else:
+        bundle = _material_cost_bundle(unit)
+        if not player.can_pay_materials(bundle):
+            return False
+    # transact
+    bought = shop.buy(slot_index)
+    if not bought:
+        return False
+    if bundle:
+        player.pay_materials(bundle)
+    return add_unit_to_bench(player, bought)
 
 def handle_sell_unit(player: Player, shop: Shop, info: SelectedUnitInfo) -> bool:
      from states.enums import UnitLocation # Local import

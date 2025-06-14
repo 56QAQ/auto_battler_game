@@ -28,7 +28,7 @@ from data.constants import (ATTACK_ANIM_DURATION, ATTACK_LUNGE_ANGLE,
 from data.definitions import (ARTIFACT_DEFINITIONS, ITEM_DEFINITIONS,
                               UNIT_DEFINITIONS)
 # 新增 DamageSource
-from data.enums import DamageType, StatSource, TriggerTiming, DamageSource
+from data.enums import DamageType, StatSource, TriggerTiming, DamageSource, ItemType, Color
 # Engine imports
 from engine.enums import AnimationState, EffectType, RemoveReason
 from engine.status_effects import (
@@ -67,17 +67,59 @@ resolve_trigger_func: Optional[Callable] = None
 
 
 class Item:
-    def __init__(self, name: str):
+    def __init__(
+        self,
+        name: str,
+        *,
+        item_type: ItemType | None = None,
+        color: Color | None = None,
+        rarity: str | None = None,
+        material_cost: int = 0,
+        stats_override: dict | None = None,
+    ):
         self.name = name
-        definition = ITEM_DEFINITIONS.get(
-            name, {"type": "UNKNOWN", "stats": {}, "ability": None, "description": "?"}
-        )
-        self.type = definition.get("type", "UNKNOWN")
-        self.stats = definition.get("stats", {})
-        self.ability = definition.get("ability", None)
-        self.description = definition.get("description", "")
+        # ---------- 旧数据表 ---------- #
+        definition = ITEM_DEFINITIONS.get(name)
+        if definition and not item_type:
+            self.item_type = ItemType(definition.get("type", "UNKNOWN"))
+            self.color = Color.WHITE
+            self.rarity = "COMMON"
+            self.stats = definition.get("stats", {})
+            self.ability = definition.get("ability")
+        else:
+            # ---------- 新 Color‑Item 模式 ---------- #
+            self.item_type = item_type or ItemType.ARMAMENT
+            self.color = color or Color.WHITE
+            self.rarity = rarity or "COMMON"
+            self.stats = stats_override or {}
+            self.ability = None
+
+        self.material_cost = material_cost
+        self.description = f"{self.rarity.title()} {self.item_type.value}"
         self.id = str(uuid.uuid4())
 
+    # ---------------- Equip rules ---------------- #
+    def can_equip(self, unit: "Unit") -> bool:
+        """颜色／专属校验."""
+        if self.item_type == ItemType.ARMAMENT:
+            return True
+        if self.item_type == ItemType.MODULE:
+            # 专属：名称前缀匹配（占位实现）
+            return self.name.split("_")[-1] == unit.name.replace(" ", "")
+        # Disk – 颜色兼容表
+        ucol = getattr(unit, "primary_color", Color.WHITE)
+        allowed: dict[Color, set[Color]] = {
+            Color.WHITE: set(Color),
+            Color.RED: {Color.RED, Color.YELLOW, Color.PURPLE, Color.BLACK},
+            Color.BLUE: {Color.BLUE, Color.PURPLE, Color.CYAN, Color.BLACK},
+            Color.GREEN: {Color.GREEN, Color.YELLOW, Color.CYAN, Color.BLACK},
+            Color.PURPLE: {Color.PURPLE, Color.BLACK},
+            Color.YELLOW: {Color.YELLOW, Color.BLACK},
+            Color.CYAN: {Color.CYAN, Color.BLACK},
+            Color.BLACK: {Color.BLACK},
+        }
+        return self.color in allowed.get(ucol, set())
+        
     def __repr__(self):
         return f"<Item {self.name}>"
 
@@ -901,6 +943,9 @@ class Player:
     def __init__(self):
         self.health: int = STARTING_HEALTH
         self.gold: int = STARTING_GOLD
+        from data.constants import STARTING_MATERIALS, STARTING_CRYSTAL
+        self.materials: dict[str,int] = STARTING_MATERIALS.copy()
+        self.crystals: int = STARTING_CRYSTAL
         self.level: int = 1
         self.xp: int = 0
         self.bench: List[Optional[Unit]] = [None] * BENCH_SLOTS
@@ -934,7 +979,11 @@ class Player:
             self.xp -= self.xp_to_next_level()
             self.level += 1
             print(f"DEBUG: Player leveled up to {self.level}!")
-
+    def can_pay_materials(self, bundle: dict[str,int]) -> bool:
+        return all(self.materials.get(k,0) >= v for k,v in bundle.items())
+    def pay_materials(self, bundle: dict[str,int]):
+        for k,v in bundle.items():
+            self.materials[k] = max(0, self.materials.get(k,0)-v)
     def get_all_units(self) -> List[Unit]:
         units = [u for u in self.bench if u]
         units.extend([u for u in self.board.values() if u])

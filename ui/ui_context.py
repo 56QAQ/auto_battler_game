@@ -44,6 +44,9 @@ class UIContext:
             ui_c.SCREEN_WIDTH - 160, ui_c.SCREEN_HEIGHT - 60, 150, ui_c.BUTTON_HEIGHT
         )
         self.map_button_rect = pygame.Rect(
+            ui_c.SCREEN_WIDTH - 360, 220, 150, ui_c.BUTTON_HEIGHT
+        )
+        self.craft_button_rect = pygame.Rect(
             ui_c.SCREEN_WIDTH - 160, 20, 150, ui_c.BUTTON_HEIGHT
         )
         self.sell_area_rect = pygame.Rect(
@@ -202,6 +205,14 @@ class UIContext:
             return None  # pygame.Rect(0, 0, 0, 0)
         except TypeError:  # e.g., index is not a number or tuple
             return None
+    def get_artifact_rect(self, index: int) -> pygame.Rect | None:
+        if not self.info_panel_rect:
+            return None
+        line_height = self.get_font("default").get_linesize() + 4
+        start_y = self.info_panel_rect.y + 10 + 5 * line_height + 10
+        x = self.info_panel_rect.x + 10 + (index % 4) * (ui_c.RELIC_ICON_SIZE + 4)
+        y = start_y + (index // 4) * (ui_c.RELIC_ICON_SIZE + 4)
+        return pygame.Rect(x, y, ui_c.RELIC_ICON_SIZE, ui_c.RELIC_ICON_SIZE)
 
     def clear_hover(self):
         self.hovered_rect = None

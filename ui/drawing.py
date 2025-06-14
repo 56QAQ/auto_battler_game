@@ -4,7 +4,7 @@ import math
 from typing import Optional
 
 import pygame
-
+from data.constants import REFRESH_CRYSTAL_COST, XP_BUY_CRYSTAL_COST
 from data.definitions import SYNERGY_DEFINITIONS
 from engine.classes import DamageFloater, Item, Unit, VisualEffect
 from engine.enums import AnimationState, EffectType, StatusCategory
@@ -56,6 +56,7 @@ from ui.constants import (
     STATUS_ICON_SIZE,
     STATUS_ICON_SPACING,
     SYNERGY_LINE_HEIGHT,
+    RELIC_ICON_SIZE,
     WHITE,
     YELLOW,
 )
@@ -345,12 +346,15 @@ def draw_player_info(state: GameState, context: UIContext):
     xp_text = f"{player.xp}/{xp_needed}" if player.level < 9 else "MAX"
     board_count = len([u for u in player.board.values() if u])
     max_board = player.level
+    mats = player.materials
     info = [
-        (f"Health: {player.health}", HEALTH_BAR_COLOR),
-        (f"Gold: {player.gold}", GOLD),
-        (f"Level: {player.level}", BLUE),
-        (f"XP: {xp_text}", YELLOW),
-        (f"Units: {board_count}/{max_board}", CYAN),
+        (f"HP: {player.health}", HEALTH_BAR_COLOR),
+        (f"Red: {mats['RED']}", RED),
+        (f"Green: {mats['GREEN']}", GREEN),
+        (f"Blue: {mats['BLUE']}", BLUE),
+        (f"Crystal: {player.crystals}", CYAN),
+        (f"Lvl {player.level}  XP {xp_text}", YELLOW),
+        (f"Units {board_count}/{max_board}", LIGHT_GRAY),
     ]
 
     line_height = context.get_font("default").get_linesize() + 4
@@ -364,7 +368,7 @@ def draw_player_info(state: GameState, context: UIContext):
         )
 
     # Draw player's relics beneath the info lines
-    relic_size = 24
+    relic_size = RELIC_ICON_SIZE
     start_y = panel_rect.y + 10 + len(info) * line_height + 10
     for idx, art in enumerate(player.artifacts):
         x = panel_rect.x + 10 + (idx % 4) * (relic_size + 4)
@@ -482,16 +486,23 @@ def draw_preparation_phase(state: GameState, context: UIContext):
     draw_button(
         context,
         context.refresh_shop_button_rect,
-        f"Refresh ({2}G)",
+        f"Refresh ({REFRESH_CRYSTAL_COST}cr)",
         "small",
         context.hovered_button_rect == context.refresh_shop_button_rect,
     )
     draw_button(
         context,
         context.buy_xp_button_rect,
-        f"Buy XP ({4}G)",
+        f"Buy XP ({XP_BUY_CRYSTAL_COST}cr)",
         "small",
         context.hovered_button_rect == context.buy_xp_button_rect,
+    )
+    draw_button(
+        context,
+        context.craft_button_rect,
+        "Craft / Dismantle",
+        "small",
+        context.hovered_button_rect == context.craft_button_rect,
     )
     # FIX: Check rect
     if context.sell_area_rect:
