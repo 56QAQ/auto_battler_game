@@ -6,8 +6,14 @@ from typing import Any, Dict, Optional, Tuple
 
 import pygame
 
-from data.constants import (MAX_ITEMS_EQUIPPED, NODE_REWARDS, REFRESH_COST,
-                            XP_BUY_AMOUNT, XP_BUY_COST)
+from data.constants import (
+    MAX_ITEMS_EQUIPPED,
+    NODE_REWARDS,
+    REFRESH_COST,
+    XP_BUY_AMOUNT,
+    XP_BUY_COST,
+)
+
 from data.definitions import SYNERGY_DEFINITIONS
 from engine.classes import Item, Unit
 from engine.game_state import GameState
@@ -372,6 +378,17 @@ def handle_game_event(
                     if node and node.collidepoint(pos):
                         navigate_map(state, context, node_id)
                         break
+        elif state.current_phase == GamePhase.COMBAT:
+            if is_left:
+                units: list[Unit] = []
+                if state.player_combat_team:
+                    units.extend(state.player_combat_team)
+                if state.enemy_combat_team:
+                    units.extend(state.enemy_combat_team)
+                for unit in units:
+                    if unit and math.dist((unit.x, unit.y), pos) < unit.radius:
+                        context.details_window = DetailsWindow(unit, context)
+                        break
         elif state.current_phase == GamePhase.SETTINGS:
             if (
                 is_left
@@ -548,7 +565,7 @@ def handle_game_event(
                             ):  # Select item from inventory
                                 context.selected_item_info = (loc, idx, obj)
                             else:
-                                context.details_window = DetailsWindow(obj, pos)
+                                context.details_window = DetailsWindow(obj, context)
     # ---------------- MOUSEBUTTONUP：处理拖拽释放 ---------------- #
     if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
         context.details_window = None
@@ -604,12 +621,12 @@ def handle_game_event(
             loc, idx, obj = click_info
             if state.current_phase == GamePhase.PREPARATION:
                 if isinstance(obj, Unit):
-                    context.details_window = DetailsWindow(obj, pos)
+                    context.details_window = DetailsWindow(obj, context)
                 context.selected_unit_info = click_info if isinstance(obj, Unit) else None
                 if isinstance(obj, Item):
                     context.selected_item_info = click_info
             elif state.current_phase == GamePhase.COMBAT and isinstance(obj, Unit):
-                context.details_window = DetailsWindow(obj, pos)
+                context.details_window = DetailsWindow(obj, context)
             return None
         if context.details_window:
             context.details_window.handle_event(event, context)

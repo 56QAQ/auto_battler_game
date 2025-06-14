@@ -1,17 +1,47 @@
-#ui/details_window.py
+# ui/details_window.py
 from __future__ import annotations
+
+from typing import Dict, Tuple
+
 import pygame
-from typing import Tuple
+
+# Map of stat keys to human readable labels
+STAT_LABELS: Dict[str, str] = {
+    "hp": "HP",
+    "ad": "Phys ATK",
+    "ap": "Magic ATK",
+    "as": "Atk SPD",
+    "armor": "Phys DEF",
+    "mr": "Magic DEF",
+    "range": "Range",
+    "percentage_damage_bonus": "Dmg Bonus %",
+    "flat_damage_bonus": "Flat Bonus",
+    "percentage_damage_reduction": "Dmg Reduc %",
+    "flat_damage_reduction": "Flat Reduc",
+    "outgoing_healing_bonus": "Heal Out %",
+    "incoming_healing_bonus": "Heal In %",
+    "physical_lifesteal": "Life Steal",
+    "spell_lifesteal": "Spell LS",
+    "omnivamp": "Omnivamp",
+    "flat_physical_penetration": "Flat Pen (P)",
+    "flat_magic_penetration": "Flat Pen (M)",
+    "percentage_physical_penetration": "Pen % (P)",
+    "percentage_magic_penetration": "Pen % (M)",
+    "critical_chance": "Crit %",
+    "critical_damage": "Crit Dmg %",
+    "dodge_chance": "Dodge %",
+    "accuracy": "Accuracy",
+}
 
 HEADER_H = 28
 
 
 class DetailsWindow:
-    """点击单位后弹出的详情面板（可拖动 / Esc 关闭）。"""
 
-    def __init__(self, unit, pos: Tuple[int, int], width=260, height=340):
+    def __init__(self, unit, context, width=300, height=700):
         self.unit = unit
-        self.rect = pygame.Rect(pos[0], pos[1], width, height)
+        screen_w, _ = context.screen.get_size()
+        self.rect = pygame.Rect(screen_w - width - 10, 10, width, height)
         self.dragging = False
         self._drag_off = (0, 0)
 
@@ -27,14 +57,14 @@ class DetailsWindow:
                     event.pos
                 ):
                     context.details_window = None
-                elif pygame.Rect(self.rect.x, self.rect.y, self.rect.w, HEADER_H).collidepoint(
-                    event.pos
-                ):
+                elif pygame.Rect(
+                    self.rect.x, self.rect.y, self.rect.w, HEADER_H
+                ).collidepoint(event.pos):
                     self.dragging = True
-                    self._drag_off = (event.pos[0] - self.rect.x, event.pos[1] - self.rect.y)
-            else:
-                # click outside
-                context.details_window = None
+                    self._drag_off = (
+                        event.pos[0] - self.rect.x,
+                        event.pos[1] - self.rect.y,
+                    )
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             self.dragging = False
         elif event.type == pygame.MOUSEMOTION and self.dragging:
@@ -77,13 +107,16 @@ class DetailsWindow:
             y += fnt.get_linesize()
 
         cs = self.unit.current_stats
-        _line("HP", f"{int(self.unit.current_hp)}/{int(cs['hp'])}")
-        _line("Phys ATK", int(cs["ad"]))
-        _line("Phys DEF", int(cs["armor"]))
-        _line("Magic ATK", int(cs["ap"]))
-        _line("Magic DEF", int(cs["mr"]))
-        _line("Dmg Bonus %", int(cs.get("percentage_damage_bonus", 100)))
-        _line("Dmg Reduc %", int(cs.get("percentage_damage_reduction", 100)))
+        for key in STAT_LABELS:
+            if key not in cs:
+                continue
+            label = STAT_LABELS[key]
+            val = cs[key]
+            if key == "hp":
+                val_str = f"{int(self.unit.current_hp)}/{int(val)}"
+            else:
+                val_str = f"{int(val)}"
+            _line(label, val_str)
 
         # simple bio
         y += 6
@@ -93,4 +126,26 @@ class DetailsWindow:
         ]
         for ln in bio_lines:
             context.screen.blit(fnt.render(ln, True, (200, 200, 200)), (body_x, y))
+            y += fnt.get_linesize()
+
+        # Trigger information
+        y += fnt.get_linesize()
+        context.screen.blit(fnt.render("Trigger:", True, (240, 240, 235)), (body_x, y))
+        y += fnt.get_linesize()
+        trig = getattr(self.unit, "trigger", None)
+        if trig:
+            for k, v in trig.items():
+                context.screen.blit(
+                    fnt.render(f"{k}: {v}", True, (200, 200, 200)), (body_x, y)
+                )
+                y += fnt.get_linesize()
+        else:
+            context.screen.blit(fnt.render("None", True, (200, 200, 200)), (body_x, y))
+            y += fnt.get_linesize()
+
+        # Description
+        desc = self.unit.definition.get("description", "No description.")
+        y += fnt.get_linesize()
+        for ln in str(desc).split("\n"):
+            context.screen.blit(fnt.render(ln, True, (180, 180, 180)), (body_x, y))
             y += fnt.get_linesize()

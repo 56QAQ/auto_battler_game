@@ -199,8 +199,7 @@ class UIContext:
     def clear_selection(self):
         self.selected_item_info = None
         self.selected_unit_info = None
-        self.details_window = None
-        
+
     def _load_image(self, path: str, size: Optional[tuple] = None) -> pygame.Surface:
         """Load an image from disk or return placeholder if missing."""
         try:
