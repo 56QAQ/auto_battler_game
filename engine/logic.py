@@ -101,12 +101,6 @@ def add_item_to_inventory(player: Player, item: Item) -> bool:
      print(f"DEBUG: Inventory full, could not add {item.name}"); return False
 
 def _check_item_combine(item1: Item, item2: Item) -> Optional[Item]:
-     if not item1 or not item2: return None
-     if item1.type == 'COMPONENT' and item2.type == 'COMPONENT':
-          combined_name = ITEM_RECIPES.get((item1.name, item2.name))
-          if combined_name and combined_name in ITEM_DEFINITIONS:
-               # print(f"DEBUG: Combining {item1.name} + {item2.name} -> {combined_name}")
-               return Item(combined_name)
      return None
 
 # Needs local import or state must be passed
@@ -130,17 +124,6 @@ def _attempt_equip_item(player: Player, item_info: SelectedItemInfo, target_unit
     combined_item_count = sum(
         1 for it in unit.equipped_items if it and getattr(it, "type", "") == "COMBINED"
     )
-    # Try combining first
-    for i in range(MAX_ITEMS_EQUIPPED):
-         existing_item = unit.equipped_items[i]
-         if existing_item and existing_item.item_type == 'COMPONENT' and item.item_type == 'COMPONENT':
-              # Check if making a combined item exceeds limit
-              if combined_item_count < MAX_COMBINED_ITEMS:
-                   combined_item = _check_item_combine(item, existing_item)
-                   if combined_item:
-                       unit.equipped_items[i] = combined_item; player.item_inventory[start_idx] = None
-                       unit._recalculate_stats(0); return True
-    # Try equipping to empty slot
     for i in range(MAX_ITEMS_EQUIPPED):
         if unit.equipped_items[i] is None:
              if item.item_type == 'COMBINED' and combined_item_count >= MAX_COMBINED_ITEMS:
@@ -308,25 +291,26 @@ def remove_synergy_buffs(team: List[Unit]):
 
 def _material_cost_bundle(unit: Unit) -> dict[str,int]:
     """Return a dict like {'RED':2,'GREEN':2} representing purchase price."""
+    from data.enums import Color
     total = COST_BY_RARITY_MATERIALS[unit.rarity]
-    primary = unit.traits[0] if unit.traits else "RED"  # fallback
-    # map trait‑color (simple heuristic ‑ adapt as needed)
-    trait_color = {"RED":"RED","GREEN":"GREEN","BLUE":"BLUE",
-                   "PURPLE":"RED_BLUE","YELLOW":"RED_GREEN",
-                   "CYAN":"BLUE_GREEN","BLACK":"RGB","WHITE":"FREE"}.get(primary,"RED")
-    bundle: dict[str,int] = {"RED":0,"GREEN":0,"BLUE":0}
-    if trait_color == "RED":     bundle["RED"]   = total
-    elif trait_color == "GREEN": bundle["GREEN"] = total
-    elif trait_color == "BLUE":  bundle["BLUE"]  = total
-    elif trait_color == "RED_GREEN":
-        bundle["RED"]=total//2; bundle["GREEN"]=total-bundle["RED"]
-    elif trait_color == "RED_BLUE":
-        bundle["RED"]=total//2; bundle["BLUE"]=total-bundle["RED"]
-    elif trait_color == "BLUE_GREEN":
-        bundle["BLUE"]=total//2; bundle["GREEN"]=total-bundle["BLUE"]
-    elif trait_color == "RGB":
-        each = total//3; bundle = {k:each for k in bundle}
-    # WHITE → free
+    col: Color = getattr(unit, "primary_color", Color.WHITE)
+    if col == Color.WHITE:
+        return {}
+    bundle: dict[str, int] = {"RED": 0, "GREEN": 0, "BLUE": 0}
+    if col in (Color.RED, Color.GREEN, Color.BLUE):
+        bundle[col.value] = total
+    elif col == Color.YELLOW:  # R+G
+        bundle["RED"] = total // 2
+        bundle["GREEN"] = total - bundle["RED"]
+    elif col == Color.PURPLE:  # R+B
+        bundle["RED"] = total // 2
+        bundle["BLUE"] = total - bundle["RED"]
+    elif col == Color.CYAN:  # B+G
+        bundle["BLUE"] = total // 2
+        bundle["GREEN"] = total - bundle["BLUE"]
+    elif col == Color.BLACK:  # R+G+B
+        share = total // 3
+        bundle = {"RED": share, "GREEN": share, "BLUE": total - 2 * share}
     return bundle
 
 def buy_unit_from_shop(player: Player, shop: Shop, slot_index: int) -> bool:

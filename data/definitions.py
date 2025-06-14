@@ -90,64 +90,74 @@ ENEMY_TEAM_DEFINITIONS: Dict[str, List[Dict[str, Any]]] = {
 
 ITEM_DEFINITIONS: Dict[str, Dict[str, Any]] = {
     # Components
-    "Gear": {"type": "COMPONENT", "stats": {"ad": 10}, "ability": None, "description": "+10 AD"},
-    "Plate": {"type": "COMPONENT", "stats": {"armor": 15}, "ability": None, "description": "+15 Armor"},
-    "Lubricant": {"type": "COMPONENT", "stats": {"hp": 150}, "ability": None, "description": "+150 Health"},
-     "Amp Coil": {"type": "COMPONENT", "stats": {"ap": 15}, 
+    "Gear": {"item_type": "ARMAMENT", "type": "ARMAMENT", "stats": {"ad": 10}, "ability": None, "description": "+10 AD"},
+    "Plate": {"item_type": "ARMAMENT", "type": "ARMAMENT", "stats": {"armor": 15}, "ability": None, "description": "+15 Armor"},
+    "Lubricant": {"item_type": "ARMAMENT", "type": "ARMAMENT", "stats": {"hp": 150}, "ability": None, "description": "+150 Health"},
+    "Amp Coil": {"item_type": "ARMAMENT", "type": "ARMAMENT", "stats": {"ap": 15},
                    # FIX-UI: Added effect to allow unit Trigger to fire, for Tooltip demo
                    "ability": {"name": "Spark", "effect_type": AbilityEffect.DEAL_DAMAGE, 
                                "effect_data": {"damage_type": DamageType.MAGIC, "scale_factor": 1.0, "flat_value": 0}},
                   "description": "+15 AP. Ability: Spark (Deal 100% Base Value as Magic DMG)"},
-     "Essence":  {"type": "COMPONENT", "stats": {"mr": 15}, 
+     "Essence":  {"item_type": "ARMAMENT", "type": "ARMAMENT", "stats": {"mr": 15}, 
                    # FIX-UI: Added effect to allow unit Trigger to fire, for Tooltip demo
                    "ability": {"name": "Restoration", "effect_type": AbilityEffect.HEAL, 
                                "effect_data": {"scale_factor": 1.0, "flat_value": 0}},
                   "description": "+15 MR. Ability: Restoration (Heal 100% Base Value)"},
     # Combined
-     "Zap Blade": {"type": "COMBINED", "stats": {"ad": 15, "ap": 20}, # Gear + Amp Coil 
+     "Zap Blade": {"item_type": "ARMAMENT", "type": "ARMAMENT", "stats": {"ad": 15, "ap": 20}, # Gear + Amp Coil 
                     "ability": {"name": "Overcharge", "effect_type": AbilityEffect.DEAL_DAMAGE, 
                                 "effect_data": {"damage_type": DamageType.MAGIC, "scale_factor": 5.0, "flat_value": 0}}, 
                    "description": "+15AD,+20AP. Ability: Overcharge (Deal 500% Base Value as Magic DMG)"},
-     "Fireball": {"type": "COMBINED", "stats": {"ap": 40}, # Amp Coil + Amp Coil
+     "Fireball": {"item_type": "ARMAMENT", "type": "ARMAMENT", "stats": {"ap": 40}, # Amp Coil + Amp Coil
                    "ability": {"name": "Fireball", "effect_type": AbilityEffect.DEAL_DAMAGE, 
                                "effect_data": {"damage_type": DamageType.MAGIC, "scale_factor": 0, "flat_value": 180}},
                   "description": "+40AP. Ability: Fireball (Deal 180 flat Magic DMG)"},
-     "SwordPlate": {"type": "COMBINED", "stats": {"ad": 10, "armor": 20}, # Gear + Plate
+     "SwordPlate": {"item_type": "ARMAMENT", "type": "ARMAMENT", "stats": {"ad": 10, "armor": 20}, # Gear + Plate
                    "ability": {"name": "Rend", "effect_type": AbilityEffect.APPLY_BUFF, 
                                "effect_data": {"stat": "armor", "value": -15, "duration": 4.0, "is_percent": False}},
                   "description": "+10AD,+20Armor. Ability: Rend (-15 Armor for 4s)"},
-      "Bulwark": {"type": "COMBINED", "stats": {"armor": 20, "hp": 200}, # Plate + Lubricant
+      "Bulwark": {"item_type": "ARMAMENT", "type": "ARMAMENT", "stats": {"armor": 20, "hp": 200}, # Plate + Lubricant
                     # FIX-UI: Added effect to allow unit Trigger to fire, for Tooltip demo
                    "ability": {"name": "Fortify", "effect_type": AbilityEffect.APPLY_BUFF, 
                                "effect_data": {"stat": "armor", "value": 40, "duration": 5.0, "is_percent": False}},
                   "description": "+20Ar,+200HP. Ability: Fortify (+40 Armor for 5s)"},
-        "Oil Can": {"type": "COMBINED", "stats": {"hp": 200, "ap": 20}, # Lubricant + Amp Coil
+        "Oil Can": {"item_type": "ARMAMENT", "type": "ARMAMENT", "stats": {"hp": 200, "ap": 20}, # Lubricant + Amp Coil
                    "ability": {"name": "Mend", "effect_type": AbilityEffect.HEAL, 
                                "effect_data": {"scale_factor": 1.5, "flat_value": 20}},
                   "description": "+200HP,+20AP. Ability: Mend (Heal 150% Base Value + 20)"},
-       "Time Orb": {"type": "COMBINED", "stats": {"ap": 20, "mr": 20}, # Amp Coil + Essence
+       "Time Orb": {"item_type": "ARMAMENT", "type": "ARMAMENT", "stats": {"ap": 20, "mr": 20}, # Amp Coil + Essence
                    "ability": {"name": "Slow", "effect_type": AbilityEffect.APPLY_BUFF, 
                                "effect_data": {"stat": "as", "value": -30, "duration": 3.0, "is_percent": True}},
                   "description": "+20AP,+20MR. Ability: Slow (-30% AS for 3s)"},
-       "Aegis Shield":{"type": "COMBINED", "stats": {"armor": 20, "mr": 20}, # Plate + Essence
+       "Aegis Shield":{"item_type": "ARMAMENT", "type": "ARMAMENT", "stats": {"armor": 20, "mr": 20}, # Plate + Essence
                    "ability": {"name": "Barrier", "effect_type": AbilityEffect.APPLY_BUFF, 
                                "effect_data": {"stat": "mr", "value": 40, "duration": 5.0, "is_percent": False}},
                   "description": "+20Ar,+20MR. Ability: Barrier (+40 MR for 5s)"},
-        "Life Gem": {"type": "COMBINED", "stats": {"hp": 200, "mr": 20}, # Lubricant + Essence
+        "Life Gem": {"item_type": "ARMAMENT", "type": "ARMAMENT", "stats": {"hp": 200, "mr": 20}, # Lubricant + Essence
                    "ability": {"name": "Greater Mend", "effect_type": AbilityEffect.HEAL, 
                                "effect_data": {"scale_factor": 2.0, "flat_value": 50}},
                   "description": "+200HP,+20MR. Ability: Greater Mend (Heal 200% Base Value + 50)"},
 }
-ITEM_RECIPES: Dict[Tuple[str, str], str] = { 
-     ("Gear", "Amp Coil"): "Zap Blade", ("Amp Coil", "Gear"): "Zap Blade",
-      ("Amp Coil", "Amp Coil"): "Fireball",
-     ("Gear", "Plate"): "SwordPlate", ("Plate", "Gear"): "SwordPlate",
-      ("Plate", "Lubricant"): "Bulwark", ("Lubricant", "Plate"): "Bulwark",
-       ("Lubricant", "Amp Coil"): "Oil Can", ("Amp Coil", "Lubricant"): "Oil Can",
-     ("Amp Coil", "Essence"): "Time Orb", ("Essence", "Amp Coil"): "Time Orb",
-     ("Plate", "Essence"): "Aegis Shield", ("Essence", "Plate"): "Aegis Shield",
-      ("Lubricant", "Essence"): "Life Gem", ("Essence", "Lubricant"): "Life Gem",
+for _clr, _theme in [
+    ("RED", "Physical DMG"),
+    ("GREEN", "Healing"),
+    ("BLUE", "Magic DMG"),
+    ("YELLOW", "Damage Reduction"),
+    ("PURPLE", "Mixed DMG"),
+    ("CYAN", "Buff / Debuff"),
+    ("BLACK", "Versatile"),
+    ("WHITE", "Resource Gen"),
+]:
+    ITEM_DEFINITIONS[f"Disk_{_clr}"] = {
+        "item_type": "DISK",
+        "type": "DISK",
+        "color": _clr,
+        "rarity": "COMMON",
+        "stats": {},
+        "ability": None,
+        "description": f"{_theme} Disk (placeholder)",
 }
+ITEM_RECIPES: Dict[Tuple[str, str], str] = {}
 THEMES: list[str] = ["MECHANICAL", "FROST", "ARCANE", "DESERT"]
 # FIX-UI: Add used_in_run flag to definition
 ARTIFACT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
@@ -165,12 +175,12 @@ POSSIBLE_EVENT_ITEMS: List[str] = ["Gear", "Plate", "Lubricant", "Amp Coil", "Es
 POSSIBLE_EVENT_ARTIFACTS: List[str] = list(ARTIFACT_DEFINITIONS.keys())
 
 NODE_REWARDS: Dict[str, Dict[str, Any]] = { 
-     'COMBAT_EASY': {'gold': 3, 'xp': 0, 'items': [], 'artifacts': []},
-     'COMBAT_MEDIUM': {'gold': 5, 'xp': 0, 'items': ["Gear"], 'artifacts': []},
-      'COMBAT_HARD': {'gold': 7, 'xp': 1, 'items': ["Plate", "Gear"], 'artifacts': ["Reinforced Plating"]},
-      'BOSS': {'gold': 10, 'xp': 2, 'items': ["Amp Coil", "Plate", "Essence"], 'artifacts': ["Reinforced Plating", "Hasty Clock"]}, 
-     'SHOP': {'gold': 5, 'xp': 0, 'items': [], 'artifacts': []}, 
-     'EVENT': {'gold': 0, 'xp': 0, 'items': [], 'artifacts': []}, 
+     'COMBAT_EASY': { 'xp': 0, 'items': [], 'artifacts': []},
+     'COMBAT_MEDIUM': { 'xp': 0, 'items': ["Gear"], 'artifacts': []},
+      'COMBAT_HARD': {'xp': 1, 'items': ["Plate", "Gear"], 'artifacts': ["Reinforced Plating"]},
+      'BOSS': {'items': ["Amp Coil", "Plate", "Essence"], 'artifacts': ["Reinforced Plating", "Hasty Clock"]}, 
+     'SHOP': {'xp': 0, 'items': [], 'artifacts': []}, 
+     'EVENT': { 'xp': 0, 'items': [], 'artifacts': []}, 
 }
 def _split(base: list[str]) -> dict[str, list[str]]:
     pools = {"ACT1": [], "ACT4": []}

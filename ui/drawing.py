@@ -4,11 +4,13 @@ import math
 from typing import Optional
 
 import pygame
+from data.enums import Color
 from data.constants import REFRESH_CRYSTAL_COST, XP_BUY_CRYSTAL_COST
 from data.definitions import SYNERGY_DEFINITIONS
 from engine.classes import DamageFloater, Item, Unit, VisualEffect
 from engine.enums import AnimationState, EffectType, StatusCategory
 from engine.game_state import GameState
+from engine.logic import _material_cost_bundle as _mat_cost_bundle
 from engine.utils import clamp, lerp_color
 from states.enums import GamePhase, UnitLocation
 from ui.constants import (
@@ -262,6 +264,25 @@ def draw_unit_prep(
         pygame.draw.rect(context.screen, color, inner, 1)
         img = context.get_unit_image(unit.name, (inner.width, inner.height))
         context.screen.blit(img, inner.topleft)
+        if hasattr(unit, "primary_color"):
+            pc: Color = unit.primary_color
+            col_map = {
+                Color.RED: RED,
+                Color.GREEN: GREEN,
+                Color.BLUE: BLUE,
+                Color.YELLOW: YELLOW,
+                Color.PURPLE: CYAN,  # 近似映射
+                Color.CYAN: CYAN,
+                Color.BLACK: BLACK,
+                Color.WHITE: WHITE,
+            }
+            pygame.draw.circle(
+                context.screen,
+                col_map.get(pc, WHITE),
+                (inner.right - 6, inner.top + 6),
+                4,
+            )
+
         star_y = rect.bottom - 12
         if unit.level >= 2:
             draw_text(
@@ -471,7 +492,10 @@ def draw_preparation_phase(state: GameState, context: UIContext):
         )
         draw_unit_prep(context, rect, shop.slots[i], is_selected)
         if shop.slots[i]:
-            cost_text = f"{shop.slots[i].get_cost()}G"
+            bundle = _mat_cost_bundle(shop.slots[i])
+            cost_text = (
+                " ".join(f"{v}{k[0]}" for k, v in bundle.items() if v) or "FREE"
+            )
             # FIX: Check rect exists
             if rect:
                 draw_text(
@@ -479,7 +503,7 @@ def draw_preparation_phase(state: GameState, context: UIContext):
                     cost_text,
                     (rect.centerx, rect.bottom + 2),
                     "small",
-                    GOLD,
+                    YELLOW,
                     align="center",
                 )
 

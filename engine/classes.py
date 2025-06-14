@@ -22,13 +22,24 @@ from data.constants import (ATTACK_ANIM_DURATION, ATTACK_LUNGE_ANGLE,
                             MAX_ITEMS_EQUIPPED, MAX_LEVEL, MEDIUM_NODES,
                             NODE_TYPE_DISTRIBUTION, NODES_PER_LAYER,
                             PROJECTILE_SPEED, RARITY_COST, RARITY_ORDER,
-                            STARTING_GOLD, STARTING_HEALTH,
+                            STARTING_HEALTH,
                             UNIT_POOL_SIZE_MULTIPLIER, XP_PER_LEVEL)
 # Data imports
-from data.definitions import (ARTIFACT_DEFINITIONS, ITEM_DEFINITIONS,
-                              UNIT_DEFINITIONS)
+from data.definitions import (
+    ARTIFACT_DEFINITIONS,
+    ITEM_DEFINITIONS,
+    UNIT_DEFINITIONS,
+)
 # 新增 DamageSource
-from data.enums import DamageType, StatSource, TriggerTiming, DamageSource, ItemType, Color
+from data.enums import (
+    DamageType,
+    StatSource,
+    TriggerTiming,
+    DamageSource,
+    ItemType,
+    Color,
+)
+
 # Engine imports
 from engine.enums import AnimationState, EffectType, RemoveReason
 from engine.status_effects import (
@@ -229,7 +240,26 @@ class Unit:
         self.id = unit_id if unit_id else str(uuid.uuid4())
         self.definition = definition
         self.rarity = definition["rarity"]
-        self.traits = definition["traits"]
+        self.primary_color: Color = definition.get("primary_color", Color.WHITE)
+        self.secondary_synergies = definition.get("secondary_synergies", [])
+        self.traits = definition.get("traits", [])
+        if (
+            self.primary_color == Color.WHITE
+            and self.traits
+            and isinstance(self.traits[0], str)
+        ):
+            tag = self.traits[0].upper()
+            _map = {
+                "RED": Color.RED,
+                "GREEN": Color.GREEN,
+                "BLUE": Color.BLUE,
+                "PURPLE": Color.PURPLE,
+                "YELLOW": Color.YELLOW,
+                "CYAN": Color.CYAN,
+                "BLACK": Color.BLACK,
+                "WHITE": Color.WHITE,
+            }
+            self.primary_color = _map.get(tag, Color.WHITE)
         self.trigger = definition.get("trigger", None)
         self.level = level
         self.is_enemy = is_enemy
@@ -304,7 +334,10 @@ class Unit:
         # Last pos for stuck detection handled by BehaviorContext
 
     def __repr__(self):
-        return f"<Unit {self.name} L{self.level} {'E' if self.is_enemy else 'P'}>"
+        return (
+            f"<Unit {self.name} L{self.level} {self.primary_color.name}"
+            f" {'E' if self.is_enemy else 'P'}>"
+        )
 
     def get_cost(self) -> int:
         base_cost = RARITY_COST.get(self.rarity, 1)
@@ -946,7 +979,7 @@ class Unit:
 class Player:
     def __init__(self):
         self.health: int = STARTING_HEALTH
-        self.gold: int = STARTING_GOLD
+        self.gold: int = 0
         from data.constants import STARTING_MATERIALS, STARTING_CRYSTAL
         self.materials: dict[str,int] = STARTING_MATERIALS.copy()
         self.crystals: int = STARTING_CRYSTAL
