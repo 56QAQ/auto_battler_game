@@ -18,6 +18,7 @@ STAT_LABELS: Dict[str, str] = {
     "flat_damage_bonus": "Flat Bonus",
     "percentage_damage_reduction": "Dmg Reduc %",
     "flat_damage_reduction": "Flat Reduc",
+    "flat_basic_attack_damage_reduction": "Flat Basic Reduc",
     "outgoing_healing_bonus": "Heal Out %",
     "incoming_healing_bonus": "Heal In %",
     "physical_lifesteal": "Life Steal",

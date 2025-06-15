@@ -260,6 +260,7 @@ class Unit:
             "flat_damage_bonus": 0.0,
             "percentage_damage_reduction": 100.0,
             "flat_damage_reduction": 0.0,
+            "flat_basic_attack_damage_reduction": 0.0,
             "outgoing_healing_bonus": 100.0,
             "incoming_healing_bonus": 100.0,
             "physical_lifesteal": 0.0,
@@ -719,6 +720,8 @@ class Unit:
         damage *= dmg_mul
 
         damage -= self._xs("flat_damage_reduction", 0.0)
+        if source_action == DamageSource.BASIC_ATTACK:
+            damage -= self._xs("flat_basic_attack_damage_reduction", 0.0)
         if damage <= 0.0:
             return 0.0
 
