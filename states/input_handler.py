@@ -117,6 +117,12 @@ def get_clicked_object_info(
             rect = context.get_slot_rect(UnitLocation.BOARD, (r, c))
             if rect and rect.collidepoint(pos):
                 return (UnitLocation.BOARD, (r, c), player.board.get((r, c)))
+    for unit, (row, col) in zip(
+        state.enemy_preview_units, state.enemy_preview_positions
+    ):
+        rect = context.get_slot_rect(UnitLocation.PREVIEW, (row, col))
+        if rect and rect.collidepoint(pos):
+            return (UnitLocation.PREVIEW, (row, col), unit)
     for i in range(len(shop.slots)):
         rect = context.get_slot_rect(UnitLocation.SHOP, i)
         if rect and rect.collidepoint(pos):
@@ -513,7 +519,7 @@ def handle_game_event(
                 # 能够拖拽的对象：单位或物品，且当前没有进行中的拖拽
                 if (
                     clicked_info
-                    and clicked_info[0] != UnitLocation.SHOP
+                    and clicked_info[0] not in [UnitLocation.SHOP, UnitLocation.PREVIEW]
                     and isinstance(clicked_info[2], (Unit, Item))
                 ):
                     drag_mgr.prepare(clicked_info, pos)
@@ -646,6 +652,8 @@ def handle_game_event(
                                     # FIX: only select if buy failed AND unit still exists in slot
                                     if shop.slots[idx]:
                                         context.selected_unit_info = (loc, idx, obj)
+                            elif loc == UnitLocation.PREVIEW:
+                                context.details_window = DetailsWindow(obj, context)
                             else:
                                 context.selected_unit_info = (loc, idx, obj)
                         elif isinstance(obj, Item):
