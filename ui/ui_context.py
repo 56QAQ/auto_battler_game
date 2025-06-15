@@ -49,6 +49,12 @@ class UIContext:
         self.craft_button_rect = pygame.Rect(
             ui_c.SCREEN_WIDTH - 160, 20, 150, ui_c.BUTTON_HEIGHT
         )
+        self.stats_toggle_button_rect = pygame.Rect(
+            ui_c.SCREEN_WIDTH - 60,
+            ui_c.SCREEN_HEIGHT // 2 - 20,
+            50,
+            ui_c.BUTTON_HEIGHT,
+        )
         self.sell_area_rect = pygame.Rect(
             ui_c.SHOP_X_START
             + ui_c.SHOP_SLOTS * (ui_c.SLOT_SIZE + ui_c.SLOT_MARGIN)
@@ -140,7 +146,7 @@ class UIContext:
         self.drag_mgr = None
         self.details_window = None
         self.crafting_window = None
-
+        self.stats_panel = None
     def map_color(self, color_key: Optional[str]) -> Tuple[int, int, int]:
         # FIX: Handle None key
         if not color_key:

@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, TYPE_CHECKING, List
 
 from engine.enums import StatusCategory, StackRule, RemoveReason
-
+from data.enums import DamageSource
 if TYPE_CHECKING:
     from engine.classes import Unit
 
@@ -88,21 +88,52 @@ class DamageOverTime(StatusEffect):
     name = "DOT"
     category = StatusCategory.DOT
 
-    def on_tick(self, dt: float):
+    def on_tick(self, dt: float) -> None:
+        from engine.game_state import get_game_state
         dmg_per_tick = self.params.get("damage", 0) * self.stacks
         if dmg_per_tick > 0 and self.host.is_alive:
             # TRUE 伤害避免重复计算抗性
-            self.host.take_damage(dmg_per_tick, self.params.get("dtype"), None, None)
+            state = get_game_state()
+            source_unit = next(
+                (
+                    u
+                    for u in state.player_combat_team + state.enemy_combat_team
+                    if u.id == self.source_id
+                ),
+                None,
+            )
+            self.host.take_damage(
+                dmg_per_tick,
+                self.params.get("dtype"),
+                state,
+                source_unit,
+                source_action=DamageSource.ITEM_ABILITY,
+            )
 
 
 class HealOverTime(StatusEffect):
     name = "HOT"
     category = StatusCategory.HOT
 
-    def on_tick(self, dt: float):
+    def on_tick(self, dt: float) -> None:
+        from engine.game_state import get_game_state
         heal = self.params.get("heal", 0) * self.stacks
         if heal > 0 and self.host.is_alive:
-            self.host.heal(heal)
+            state = get_game_state()
+            source_unit = next(
+                (
+                    u
+                    for u in state.player_combat_team + state.enemy_combat_team
+                    if u.id == self.source_id
+                ),
+                None,
+            )
+            self.host.heal(
+                heal,
+                state,
+                source_unit,
+                source_action=DamageSource.ITEM_ABILITY,
+            )
 
 
 class StatModifierEffect(StatusEffect):
@@ -131,7 +162,11 @@ class StatModifierEffect(StatusEffect):
             raise ValueError("StatModifierEffect requires 'stat'")
 
         # 兼容旧 value/is_percent 写法
-        if "value" in self.params and "flat" not in self.params and "percent" not in self.params:
+        if (
+            "value" in self.params
+            and "flat" not in self.params
+            and "percent" not in self.params
+        ):
             if self.params.get("is_percent", False):
                 self.params["percent"] = self.params["value"]
                 self.params["flat"] = 0.0

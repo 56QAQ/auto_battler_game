@@ -493,9 +493,7 @@ def draw_preparation_phase(state: GameState, context: UIContext):
         draw_unit_prep(context, rect, shop.slots[i], is_selected)
         if shop.slots[i]:
             bundle = _mat_cost_bundle(shop.slots[i])
-            cost_text = (
-                " ".join(f"{v}{k[0]}" for k, v in bundle.items() if v) or "FREE"
-            )
+            cost_text = " ".join(f"{v}{k[0]}" for k, v in bundle.items() if v) or "FREE"
             # FIX: Check rect exists
             if rect:
                 draw_text(
@@ -723,6 +721,8 @@ def draw_preparation_phase(state: GameState, context: UIContext):
         context.details_window.draw(context)
     if context.crafting_window:
         context.crafting_window.draw()
+    if context.stats_panel:
+        context.stats_panel.draw()
 
 # ... (rest of drawing.py remains the same) ...
 def draw_combat_phase(state: GameState, context: UIContext):
@@ -1064,7 +1064,13 @@ def draw_map_phase(state: GameState, context: UIContext):
         "small",
         context.hovered_button_rect == context.settings_button_rect,
     )
-
+    draw_button(
+        context,
+        context.stats_toggle_button_rect,
+        "Stats",
+        "small",
+        context.hovered_button_rect == context.stats_toggle_button_rect,
+    )
 
 def draw_main_menu(state: GameState, context: UIContext):
     if not context or not context.screen:

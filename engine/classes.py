@@ -628,7 +628,13 @@ class Unit:
                         data.get("is_percent", False),
                     )
 
-    def heal(self, amount: float) -> float:
+    def heal(
+        self,
+        amount: float,
+        state: "GameState | None" = None,
+        source: "Unit | None" = None,
+        source_action: DamageSource = DamageSource.ITEM_ABILITY,
+    ) -> float:
         if not self.is_alive or self.anim_state == AnimationState.DYING or amount <= 0:
             return 0
         # FIX: use .get for safety
@@ -638,6 +644,10 @@ class Unit:
             self.anim_state = AnimationState.HEALED
             self.anim_timer = 0
             self.flash_color_key = "HEAL_FLASH_COLOR"
+            if state and source:
+                state.combat_stats.record_healing_done(
+                    source, actual_heal, source_action
+                )
         return actual_heal
 
     def _xs(self, key: str, default: float = 0.0) -> float:
@@ -748,7 +758,14 @@ class Unit:
                     )
                 )
         self.current_hp -= effective_damage
-
+        if state:
+            state.combat_stats.record_damage_taken(
+                self, effective_damage, source_action
+            )
+            if source:
+                state.combat_stats.record_damage_dealt(
+                    source, effective_damage, source_action
+                )
         if (
             state
             and self.trigger
@@ -803,7 +820,9 @@ class Unit:
                     )
         return effective_damage
 
-    def apply_lifesteal(self, dealt: float, dmg_type: DamageType):
+    def apply_lifesteal(
+        self, dealt: float, dmg_type: DamageType, state: "GameState | None" = None
+    ):
         heal_amount = 0.0
         if dealt <= 0:
             return
@@ -818,7 +837,7 @@ class Unit:
 
         heal_amount *= self._xs("outgoing_healing_bonus", 100.0) / 100.0
         heal_amount *= self._xs("incoming_healing_bonus", 100.0) / 100.0
-        self.heal(heal_amount)
+        self.heal(heal_amount, state, self, DamageSource.BASIC_ATTACK)
 
     def find_nearest_target(self, potential_targets: List["Unit"]):
         nearest_target = None
@@ -977,7 +996,7 @@ class Unit:
                     if noble_proc:
                         break
                 if noble_proc:
-                    healed = self.heal(10)
+                    healed = self.heal(10, state, self, DamageSource.ITEM_ABILITY)
                     if healed > 0.1:  # FIX: check meaningful heal
                         state.damage_floaters.append(
                             DamageFloater(

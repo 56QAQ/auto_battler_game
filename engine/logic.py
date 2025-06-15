@@ -783,7 +783,7 @@ def execute_ability(
                 state.damage_floaters.append(
                     DamageFloater(target.x, target.y, f"{dmg_dealt:.0f}", color_key)
                 )
-            source.apply_lifesteal(dmg_dealt, dtype)
+            source.apply_lifesteal(dmg_dealt, dtype, state)
     elif effect_type == AbilityEffect.APPLY_BUFF:
         # FIX: Check required keys in data
         if all(k in data for k in ["stat", "value", "duration"]):
@@ -824,7 +824,10 @@ def execute_ability(
         for target in targets:
             if target.is_alive and target.anim_state != AnimationState.DYING:
                 healed = target.heal(
-                    heal_amount * target._xs("incoming_healing_bonus", 100.0) / 100.0
+                    heal_amount * target._xs("incoming_healing_bonus", 100.0) / 100.0,
+                    state,
+                    source,
+                    source_action=DamageSource.ITEM_ABILITY,
                 )
                 if healed > 0.1:
                     state.visual_effects.append(

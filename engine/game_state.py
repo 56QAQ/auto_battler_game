@@ -2,11 +2,18 @@
 # forward declarations for type hints
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 # from states.enums import GamePhase, UnitLocation # Cannot import yet, circular dependency risk
 from engine.classes import (Artifact, DamageFloater, GameMap, Item, Player,
                             Shop, Unit, VisualEffect)
+from engine.combat_stats import CombatStats
 
+if TYPE_CHECKING:
+    from states.enums import GamePhase, UnitLocation
+    from engine.classes import Item, Unit
+
+    SelectedUnitInfo = tuple["UnitLocation", Union[int, tuple[int, int]], "Unit"]
+    SelectedItemInfo = tuple["UnitLocation", Union[int, "SelectedUnitInfo"], "Item"]
 # Type Alias - Define here as they relate directly to GameState structure
 SynergyStatus = Dict[
     str, Dict[str, Union[int, List[str]]]
@@ -66,6 +73,7 @@ class GameState:
         self.current_theme: str | None = None
         self.enemy_combat_team_data_cache: List[Dict] = []
         self.event_choices: List[EventChoice] = []
+        self.combat_stats = CombatStats()
         # Button rects belong in UI/States, not engine state.
 
 

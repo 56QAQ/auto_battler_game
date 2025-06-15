@@ -45,6 +45,7 @@ from ui.details_window import DetailsWindow
 from ui.drag_manager import get_drag_manager
 from ui.ui_context import UIContext
 from ui.crafting_window import CraftingWindow
+from ui.stats_panel import StatsPanel
 
 def get_clicked_object_info(
     pos: Tuple[int, int], state: GameState, context: UIContext
@@ -147,6 +148,9 @@ def handle_game_event(
             return None
         if dw.dragging or context.details_window is None:
             return None
+    if context.stats_panel:
+        if context.stats_panel.handle_event(event):
+            return None
 
     if event.type == pygame.MOUSEMOTION:
         pos = event.pos
@@ -165,6 +169,11 @@ def handle_game_event(
             pos
         ):
             context.hovered_button_rect = context.settings_button_rect
+        elif (
+            context.stats_toggle_button_rect
+            and context.stats_toggle_button_rect.collidepoint(pos)
+        ):
+            context.hovered_button_rect = context.stats_toggle_button_rect
         # Phase-specific motion handling
         elif (
             state.current_phase == GamePhase.MAIN_MENU
@@ -369,7 +378,16 @@ def handle_game_event(
         ):
             open_settings(state)
             return None
-        from ui.drawing import draw_difficulty_select
+        if (
+            is_left
+            and context.stats_toggle_button_rect
+            and context.stats_toggle_button_rect.collidepoint(pos)
+        ):
+            if context.stats_panel:
+                context.stats_panel = None
+            else:
+                context.stats_panel = StatsPanel(state, context)
+            return None
 
         if state.current_phase == GamePhase.MAIN_MENU:
             if (
@@ -530,9 +548,8 @@ def handle_game_event(
                     and context.craft_button_rect.collidepoint(pos)
                 ):
                     context.crafting_window = CraftingWindow(state, context)
-                elif (
-                    context.crafting_window
-                    and context.crafting_window.handle_click(event)
+                elif context.crafting_window and context.crafting_window.handle_click(
+                    event
                 ):
                     pass
                 elif (
