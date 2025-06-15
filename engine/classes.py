@@ -28,7 +28,7 @@ from data.definitions import (ARTIFACT_DEFINITIONS, ITEM_DEFINITIONS,
                               UNIT_DEFINITIONS)
 # 新增 DamageSource
 from data.enums import (AbilityEffect, Color, DamageSource, DamageType,
-                        ItemType, TriggerTiming)
+                        ItemType, TriggerTiming,TriggerTarget)
 # Engine imports
 from engine.enums import AnimationState, EffectType, RemoveReason
 from engine.status_effects import StackRule, StatModifierEffect, StatusEffect
@@ -1010,6 +1010,52 @@ class Unit:
                 )
                 self.apply_lifesteal(current_attack_damage, DamageType.PHYSICAL)
                 damage_dealt += current_attack_damage  # Accumulate damage
+                chain_hits = [self.target]
+                if self.passive and self.passive.get("chain_bounces"):
+                    last = self.target
+                    for _ in range(self.passive.get("chain_bounces", 0)):
+                        pool = (
+                            state.enemy_combat_team
+                            if not self.is_enemy
+                            else state.player_combat_team
+                        )
+                        candidates = [
+                            u for u in pool if u.is_alive and u not in chain_hits
+                        ]
+                        if not candidates:
+                            break
+                        next_t = min(
+                            candidates,
+                            key=lambda u: (u.x - last.x) ** 2 + (u.y - last.y) ** 2,
+                        )
+                        out = self.compute_outgoing_damage(
+                            raw,
+                            DamageType.PHYSICAL,
+                            DamageSource.BASIC_ATTACK,
+                            False,
+                            next_t,
+                        )
+                        dmg = next_t.take_damage(
+                            out,
+                            DamageType.PHYSICAL,
+                            state,
+                            self,
+                            source_action=DamageSource.BASIC_ATTACK,
+                            is_aoe=False,
+                        )
+                        self.apply_lifesteal(dmg, DamageType.PHYSICAL)
+                        damage_dealt += dmg
+                        if dmg > 0.1:
+                            state.damage_floaters.append(
+                                DamageFloater(
+                                    next_t.x,
+                                    next_t.y,
+                                    f"{dmg:.0f}",
+                                    "DAMAGE_PHYSICAL_COLOR",
+                                )
+                            )
+                        chain_hits.append(next_t)
+                        last = next_t
                 # FIX: only create floater if damage > 0
                 if current_attack_damage > 0.1:
                     if self._last_outgoing_was_crit:
@@ -1068,11 +1114,17 @@ class Unit:
                         )
                 # FIX: Call resolve_trigger_func with keyword argument
                 if self.trigger and self.trigger["timing_type"] == TriggerTiming.ON_HIT:
+                    ev_tgt = (
+                        chain_hits
+                        if self.trigger.get("target_type")
+                        == TriggerTarget.EVENT_TARGETS
+                        else self.target
+                    )
                     state.queue_trigger(
                         self,
                         TriggerTiming.ON_HIT,
-                        event_target=self.target,
-                        data={"damage": current_attack_damage},
+                        event_target=ev_tgt,
+                        data={"aoe": len(chain_hits) > 1},
                     )
                 if (
                     self.passive

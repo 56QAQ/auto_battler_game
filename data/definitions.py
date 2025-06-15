@@ -153,6 +153,17 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
             "mr": 50,
             "range": 50,
         },
+        "passive": {
+            "timing_type": TriggerTiming.TIMED,
+            "timing_data": {"interval": 9999.0},
+            "target_type": TriggerTarget.SELF,
+            "base_value_source": StatSource.FLAT,
+            "base_value_multiplier": 0.0,
+            "base_value_flat": 0,
+            "overheal_to_shield": True,
+            "ability": {
+            },
+        },
         # FIX-UI: Example: Give Steam Knight a Trigger for demonstration
         "trigger": {
             "timing_type": TriggerTiming.ON_SHIELD_BROKEN,
@@ -165,6 +176,7 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
     },
     "Piston Puncher": {
         "rarity": "UNCOMMON",
+        "primary_color": Color.PURPLE,
         "traits": ["Steamcraft", "Brawler"],
         "base_stats": {
             "hp": 900,
@@ -175,11 +187,23 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
             "mr": 40,
             "range": 40,
         },
-        "trigger": {
-            "timing_type": TriggerTiming.ON_TAKE_DAMAGE,
+        "passive": {
+            "timing_type": TriggerTiming.TIMED,
+            "timing_data": {"interval": 9999.0},
             "target_type": TriggerTarget.SELF,
-            "base_value_source": StatSource.MAX_HP,
-            "base_value_multiplier": 0.02,
+            "base_value_source": StatSource.FLAT,
+            "base_value_multiplier": 0.0,
+            "base_value_flat": 10,
+            "overheal_to_shield": True,
+            "chain_bounces": 3,
+            "ability": {
+            },
+        },
+        "trigger": {
+            "timing_type": TriggerTiming.ON_HIT,
+            "target_type": TriggerTarget.EVENT_TARGETS,
+            "base_value_source": StatSource.AP,
+            "base_value_multiplier": 1.0,
             "base_value_flat": 0,
         },
     },
@@ -514,6 +538,17 @@ SYNERGY_DEFINITIONS: Dict[str, Dict[str, Any]] = {
             {"incoming_healing_bonus": 20, "omnivamp": 3},
             {"incoming_healing_bonus": 50, "omnivamp": 5},
             {"incoming_healing_bonus": 100, "omnivamp": 10},
+        ],
+        "targets": "ALL_ALLIES",
+        "type": "STAT_BOOST",
+    },
+    "Purple": {
+        "description": "Purple units empower all allies' damage output.",
+        "thresholds": [2, 3, 4],
+        "effects": [
+            {"percentage_damage_bonus": 20, "flat_damage_bonus": 30},
+            {"percentage_damage_bonus": 50, "flat_damage_bonus": 60},
+            {"percentage_damage_bonus": 100, "flat_damage_bonus": 120},
         ],
         "targets": "ALL_ALLIES",
         "type": "STAT_BOOST",

@@ -25,7 +25,7 @@ from data.definitions import (ARTIFACT_DEFINITIONS, ENEMY_TEAM_DEFINITIONS,
                               SYNERGY_DEFINITIONS, UNIT_DEFINITIONS,)
 # 新增 DamageSource
 from data.enums import (AbilityEffect, DamageSource, DamageType, StatSource,
-                        TriggerTarget, TriggerTiming)
+                        TriggerTarget, TriggerTiming, Color)
 from engine.classes import (Artifact,Item, Player, Shop, Unit,
                             VisualEffect,DamageFloater)
 # Engine imports
@@ -356,6 +356,11 @@ def calculate_active_synergies(player: Player) -> "SynergyStatus":
             trait_counts[Color.GREEN.name.title()] += 1
             contributing_units[Color.RED.name.title()].append(name)
             contributing_units[Color.GREEN.name.title()].append(name)
+        if unit.primary_color == Color.PURPLE:
+            trait_counts[Color.RED.name.title()] += 1
+            trait_counts[Color.BLUE.name.title()] += 1
+            contributing_units[Color.RED.name.title()].append(name)
+            contributing_units[Color.BLUE.name.title()].append(name)
     all_present_traits = sorted(list(trait_counts.keys()))
     for trait in all_present_traits:
         if trait in SYNERGY_DEFINITIONS:
@@ -662,6 +667,13 @@ def find_targets(
             and event_target.anim_state != AnimationState.DYING
             else []
         )
+    if target_type == TriggerTarget.EVENT_TARGETS:
+        targets = [
+            u
+            for u in (event_target or [])  # type: ignore[arg-type]
+            if hasattr(u, "is_alive") and u.is_alive
+        ]
+        return targets
     if not alive_enemies:
         return []
     if target_type == TriggerTarget.NEAREST_ENEMY:

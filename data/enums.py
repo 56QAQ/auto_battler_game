@@ -20,7 +20,7 @@ class TriggerTarget(Enum):
     SELF = auto()
     LOWEST_HP_ENEMY = auto()
     RANDOM_ENEMY = auto()
-
+    EVENT_TARGETS = auto()
 
 class StatSource(Enum):
     AD = "ad"

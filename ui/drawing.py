@@ -62,6 +62,7 @@ from ui.constants import (
     RELIC_ICON_SIZE,
     WHITE,
     YELLOW,
+    PURPLE,
 )
 from ui.ui_context import UIContext
 
@@ -272,7 +273,7 @@ def draw_unit_prep(
                 Color.GREEN: GREEN,
                 Color.BLUE: BLUE,
                 Color.YELLOW: YELLOW,
-                Color.PURPLE: CYAN,  # 近似映射
+                Color.PURPLE: PURPLE,
                 Color.CYAN: CYAN,
                 Color.BLACK: BLACK,
                 Color.WHITE: WHITE,
