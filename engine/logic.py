@@ -9,26 +9,64 @@ from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 # 新引入常量
-from data.constants import (BENCH_SLOTS, BOARD_COLS, BOARD_ROWS,
-                            CAST_ANIM_DURATION, COST_BY_RARITY_MATERIALS,
-                            DEATH_ANIM_DURATION, HEAL_ANIM_DURATION,
-                            MAX_COMBAT_DURATION, MAX_COMBINED_ITEMS,
-                            MAX_ITEMS_EQUIPPED, MAX_ITEMS_INVENTORY,
-                            MAX_UNITS_ON_BOARD, OVERTIME_DAMAGE_INTERVAL,
-                            OVERTIME_DAMAGE_PERCENT, OVERTIME_START,
-                            PASSIVE_XP, SLOT_MARGIN, SLOT_SIZE, ARENA_MAX_Y,COMBAT_ARENA_HEIGHT,ARENA_MAX_X, ARENA_MIN_X, ARENA_MIN_Y,
-                            COMBAT_ARENA_WIDTH, COMBAT_ARENA_X, COMBAT_ARENA_Y,
-                              )
+from data.constants import (
+    ARENA_MAX_X,
+    ARENA_MAX_Y,
+    ARENA_MIN_X,
+    ARENA_MIN_Y,
+    BENCH_SLOTS,
+    BOARD_COLS,
+    BOARD_ROWS,
+    CAST_ANIM_DURATION,
+    COMBAT_ARENA_HEIGHT,
+    COMBAT_ARENA_WIDTH,
+    COMBAT_ARENA_X,
+    COMBAT_ARENA_Y,
+    COST_BY_RARITY_MATERIALS,
+    DEATH_ANIM_DURATION,
+    HEAL_ANIM_DURATION,
+    MAX_COMBAT_DURATION,
+    MAX_COMBINED_ITEMS,
+    MAX_ITEMS_EQUIPPED,
+    MAX_UNITS_ON_BOARD,
+    OVERTIME_DAMAGE_INTERVAL,
+    OVERTIME_DAMAGE_PERCENT,
+    OVERTIME_START,
+    PASSIVE_XP,
+    SLOT_MARGIN,
+    SLOT_SIZE,
+)
 # Data imports
-from data.definitions import (ARTIFACT_DEFINITIONS, ENEMY_TEAM_DEFINITIONS,
-                              ITEM_DEFINITIONS, ITEM_RECIPES, NODE_REWARDS,
-                              POSSIBLE_EVENT_ARTIFACTS, POSSIBLE_EVENT_ITEMS,
-                              SYNERGY_DEFINITIONS, UNIT_DEFINITIONS,)
+from data.definitions import (
+    ARTIFACT_DEFINITIONS,
+    ENEMY_TEAM_DEFINITIONS,
+    ITEM_DEFINITIONS,
+    ITEM_RECIPES,
+    NODE_REWARDS,
+    POSSIBLE_EVENT_ARTIFACTS,
+    POSSIBLE_EVENT_ITEMS,
+    SYNERGY_DEFINITIONS,
+    UNIT_DEFINITIONS,
+)
 # 新增 DamageSource
-from data.enums import (AbilityEffect, DamageSource, DamageType, StatSource,
-                        TriggerTarget, TriggerTiming, Color)
-from engine.classes import (Artifact,Item, Player, Shop, Unit,
-                            VisualEffect,DamageFloater)
+from data.enums import (
+    AbilityEffect,
+    Color,
+    DamageSource,
+    DamageType,
+    StatSource,
+    TriggerTarget,
+    TriggerTiming,
+)
+from engine.classes import (
+    Artifact,
+    DamageFloater,
+    Item,
+    Player,
+    Shop,
+    Unit,
+    VisualEffect,
+)
 # Engine imports
 from engine.enums import AnimationState, EffectType, RemoveReason
 from engine.utils import clamp
@@ -117,14 +155,8 @@ def update_player_synergies(player: Player):
 
 
 def add_item_to_inventory(player: Player, item: Item) -> bool:
-    for i in range(MAX_ITEMS_INVENTORY):
-        if player.item_inventory[i] is None:
-            player.item_inventory[i] = item
-            # print(f"DEBUG: Added item {item.name} to inventory slot {i}")
-            return True
-    print(f"DEBUG: Inventory full, could not add {item.name}")
-    return False
-
+    player.item_inventory.append(item)
+    return True
 
 # Needs local import or state must be passed
 # from states.enums import UnitLocation
@@ -134,11 +166,8 @@ def attempt_equip_item(
     return _attempt_equip_item(player, item_info, target_unit_info)
 
 
-def attempt_unequip_item(
-    player: Player, item_info: SelectedItemInfo, target_inv_idx: int
-) -> bool:
-    return _attempt_unequip_item(player, item_info, target_inv_idx)
-
+def attempt_unequip_item(player: Player, item_info: SelectedItemInfo) -> bool:
+    return _attempt_unequip_item(player, item_info)
 
 def _attempt_equip_item(
     player: Player, item_info: SelectedItemInfo, target_unit_info: SelectedUnitInfo
@@ -174,7 +203,7 @@ def _attempt_equip_item(
                 return False
             # Allow component equip even if max combined reached, player might combine later
             unit.equipped_items[i] = item
-            player.item_inventory[start_idx] = None
+            player.item_inventory.pop(start_idx)
             unit._recalculate_stats(0)
             # print(f"DEBUG: Equipped {item.name} on {unit.name}");
             return True
@@ -182,9 +211,7 @@ def _attempt_equip_item(
     return False
 
 
-def _attempt_unequip_item(
-    player: Player, item_info: SelectedItemInfo, target_inv_idx: int
-) -> bool:
+def _attempt_unequip_item(player: Player, item_info: SelectedItemInfo) -> bool:
     from states.enums import UnitLocation  # Local import
 
     start_loc, unit_info, item = item_info
@@ -200,28 +227,8 @@ def _attempt_unequip_item(
             break
     if item_equipped_idx == -1:
         return False
-    # Check inventory index bounds
-    if not (0 <= target_inv_idx < len(player.item_inventory)):
-        return False
-    target_item = player.item_inventory[target_inv_idx]
-    if target_item:  # Swap logic
-        num_other_combined = sum(
-            1
-            for it in unit.equipped_items
-            if it and it.type == "COMBINED" and it.id != item.id
-        )
-        if item.item_type == "COMBINED" and target_item.item_type == "COMBINED":
-            print("DEBUG: Cannot swap two combined items")
-            return False
-        if (
-            target_item.item_type == "COMBINED"
-            and num_other_combined >= MAX_COMBINED_ITEMS
-        ):
-            print("DEBUG: Swap failed, max combined items reached")
-            return False
-    # Perform swap or move
-    player.item_inventory[target_inv_idx] = item
-    unit.equipped_items[item_equipped_idx] = target_item
+    player.item_inventory.append(item)
+    unit.equipped_items[item_equipped_idx] = None
     unit._recalculate_stats(0)
     # print(f"DEBUG: Unequipped/Swapped {item.name} from {unit.name} to inventory {target_inv_idx}");
     return True

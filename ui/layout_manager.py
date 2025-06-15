@@ -55,6 +55,12 @@ class LayoutManager:
             150,
             ui_c.BUTTON_HEIGHT,
         )
+        self.warehouse_button_rect = pg.Rect(
+            ui_c.SHOP_X_START,
+            ui_c.WAREHOUSE_Y - ui_c.BUTTON_HEIGHT - 10,
+            150,
+            ui_c.BUTTON_HEIGHT,
+        )
         self.stats_toggle_button_rect = pg.Rect(
             ui_c.SCREEN_WIDTH - 60,
             ui_c.SCREEN_HEIGHT // 2 - 20,
@@ -148,8 +154,8 @@ class LayoutManager:
         self.map_y_start = ui_c.MAP_Y_START
         self.shop_x_start = ui_c.SHOP_X_START
         self.shop_y = ui_c.SHOP_Y
-        self.inventory_x_start = ui_c.INVENTORY_X_START
-        self.inventory_y = ui_c.INVENTORY_Y
+        self.inventory_x_start = self.shop_x_start
+        self.inventory_y = ui_c.WAREHOUSE_Y
         self.combat_arena_rect = pg.Rect(
             ui_c.COMBAT_ARENA_X,
             ui_c.COMBAT_ARENA_Y,

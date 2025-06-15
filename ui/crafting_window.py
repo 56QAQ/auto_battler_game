@@ -104,14 +104,11 @@ class CraftingWindow:
         player = self.state.player
         if not (0 <= index < len(player.item_inventory)):
             return
-        item = player.item_inventory[index]
-        if not item:
-            return
+        item = player.item_inventory.pop(index)
         refund = dismantle(item)
         if refund:
             for k, v in refund.items():
                 player.materials[k] = player.materials.get(k, 0) + v
-        player.item_inventory[index] = None
 
     # ------------ draw ---------------- #
     def draw(self):

@@ -11,33 +11,66 @@ from collections import defaultdict, deque
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple
 
 from ai.behaviors import BehaviorContext  # NEW
-from data.constants import (ATTACK_ANIM_DURATION, ATTACK_LUNGE_ANGLE,
-                            BOSS_NODES, CAST_ANIM_DURATION,
-                            DEATH_ANIM_DURATION, DEFAULT_MOVE_SPEED,
-                            FLOATER_LIFESPAN, FLOATER_SPEED, HARD_NODES,
-                            HEAL_ANIM_DURATION, HIT_ANIM_DURATION,
-                            HIT_RECOIL_ANGLE, IDLE_WOBBLE_ANGLE,
-                            IDLE_WOBBLE_SPEED, LEVEL_PROBABILITIES, MAP_DEPTH,
-                            MAX_ITEMS_EQUIPPED, MAX_LEVEL, MEDIUM_NODES,
-                            NODE_TYPE_DISTRIBUTION, NODES_PER_LAYER,
-                            PROJECTILE_SPEED, RARITY_COST, RARITY_ORDER,
-                            STARTING_HEALTH, UNIT_POOL_SIZE_MULTIPLIER,
-                            XP_PER_LEVEL)
+from data.constants import (
+    ATTACK_ANIM_DURATION,
+    ATTACK_LUNGE_ANGLE,
+    BOSS_NODES,
+    CAST_ANIM_DURATION,
+    DEATH_ANIM_DURATION,
+    DEFAULT_MOVE_SPEED,
+    FLOATER_LIFESPAN,
+    FLOATER_SPEED,
+    HARD_NODES,
+    HEAL_ANIM_DURATION,
+    HIT_ANIM_DURATION,
+    HIT_RECOIL_ANGLE,
+    IDLE_WOBBLE_ANGLE,
+    IDLE_WOBBLE_SPEED,
+    LEVEL_PROBABILITIES,
+    MAP_DEPTH,
+    MAX_ITEMS_EQUIPPED,
+    MAX_LEVEL,
+    MEDIUM_NODES,
+    NODE_TYPE_DISTRIBUTION,
+    NODES_PER_LAYER,
+    PROJECTILE_SPEED,
+    RARITY_COST,
+    RARITY_ORDER,
+    STARTING_HEALTH,
+    UNIT_POOL_SIZE_MULTIPLIER,
+    XP_PER_LEVEL,
+)
+
 # Data imports
-from data.definitions import (ARTIFACT_DEFINITIONS, ITEM_DEFINITIONS,
-                              UNIT_DEFINITIONS)
+from data.definitions import ARTIFACT_DEFINITIONS, ITEM_DEFINITIONS, UNIT_DEFINITIONS
 # 新增 DamageSource
-from data.enums import (AbilityEffect, Color, DamageSource, DamageType,
-                        ItemType, TriggerTiming,TriggerTarget)
+from data.enums import (
+    AbilityEffect,
+    Color,
+    DamageSource,
+    DamageType,
+    ItemType,
+    TriggerTarget,
+    TriggerTiming,
+)
+
 # Engine imports
 from engine.enums import AnimationState, EffectType, RemoveReason
 from engine.status_effects import StackRule, StatModifierEffect, StatusEffect
 # from engine.utils import clamp, lerp, normalize_vector
 # UI Constants used for positioning/size - ideally pass these in, but for now:
-from ui.constants import (BENCH_SLOTS, BOARD_COLS, BOARD_ROWS,
-                          COMBAT_UNIT_RADIUS, MAP_HEIGHT, MAP_NODE_RADIUS,
-                          MAP_WIDTH, MAP_X_START, MAP_Y_START,
-                          MAX_ITEMS_INVENTORY, SHOP_SLOTS)
+from ui.constants import (
+    BENCH_SLOTS,
+    BOARD_COLS,
+    BOARD_ROWS,
+    COMBAT_UNIT_RADIUS,
+    MAP_HEIGHT,
+    MAP_NODE_RADIUS,
+    MAP_WIDTH,
+    MAP_X_START,
+    MAP_Y_START,
+    SHOP_SLOTS,
+)
 
 # Conditional type import to avoid circular dependency
 if TYPE_CHECKING:
@@ -1258,7 +1291,7 @@ class Player:
         self.bench: List[Optional[Unit]] = [None] * BENCH_SLOTS
         self.board: Dict[Tuple[int, int], Optional[Unit]] = {}
         self.active_synergies: "SynergyStatus" = {}
-        self.item_inventory: List[Optional[Item]] = [None] * MAX_ITEMS_INVENTORY
+        self.item_inventory: List[Item] = []
         self.artifacts: List[Artifact] = []
         self._init_board()
 

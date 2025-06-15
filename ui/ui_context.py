@@ -39,6 +39,7 @@ class UIContext:
         self.craft_button_rect = layout.craft_button_rect
         self.stats_toggle_button_rect = layout.stats_toggle_button_rect
         self.sell_area_rect = layout.sell_area_rect
+        self.warehouse_button_rect = layout.warehouse_button_rect
         self.start_menu_button_rect = layout.start_menu_button_rect
         self.restart_button_rect = layout.restart_button_rect
         self.main_menu_button_rect = layout.main_menu_button_rect
@@ -72,6 +73,7 @@ class UIContext:
         self.details_window = None
         self.crafting_window = None
         self.stats_panel = None
+        self.warehouse_panel = None
     def map_color(self, color_key: Optional[str]) -> Tuple[int, int, int]:
         # FIX: Handle None key
         if not color_key:
@@ -120,14 +122,8 @@ class UIContext:
                     ui_c.SLOT_SIZE,
                     ui_c.SLOT_SIZE,
                 )
-            elif location == UnitLocation.INVENTORY:
-                return pygame.Rect(
-                    ui_c.INVENTORY_X_START
-                    + index * (ui_c.ITEM_SLOT_SIZE + ui_c.SLOT_MARGIN),
-                    ui_c.INVENTORY_Y,
-                    ui_c.ITEM_SLOT_SIZE,
-                    ui_c.ITEM_SLOT_SIZE,
-                )
+            elif location == UnitLocation.INVENTORY and self.warehouse_panel:
+                return self.warehouse_panel.get_item_rect(index)
             elif location == UnitLocation.EQUIPPED and base_rect:
                 # FIX: Item placement relative to unit rect
                 item_x = (

@@ -565,22 +565,15 @@ def draw_preparation_phase(state: GameState, context: UIContext):
         )
 
     # Item Inventory
-    draw_text(
+    draw_button(
         context,
-        "ITEMS:",
-        (context.inventory_x_start, context.inventory_y - 20),
-        "default",
-        ITEM_COLOR,
+        context.warehouse_button_rect,
+        "Warehouse",
+        "small",
+        context.hovered_button_rect == context.warehouse_button_rect,
     )
-    for i in range(len(player.item_inventory)):
-        rect = context.get_slot_rect(UnitLocation.INVENTORY, i)
-        item = player.item_inventory[i]
-        is_selected = (
-            selected_item_info is not None
-            and selected_item_info[0] == UnitLocation.INVENTORY
-            and selected_item_info[1] == i
-        )
-        draw_item_prep(context, rect, item, is_selected)
+    if context.warehouse_panel:
+        context.warehouse_panel.draw()
 
     # Board grid and bench background
     board_w = BOARD_COLS * (SLOT_SIZE + SLOT_MARGIN) - SLOT_MARGIN

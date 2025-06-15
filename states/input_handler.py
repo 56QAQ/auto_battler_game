@@ -53,10 +53,11 @@ def get_clicked_object_info(
     player = state.player
     shop = state.shop
     # Check items first (higher z-order)
-    for i in range(len(player.item_inventory)):
-        rect = context.get_slot_rect(UnitLocation.INVENTORY, i)
-        if rect and rect.collidepoint(pos):
-            return (UnitLocation.INVENTORY, i, player.item_inventory[i])
+    if context.warehouse_panel:
+        for i in range(len(player.item_inventory)):
+            rect = context.get_slot_rect(UnitLocation.INVENTORY, i)
+            if rect and rect.collidepoint(pos):
+                return (UnitLocation.INVENTORY, i, player.item_inventory[i])
 
     # Check equipped items on hovered/selected unit
     unit_to_check_info = None
@@ -156,7 +157,9 @@ def handle_game_event(
     if context.stats_panel:
         if context.stats_panel.handle_event(event):
             return None
-
+    if context.warehouse_panel:
+        if context.warehouse_panel.handle_event(event):
+            return None
     if event.type == pygame.MOUSEMOTION:
         pos = event.pos
         # -------- 若正在拖拽，更新并短路其余 Hover 逻辑 -------- #
@@ -179,6 +182,10 @@ def handle_game_event(
             and context.stats_toggle_button_rect.collidepoint(pos)
         ):
             context.hovered_button_rect = context.stats_toggle_button_rect
+    if context.warehouse_panel:
+        pos = event.pos
+        if context.warehouse_panel.handle_event(event):
+            return None
         # Phase-specific motion handling
         elif (
             state.current_phase == GamePhase.MAIN_MENU
@@ -393,7 +400,18 @@ def handle_game_event(
             else:
                 context.stats_panel = StatsPanel(state, context)
             return None
+        if (
+            is_left
+            and context.warehouse_button_rect
+            and context.warehouse_button_rect.collidepoint(pos)
+        ):
+            if context.warehouse_panel:
+                context.warehouse_panel = None
+            else:
+                from ui.warehouse_panel import WarehousePanel
 
+                context.warehouse_panel = WarehousePanel(state, context)
+            return None
         if state.current_phase == GamePhase.MAIN_MENU:
             if (
                 is_left
@@ -610,9 +628,7 @@ def handle_game_event(
                         # Unequip item (from unit slot -> inventory slot, or swap)
                         elif loc == UnitLocation.INVENTORY:
                             if context.selected_item_info[0] == UnitLocation.EQUIPPED:
-                                attempt_unequip_item(
-                                    player, context.selected_item_info, idx
-                                )
+                                attempt_unequip_item(player, context.selected_item_info)
                         # Equip item (from inventory -> empty item slot on unit)
                         elif loc == UnitLocation.EQUIPPED and obj is None:
                             unit_info = (
@@ -710,9 +726,7 @@ def handle_game_event(
                     and target_info[0] == UnitLocation.INVENTORY
                     and loc0 == UnitLocation.EQUIPPED
                 ):
-                    attempt_unequip_item(
-                        state.player, (loc0, idx0, obj0), target_info[1]
-                    )
+                    attempt_unequip_item(state.player, (loc0, idx0, obj0))
 
             # 拖拽结束，清理 hover/selection
             context.clear_selection()
