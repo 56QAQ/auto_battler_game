@@ -24,6 +24,7 @@ from ui.layout_manager import LayoutManager
 
 # State Transition Functions
 def go_to_main_menu(state: GameState):
+    UIContext.warehouse_panel = None
     state.current_phase = GamePhase.MAIN_MENU
 
 
@@ -33,11 +34,13 @@ def start_new_run(state: GameState, difficulty_level: str | None = None):
     if difficulty_level is None:
         difficulty_level = getattr(state, "difficulty_level", "medium")
     reset_game_state(difficulty_level)
+    UIContext.warehouse_panel = None
     return get_game_state()
 
 
 def start_combat(state: GameState, enemy_team_data: List[Dict]):
     print("\n--- COMBAT START ---")
+    UIContext.warehouse_panel = None
     state.combat_stats.reset()
     state.current_phase = GamePhase.COMBAT
     state.combat_timer = 0
@@ -81,6 +84,7 @@ def end_combat(
     print(
         f"--- COMBAT END: Player {'WON' if player_won else 'LOST'} ({state.combat_timer:.1f}s / {MAX_COMBAT_DURATION}) {'OVERTIME' if overtime_loss else ''}---"
     )
+    UIContext.warehouse_panel = None
     remove_synergy_buffs(state.player.get_board_units())
     update_player_synergies(state.player)
     state.player_combat_team = []
@@ -127,6 +131,7 @@ def end_combat(
 
 
 def go_to_map(state: GameState):
+    UIContext.warehouse_panel = None
     current_node = state.game_map.get_node(state.current_node_id)
     if current_node and not current_node.completed:
         current_node.completed = True
@@ -136,6 +141,7 @@ def go_to_map(state: GameState):
 
 def setup_event_choice(state: GameState, context: UIContext):
     print("\n--- ENTER EVENT PHASE ---")
+    UIContext.warehouse_panel = None
     state.current_phase = GamePhase.EVENT_CHOICE
     state.event_choices = []
     player = state.player
@@ -215,7 +221,7 @@ def run_preparation_phase(
     if node_type == "EVENT":
         setup_event_choice(state, context)
         return
-
+    UIContext.warehouse_panel = None
     print(f"\n--- ENTER PREPARATION PHASE (Node: {node_type}) ---")
     state.current_phase = GamePhase.PREPARATION
     state.shop.refresh(state.player.level)
@@ -249,6 +255,7 @@ def run_preparation_phase(
 
 
 def navigate_map(state: GameState, context: UIContext, target_node_id: int):
+    UIContext.warehouse_panel = None
     current_node = state.game_map.get_node(state.current_node_id)
     target_node = state.game_map.get_node(target_node_id)
     if target_node and (
@@ -280,11 +287,13 @@ def navigate_map(state: GameState, context: UIContext, target_node_id: int):
 
 
 def open_settings(state: GameState):
+    UIContext.warehouse_panel = None
     state.previous_phase = state.current_phase
     state.current_phase = GamePhase.SETTINGS
 
 
 def close_settings(state: GameState):
+    UIContext.warehouse_panel = None
     if state.previous_phase is not None:
         state.current_phase = state.previous_phase
     else:
@@ -296,6 +305,7 @@ def change_volume(state: GameState, delta: float):
 
 
 def cycle_resolution(state: GameState, context: UIContext):
+    UIContext.warehouse_panel = None
     state.resolution_index = (state.resolution_index + 1) % len(
         state.resolution_options
     )

@@ -90,6 +90,7 @@ NODE_TYPE_DISTRIBUTION: Dict[str, float] = {
     "EVENT": 0.2,
     "BOSS": 0.0,
 }
+NODE_REWARDS: List[str] = ["BOSS_1", "BOSS_2"]
 BOSS_NODES: List[str] = ["BOSS_1", "BOSS_2"]
 MEDIUM_NODES: List[str] = ["MEDIUM_1", "MEDIUM_2"]
 HARD_NODES: List[str] = ["HARD_1"]
