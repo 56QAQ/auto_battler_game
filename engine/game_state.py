@@ -72,6 +72,8 @@ class GameState:
         self.chosen_themes: list[str] = []
         self.current_theme: str | None = None
         self.enemy_combat_team_data_cache: List[Dict] = []
+        self.enemy_preview_units: List[Unit] = []
+        self.enemy_preview_positions: List[tuple[int, int]] = []
         self.event_choices: List[EventChoice] = []
         self.combat_stats = CombatStats()
         # Button rects belong in UI/States, not engine state.

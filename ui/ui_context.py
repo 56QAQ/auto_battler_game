@@ -180,6 +180,14 @@ class UIContext:
                     ui_c.SLOT_SIZE,
                     ui_c.SLOT_SIZE,
                 )
+            elif location == UnitLocation.PREVIEW:
+                row, col = index
+                return pygame.Rect(
+                    ui_c.BOARD_X_START + col * (ui_c.SLOT_SIZE + ui_c.SLOT_MARGIN),
+                    ui_c.PREVIEW_Y_START + row * (ui_c.SLOT_SIZE + ui_c.SLOT_MARGIN),
+                    ui_c.SLOT_SIZE,
+                    ui_c.SLOT_SIZE,
+                )
             elif location == UnitLocation.SHOP:
                 return pygame.Rect(
                     ui_c.SHOP_X_START + index * (ui_c.SLOT_SIZE + ui_c.SLOT_MARGIN),

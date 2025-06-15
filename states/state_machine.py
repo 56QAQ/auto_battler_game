@@ -223,6 +223,8 @@ def run_preparation_phase(
     state.current_node_type = node_type
     update_player_synergies(state.player)
     context.clear_selection()  # Clear UI selection
+    state.enemy_preview_units = []
+    state.enemy_preview_positions = []
     current_node = state.game_map.get_node(state.current_node_id)
 
     if node_type == "SHOP":
@@ -236,6 +238,12 @@ def run_preparation_phase(
             f"{node_type}: Prepare for battle against {enemy_count} foes!"
         )
         state.enemy_combat_team_data_cache = enemy_team_data
+        from engine.logic import create_enemy_units, calculate_enemy_positions
+
+        state.enemy_preview_units = create_enemy_units(enemy_team_data or [], state)
+        state.enemy_preview_positions = calculate_enemy_positions(
+            state.enemy_preview_units
+        )
     else:
         state.prepare_ui_message = "Prepare your team."
 

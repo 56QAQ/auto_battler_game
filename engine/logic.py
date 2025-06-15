@@ -939,6 +939,21 @@ def setup_combat_team(player: Player, is_enemy: bool) -> List[Unit]:
             team.append(combat_unit)
     return team
 
+def calculate_enemy_positions(enemy_units: List[Unit]) -> list[tuple[int, int]]:
+    """Return board positions for enemy preview and spawning."""
+    positions: list[tuple[int, int]] = []
+    front_row_idx = 0
+    back_row_idx = 0
+    for unit in enemy_units:
+        is_melee = unit.current_stats.get("range", 50) < 80
+        row = BOARD_ROWS - 1 if is_melee else 0
+        col = front_row_idx if is_melee else back_row_idx
+        if is_melee:
+            front_row_idx = (front_row_idx + 1) % BOARD_COLS
+        else:
+            back_row_idx = (back_row_idx + 1) % BOARD_COLS
+        positions.append((row, col))
+    return positions
 
 def setup_enemy_combat_team(enemy_units: List[Unit]) -> List[Unit]:
     team = []
@@ -950,21 +965,10 @@ def setup_enemy_combat_team(enemy_units: List[Unit]) -> List[Unit]:
     )
     if not enemy_units:
         return []
-    front_row_idx = 0
-    back_row_idx = 0
-    for i, unit in enumerate(enemy_units):
+    positions = calculate_enemy_positions(enemy_units)
+    for unit, (row, col) in zip(enemy_units, positions):
         combat_unit = copy.deepcopy(unit)
         combat_unit.reset_combat_state()
-        # FIX: Use .get for range
-        is_melee = combat_unit.current_stats.get("range", 50) < 80
-        # FIX: place enemies correctly relative to y_base (which is their 'bottom')
-        row = BOARD_ROWS - 1 if is_melee else 0  # Row 0 is 'back' row for enemies
-        col = front_row_idx if is_melee else back_row_idx
-        # FIX: ensure indices don't exceed board cols
-        if is_melee:
-            front_row_idx = (front_row_idx + 1) % BOARD_COLS
-        else:
-            back_row_idx = (back_row_idx + 1) % BOARD_COLS
         # FIX: Center unit in slot
         combat_unit.x = x_base + col * (SLOT_SIZE + SLOT_MARGIN) + SLOT_SIZE / 2.0
         combat_unit.y = y_base + row * (SLOT_SIZE + SLOT_MARGIN) + SLOT_SIZE / 2.0

@@ -20,3 +20,4 @@ class UnitLocation(Enum):
     SHOP = auto()
     INVENTORY = auto()  # For items
     EQUIPPED = auto()  # For items
+    PREVIEW = auto()

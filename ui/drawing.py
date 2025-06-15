@@ -27,6 +27,7 @@ from ui.constants import (
     BOARD_ROWS,
     BOARD_X_START,
     BOARD_Y_START,
+    PREVIEW_Y_START,
     BUTTON_ACTIVE,
     BUTTON_BG,
     BUTTON_DISABLED,
@@ -589,6 +590,18 @@ def draw_preparation_phase(state: GameState, context: UIContext):
         for c in range(BOARD_COLS):
             cell_rect = context.get_slot_rect(UnitLocation.BOARD, (r, c))
             pygame.draw.rect(context.screen, GRID_LINE, cell_rect, 1)
+    preview_rect = pygame.Rect(BOARD_X_START, PREVIEW_Y_START, board_w, board_h)
+    pygame.draw.rect(context.screen, LIGHT_GRAY, preview_rect, 1)
+    for r in range(BOARD_ROWS):
+        for c in range(BOARD_COLS):
+            cell_rect = context.get_slot_rect(UnitLocation.PREVIEW, (r, c))
+            pygame.draw.rect(context.screen, GRID_LINE, cell_rect, 1)
+
+    for unit, (row, col) in zip(
+        state.enemy_preview_units, state.enemy_preview_positions
+    ):
+        rect = context.get_slot_rect(UnitLocation.PREVIEW, (row, col))
+        draw_unit_prep(context, rect, unit, False)
 
     bench_w = BENCH_SLOTS * (SLOT_SIZE + SLOT_MARGIN) - SLOT_MARGIN
     bench_rect = pygame.Rect(BENCH_X_START, BENCH_Y, bench_w, SLOT_SIZE)

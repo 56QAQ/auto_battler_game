@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Optional, Tuple
-
+from ui.constants import ITEM_SLOT_SIZE, SLOT_SIZE
 import pygame
 
 from states.enums import UnitLocation
@@ -42,8 +42,12 @@ class DragManager:
         size = (48, 48)
         surf = pygame.Surface(size, pygame.SRCALPHA)
         if loc in [UnitLocation.BOARD, UnitLocation.BENCH, UnitLocation.SHOP]:
+            size = (SLOT_SIZE - 2, SLOT_SIZE - 2)
+            surf = pygame.Surface(size, pygame.SRCALPHA)
             surf.blit(self.ctx.get_unit_image(obj.name, size), (0, 0))
         else:  # inventory / equipped
+            size = (ITEM_SLOT_SIZE - 2, ITEM_SLOT_SIZE - 2)
+            surf = pygame.Surface(size, pygame.SRCALPHA)
             surf.blit(self.ctx.get_item_image(obj.name, size), (0, 0))
         pygame.draw.rect(surf, (250, 250, 250), surf.get_rect(), 1)
         self.preview = surf
