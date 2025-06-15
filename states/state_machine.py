@@ -20,7 +20,7 @@ from states.enums import GamePhase
 from ui.constants import (EVENT_BUTTON_HEIGHT, EVENT_BUTTON_WIDTH,
                           EVENT_CHOICE_RECT)
 from ui.ui_context import UIContext
-
+from ui.layout_manager import LayoutManager
 
 # State Transition Functions
 def go_to_main_menu(state: GameState):
@@ -303,7 +303,14 @@ def cycle_resolution(state: GameState, context: UIContext):
     import ui.constants as ui_c
     from ui.fonts import load_fonts
 
-    ui_c.update_resolution(width, height)
+    layout = LayoutManager(width, height)
+    state.game_map.rescale(
+        ui_c.MAP_WIDTH,
+        ui_c.MAP_HEIGHT,
+        ui_c.MAP_X_START,
+        ui_c.MAP_Y_START,
+        ui_c.MAP_NODE_RADIUS,
+    )
     state.game_map.rescale(
         ui_c.MAP_WIDTH,
         ui_c.MAP_HEIGHT,
@@ -313,4 +320,4 @@ def cycle_resolution(state: GameState, context: UIContext):
     )
     screen = pygame.display.set_mode((width, height))
     fonts = load_fonts()
-    context.rebuild(screen, fonts)
+    context.rebuild(screen, fonts, layout)

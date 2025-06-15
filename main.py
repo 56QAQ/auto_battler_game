@@ -24,6 +24,7 @@ from ui.drawing import (
     draw_theme_select,
 )
 from ui.fonts import load_fonts
+from ui.layout_manager import LayoutManager
 from ui.ui_context import UIContext
 
 
@@ -31,7 +32,7 @@ def main():
     pygame.init()
     state = get_game_state()  # Initialize the global state
     width, height = state.resolution_options[state.resolution_index]
-    ui_c.update_resolution(width, height)
+    layout = LayoutManager(width, height)
     state.game_map.rescale(
         ui_c.MAP_WIDTH,
         ui_c.MAP_HEIGHT,
@@ -44,7 +45,7 @@ def main():
     clock = pygame.time.Clock()
 
     fonts = load_fonts()
-    context = UIContext(screen, fonts)
+    context = UIContext(screen, fonts, layout)
     go_to_main_menu(state)  # Set the first phase
 
     running = True
