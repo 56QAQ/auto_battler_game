@@ -1,11 +1,12 @@
 # data/definitions.py
 from typing import List, Dict, Any, Tuple, Optional
-from data.enums import TriggerTiming, TriggerTarget, StatSource, AbilityEffect, DamageType
+from data.enums import TriggerTiming, TriggerTarget, StatSource, AbilityEffect, DamageType, Color
 
 # Stats: HP, AD, AS, AP, Armor, MR, Range (pixels)
 UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
     "Clockwork Soldier": {
         "rarity": "COMMON",
+        "primary_color": Color.RED,
         "traits": ["Automaton", "Defender"],
         "base_stats": {"hp": 600, "ad": 50, "as": 0.6, "ap": 0, "armor": 40, "mr": 40, "range": 50},
         "trigger": {
@@ -22,9 +23,14 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
             "base_value_multiplier": 0.0,
             "base_value_flat": 0,
             "ability": {
-                "name": "Fortitude",
-                "effect_type": AbilityEffect.HEAL,
-                "effect_data": {"scale_factor": 0.0, "flat_value": 20},
+                "name": "Celerity",
+                "effect_type": AbilityEffect.APPLY_BUFF,
+                "effect_data": {
+                    "stat": "as",
+                    "value": 10,
+                    "duration": None,
+                    "is_percent": True,
+                },
             },
         },
     },
@@ -96,6 +102,18 @@ SYNERGY_DEFINITIONS: Dict[str, Dict[str, Any]] = {
       "Scavenger": { "description": "Scavengers find gold.", "thresholds": [2], "effects": [{"gold_chance": 0.2, "gold": 1}], "targets": "TRAIT", "type": "ECONOMY" },
       "Vermin": { "description": "Enemy units.", "thresholds": [1], "effects": [{}], "targets": "TRAIT", "type": "STAT_BOOST" },
       "Boss": { "description": "Boss unit.", "thresholds": [1], "effects": [{"hp": 500, "ad": 20}], "targets": "TRAIT", "type": "STAT_BOOST" },
+     "Red": {
+        "description": "红色提供物理攻击，并在高等级时增幅暴击。",
+        "thresholds": [2, 4, 6, 9],
+        "effects": [
+            {"ad": 20},
+            {"ad": 40, "critical_chance": 5, "critical_damage": 10},
+            {"ad": 90, "critical_chance": 10, "critical_damage": 20},
+            {"ad": 270, "critical_chance": 30, "critical_damage": 60},
+        ],
+        "targets": "ALL_ALLIES",
+        "type": "STAT_BOOST",
+    },
 }
 
 ENEMY_TEAM_DEFINITIONS: Dict[str, List[Dict[str, Any]]] = {

@@ -384,6 +384,9 @@ def calculate_active_synergies(player: Player) -> "SynergyStatus":
         for trait in unit.traits:
             trait_counts[trait] += 1
             contributing_units[trait].append(name)
+        color_trait = unit.primary_color.name.title()
+        trait_counts[color_trait] += 1
+        contributing_units[color_trait].append(name)
     all_present_traits = sorted(list(trait_counts.keys()))
     for trait in all_present_traits:
         if trait in SYNERGY_DEFINITIONS:
