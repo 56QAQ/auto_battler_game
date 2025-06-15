@@ -303,25 +303,26 @@ def handle_game_event(
                     # Logic to find which synergy is hovered
                     pass  # Simplified for now
     elif state.current_phase == GamePhase.MAP_NAVIGATION:
-            clicked_info = get_clicked_object_info(pos, state, context)
-            if not clicked_info:
-                for idx, art in enumerate(state.player.artifacts):
-                    rect = context.get_artifact_rect(idx)
-                    if rect and rect.collidepoint(pos):
-                        context.hovered_rect = rect
-                        state.hovered_info = f"{art.name}\n{art.description}"
-                        break
-            for node in state.game_map.nodes.values():
-                if node and node.collidepoint(pos):
-                    context.hovered_rect = pygame.Rect(
-                        node.x - node.radius,
-                        node.y - node.radius,
-                        node.radius * 2,
-                        node.radius * 2,
-                    )
-                    rewards = NODE_REWARDS.get(node.node_type, {})
-                    state.hovered_info = f"Node {node.node_id}: {node.node_type}\n{node.enemy_team_key or ''}"
+        clicked_info = get_clicked_object_info(pos, state, context)
+        if not clicked_info:
+            for idx, art in enumerate(state.player.artifacts):
+                rect = context.get_artifact_rect(idx)
+                if rect and rect.collidepoint(pos):
+                    context.hovered_rect = rect
+                    state.hovered_info = f"{art.name}\n{art.description}"
                     break
+        for node in state.game_map.nodes.values():
+            if node and node.collidepoint(pos):
+                context.hovered_rect = pygame.Rect(
+                    node.x - node.radius,
+                    node.y - node.radius,
+                    node.radius * 2,
+                    node.radius * 2,
+                )
+                state.hovered_info = (
+                    f"Node {node.node_id}: {node.node_type}\n{node.enemy_team_key or ''}"
+                )
+                break
     elif state.current_phase == GamePhase.COMBAT:
         all_combat_units = []
         if state.player_combat_team:
