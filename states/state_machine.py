@@ -38,6 +38,7 @@ def start_new_run(state: GameState, difficulty_level: str | None = None):
 
 def start_combat(state: GameState, enemy_team_data: List[Dict]):
     print("\n--- COMBAT START ---")
+    state.combat_stats.reset()
     state.current_phase = GamePhase.COMBAT
     state.combat_timer = 0
     state.overtime_damage_timer = 0
