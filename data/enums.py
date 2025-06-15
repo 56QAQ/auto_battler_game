@@ -14,6 +14,7 @@ class TriggerTiming(Enum):
     ON_HEAL = auto()
     ON_HEALED = auto()
     ON_SHIELD_BROKEN = auto()
+    ON_ANY_DEATH = auto()
 class TriggerTarget(Enum):
     ATTACK_TARGET = auto()  # Requires event_target
     NEAREST_ENEMY = auto()
@@ -37,7 +38,7 @@ class AbilityEffect(Enum):
     DEAL_DAMAGE = auto()
     APPLY_BUFF = auto()  # or debuff
     HEAL = auto()
-
+    APPLY_DOT = auto()
 
 class DamageType(Enum):
     PHYSICAL = "physical"

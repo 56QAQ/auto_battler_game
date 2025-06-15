@@ -320,6 +320,7 @@ class Unit:
         self.behavior = BehaviorContext(self)  # smart‑AI wrapper
         self.behavior = BehaviorContext(self)  # smart‑AI wrapper
         self._blocked_time: float = 0.0  # for targeting helper
+        self.trigger_counts: dict[TriggerTiming, int] = defaultdict(int)
         # Last pos for stuck detection handled by BehaviorContext
 
     def __repr__(self):
@@ -540,6 +541,7 @@ class Unit:
 
     def reset_combat_state(self):
         self.remove_all_buffs()
+        self.trigger_counts.clear()
         self._recalculate_stats(0)
         self.current_hp = self.current_stats.get("hp", 1)  # Use .get
         self.target = None
@@ -871,6 +873,42 @@ class Unit:
                     resolve_passive_func(
                         self, TriggerTiming.ON_DEATH, state, event_target=source
                     )
+                living = [
+                    u
+                    for u in state.player_combat_team + state.enemy_combat_team
+                    if u.is_alive
+                ]
+                target_unit = None
+                if living:
+                    target_unit = max(
+                        living,
+                        key=lambda u: u.current_hp
+                        / max(u.current_stats.get("hp", 1), 1),
+                    )
+                for u in living:
+                    if (
+                        u.trigger
+                        and u.trigger.get("timing_type") == TriggerTiming.ON_ANY_DEATH
+                    ):
+                        count = u.trigger_counts[TriggerTiming.ON_ANY_DEATH]
+                        state.queue_trigger(
+                            u,
+                            TriggerTiming.ON_ANY_DEATH,
+                            event_target=target_unit,
+                            data={"value": 100 * count},
+                        )
+                        u.trigger_counts[TriggerTiming.ON_ANY_DEATH] += 1
+                    if (
+                        u.passive
+                        and u.passive.get("timing_type") == TriggerTiming.ON_ANY_DEATH
+                        and resolve_passive_func
+                    ):
+                        resolve_passive_func(
+                            u,
+                            TriggerTiming.ON_ANY_DEATH,
+                            state,
+                            event_target=target_unit,
+                        )
         return effective_damage
 
     def apply_lifesteal(

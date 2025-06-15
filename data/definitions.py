@@ -209,6 +209,7 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
     },
     "Alchemist": {
         "rarity": "UNCOMMON",
+        "primary_color": Color.CYAN,
         "traits": ["Scavenger", "Mystic"],
         "base_stats": {
             "hp": 600,
@@ -220,11 +221,30 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
             "range": 120,
         },
         "trigger": {
-            "timing_type": TriggerTiming.ON_HIT,
-            "target_type": TriggerTarget.ATTACK_TARGET,
-            "base_value_source": StatSource.AP,
-            "base_value_multiplier": 1.5,
+            "timing_type": TriggerTiming.ON_ANY_DEATH,
+            "target_type": TriggerTarget.EVENT_TARGETS,
+            "base_value_source": StatSource.EVENT,
+            "event_key": "value",
+            "base_value_multiplier": 1.0,
             "base_value_flat": 0,
+        },
+        "passive": {
+            "timing_type": TriggerTiming.ON_ANY_DEATH,
+            "target_type": TriggerTarget.EVENT_TARGETS,
+            "base_value_source": StatSource.FLAT,
+            "base_value_multiplier": 0.0,
+            "base_value_flat": 0,
+            "ability": {
+                "name": "Toxic Gift",
+                "effect_type": AbilityEffect.APPLY_BUFF,
+                "effect_data": {
+                    "stat": "percentage_damage_bonus",
+                    "value": 20,
+                    "duration": None,
+                    "is_percent": True,
+                    "dot": 50,
+                },
+            },
         },
     },
     "Cogsworth": {
@@ -552,6 +572,17 @@ SYNERGY_DEFINITIONS: Dict[str, Dict[str, Any]] = {
         ],
         "targets": "ALL_ALLIES",
         "type": "STAT_BOOST",
+    },
+    "Cyan": {
+        "description": "Cyan units grant regeneration and evasion.",
+        "thresholds": [2, 3, 4],
+        "effects": [
+            {"regen": 20, "dodge_chance": 20},
+            {"regen": 80, "dodge_chance": 30},
+            {"regen": 200, "dodge_chance": 40},
+        ],
+        "targets": "ALL_ALLIES",
+        "type": "ABILITY",
     },
 }
 

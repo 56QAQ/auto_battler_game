@@ -5,6 +5,7 @@ import copy
 import math
 import random
 from collections import defaultdict
+from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 # 新引入常量
@@ -361,6 +362,11 @@ def calculate_active_synergies(player: Player) -> "SynergyStatus":
             trait_counts[Color.BLUE.name.title()] += 1
             contributing_units[Color.RED.name.title()].append(name)
             contributing_units[Color.BLUE.name.title()].append(name)
+        if unit.primary_color == Color.CYAN:
+            trait_counts[Color.GREEN.name.title()] += 1
+            trait_counts[Color.BLUE.name.title()] += 1
+            contributing_units[Color.GREEN.name.title()].append(name)
+            contributing_units[Color.BLUE.name.title()].append(name)
     all_present_traits = sorted(list(trait_counts.keys()))
     for trait in all_present_traits:
         if trait in SYNERGY_DEFINITIONS:
@@ -422,6 +428,19 @@ def apply_synergy_buffs(
                     "SYNERGY_NOBLE",
                     False,
                 )
+        elif definition.get("type") == "ABILITY" and trait == "Cyan":
+            regen = buff.get("regen", 0)
+            dodge = buff.get("dodge_chance", 0)
+            from engine.status_effects import HealOverTime
+
+            for unit in team:
+                unit.apply_synergy_artifact_buff({"dodge_chance": dodge}, current_time)
+                if regen > 0:
+                    hot = HealOverTime(
+                        unit, "SYNERGY_CYAN", None, params={"heal": regen}
+                    )
+                    unit.add_status(hot)
+
 
 
 def apply_artifact_buffs(
@@ -636,7 +655,7 @@ def find_targets(
     source_unit: Unit,
     target_type: TriggerTarget,
     state: "GameState",
-    event_target: Optional[Unit],
+    event_target: Optional[Union[Unit, List[Unit]]],
 ) -> List[Unit]:
     # FIX: Check target_type is valid
     if not target_type:
@@ -668,12 +687,13 @@ def find_targets(
             else []
         )
     if target_type == TriggerTarget.EVENT_TARGETS:
-        targets = [
-            u
-            for u in (event_target or [])  # type: ignore[arg-type]
-            if hasattr(u, "is_alive") and u.is_alive
-        ]
-        return targets
+        if not event_target:
+            return []
+        if isinstance(event_target, Iterable) and not isinstance(event_target, Unit):
+            return [u for u in event_target if getattr(u, "is_alive", False)]
+        if getattr(event_target, "is_alive", False):
+            return [event_target]
+        return []
     if not alive_enemies:
         return []
     if target_type == TriggerTarget.NEAREST_ENEMY:
@@ -787,6 +807,16 @@ def execute_ability(
                     target.add_timed_buff(
                         stat, value, duration, current_time, source.id, is_percent
                     )
+                    if "dot" in data:
+                        from engine.status_effects import DamageOverTime
+
+                        dot = DamageOverTime(
+                            host=target,
+                            source_id=source.id,
+                            duration=duration,
+                            params={"damage": data["dot"], "dtype": DamageType.TRUE},
+                        )
+                        target.add_status(dot)
                     state.visual_effects.append(
                         VisualEffect(
                             EffectType.BUFF_AURA,
