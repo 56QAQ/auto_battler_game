@@ -351,6 +351,11 @@ def calculate_active_synergies(player: Player) -> "SynergyStatus":
         color_trait = unit.primary_color.name.title()
         trait_counts[color_trait] += 1
         contributing_units[color_trait].append(name)
+        if unit.primary_color == Color.YELLOW:
+            trait_counts[Color.RED.name.title()] += 1
+            trait_counts[Color.GREEN.name.title()] += 1
+            contributing_units[Color.RED.name.title()].append(name)
+            contributing_units[Color.GREEN.name.title()].append(name)
     all_present_traits = sorted(list(trait_counts.keys()))
     for trait in all_present_traits:
         if trait in SYNERGY_DEFINITIONS:
@@ -603,7 +608,9 @@ def handle_unit_placement(
     return move_occurred
 
 
-def calculate_base_value(unit: Unit, trigger: Dict) -> float:
+def calculate_base_value(
+    unit: Unit, trigger: Dict, event_data: Optional[dict[str, Any]] = None
+) -> float:
     if not trigger or "base_value_source" not in trigger:
         return 0.0  # FIX: check key
     source = trigger["base_value_source"]
@@ -613,6 +620,9 @@ def calculate_base_value(unit: Unit, trigger: Dict) -> float:
         return flat
     if source == StatSource.CURRENT_HP:
         return unit.current_hp * multiplier + flat
+    if source == StatSource.EVENT and event_data is not None:
+        key = trigger.get("event_key", "value")
+        return event_data.get(key, 0.0) * multiplier + flat
     stat_key = source.value
     return unit.current_stats.get(stat_key, 0) * multiplier + flat
 
@@ -835,7 +845,7 @@ def resolve_trigger(
     # The trigger defines the condition (timing, target, value source), the item defines the effect.
     if not items_with_abilities:
         return
-    base_value = calculate_base_value(unit, unit.trigger)
+    base_value = calculate_base_value(unit, unit.trigger, event_data)
     # FIX: Check 'target_type' exists
     if "target_type" not in unit.trigger:
         return

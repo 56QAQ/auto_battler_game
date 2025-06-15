@@ -208,7 +208,22 @@ class ShieldEffect(StatusEffect):
 
     name = "SHIELD"
     category = StatusCategory.SHIELD
-
+    def __init__(
+        self,
+        host: "Unit",
+        source_id: str,
+        duration: Optional[float] = None,
+        stacks: int = 1,
+        undispellable: bool = False,
+        stack_rule: StackRule = StackRule.UNLIMITED,
+        params: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(
+            host, source_id, duration, stacks, undispellable, stack_rule, params
+        )
+        self.params.setdefault("hp", 0.0)
+        self.params.setdefault("accumulated", self.params["hp"])
+        
     def intercept_incoming_damage(self, dmg: float) -> float:
         capacity = self.params.setdefault("hp", 0)
         if capacity <= 0:
@@ -220,3 +235,19 @@ class ShieldEffect(StatusEffect):
         if self.params["hp"] <= 0:
             self.host._queue_status_removal(self, RemoveReason.CUSTOM_TRIGGER)
         return dmg
+        return dmg
+
+    def on_remove(self, reason: RemoveReason) -> None:
+        if reason == RemoveReason.CUSTOM_TRIGGER:
+            from data.enums import TriggerTiming
+            from engine.game_state import get_game_state
+
+            state = get_game_state()
+            if state:
+                state.queue_trigger(
+                    self.host,
+                    TriggerTiming.ON_SHIELD_BROKEN,
+                    event_target=None,
+                    data={"shield": self.params.get("accumulated", 0.0)},
+                )
+        super().on_remove(reason)

@@ -142,6 +142,7 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
     },
     "Steam Knight": {
         "rarity": "UNCOMMON",
+        "primary_color": Color.YELLOW,
         "traits": ["Steamcraft", "Defender"],
         "base_stats": {
             "hp": 800,
@@ -154,9 +155,10 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
         },
         # FIX-UI: Example: Give Steam Knight a Trigger for demonstration
         "trigger": {
-            "timing_type": TriggerTiming.START_OF_COMBAT,
+            "timing_type": TriggerTiming.ON_SHIELD_BROKEN,
             "target_type": TriggerTarget.SELF,
-            "base_value_source": StatSource.ARMOR,
+            "base_value_source": StatSource.EVENT,
+            "event_key": "shield",
             "base_value_multiplier": 1.0,
             "base_value_flat": 0,
         },
@@ -501,6 +503,17 @@ SYNERGY_DEFINITIONS: Dict[str, Dict[str, Any]] = {
                 "armor": 120,
                 "mr": 120,
             },
+        ],
+        "targets": "ALL_ALLIES",
+        "type": "STAT_BOOST",
+    },
+    "Yellow": {
+        "description": "Yellow units amplify healing and gain omnivamp.",
+        "thresholds": [2, 3, 4],
+        "effects": [
+            {"incoming_healing_bonus": 20, "omnivamp": 3},
+            {"incoming_healing_bonus": 50, "omnivamp": 5},
+            {"incoming_healing_bonus": 100, "omnivamp": 10},
         ],
         "targets": "ALL_ALLIES",
         "type": "STAT_BOOST",

@@ -592,6 +592,23 @@ class Unit:
             return 0
         # FIX: use .get for safety
         actual_heal = min(amount, self.current_stats.get("hp", 0) - self.current_hp)
+        overheal = amount - actual_heal
+        if self.passive and self.passive.get("overheal_to_shield") and overheal > 0:
+            from engine.status_effects import ShieldEffect
+
+            shield_list = self.statuses.get(ShieldEffect.name, [])
+            if shield_list:
+                shield = shield_list[0]
+                shield.params["hp"] += overheal
+                shield.params["accumulated"] += overheal
+            else:
+                shield = ShieldEffect(
+                    host=self,
+                    source_id=self.id + "_overheal",
+                    duration=None,
+                    params={"hp": overheal, "accumulated": overheal},
+                )
+                self.add_status(shield)
         if actual_heal > 0.1:  # FIX: Check meaningful heal
             self.current_hp += actual_heal
             self.anim_state = AnimationState.HEALED

@@ -13,7 +13,7 @@ class TriggerTiming(Enum):
     ON_DAMAGE_TAKEN = auto()
     ON_HEAL = auto()
     ON_HEALED = auto()
-
+    ON_SHIELD_BROKEN = auto()
 class TriggerTarget(Enum):
     ATTACK_TARGET = auto()  # Requires event_target
     NEAREST_ENEMY = auto()
@@ -31,7 +31,7 @@ class StatSource(Enum):
     MR = "mr"
     AS = "as"
     FLAT = "flat"
-
+    EVENT = "event"
 
 class AbilityEffect(Enum):
     DEAL_DAMAGE = auto()
