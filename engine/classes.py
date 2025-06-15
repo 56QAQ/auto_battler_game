@@ -17,6 +17,7 @@ from data.constants import (
     BOSS_NODES,
     CAST_ANIM_DURATION,
     DEATH_ANIM_DURATION,
+    DEFAULT_MOVE_SPEED,
     FLOATER_LIFESPAN,
     FLOATER_SPEED,
     HARD_NODES,
@@ -70,9 +71,9 @@ from engine.status_effects import (
 
 # from engine.utils import clamp, lerp, normalize_vector
 # UI Constants used for positioning/size - ideally pass these in, but for now:
-from ui.constants import ARENA_MAX_Y  # Need bounds for collision
 from ui.constants import (
     ARENA_MAX_X,
+    ARENA_MAX_Y,
     ARENA_MIN_X,
     ARENA_MIN_Y,
     BENCH_SLOTS,
@@ -328,6 +329,7 @@ class Unit:
             "critical_damage": 150.0,
             "dodge_chance": 5.0,
             "accuracy": 0.0,
+            "move_speed": DEFAULT_MOVE_SPEED,
         }
         for _k, _v in _extended_defaults.items():
             self.base_stats.setdefault(_k, _v)

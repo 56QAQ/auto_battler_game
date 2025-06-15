@@ -8,14 +8,13 @@ import pygame
 from engine.crafting import craft, dismantle
 from data.constants import (
     MAX_ITEMS_EQUIPPED,
-    NODE_REWARDS,
     REFRESH_COST,
     XP_BUY_AMOUNT,
     XP_BUY_COST,
     REFRESH_CRYSTAL_COST,
     XP_BUY_CRYSTAL_COST
 )
-from data.definitions import SYNERGY_DEFINITIONS
+from data.definitions import SYNERGY_DEFINITIONS,NODE_REWARDS
 from data.enums import ItemType
 from engine.classes import Artifact, Item, Unit
 from engine.game_state import GameState

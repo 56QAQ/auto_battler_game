@@ -1,4 +1,4 @@
-#ai/navigation.py
+# ai/navigation.py
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ import math
 import random
 from typing import TYPE_CHECKING, Tuple
 
+from data.constants import DEFAULT_MOVE_SPEED, MELEE_RANGE_THRESHOLD
 from engine.utils import clamp
-from data.constants import MELEE_RANGE_THRESHOLD
 
 if TYPE_CHECKING:
     from engine.classes import Unit
@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 # ----------------------------------------------------------- #
 #                ---- public movement APIs ----               #
 # ----------------------------------------------------------- #
+
 
 def is_reachable(src: "Unit", dst: "Unit") -> bool:
     """Placeholder – in future path‑finding we would ray‑cast vs terrain."""
@@ -30,19 +31,21 @@ def move_towards(unit: "Unit", target: "Unit", dt: float) -> None:
     dx = target.x - unit.x
     dy = target.y - unit.y
     dist = math.hypot(dx, dy)
-    stop_dist = max(unit.current_stats.get("range", 50),
-                    unit.radius + target.radius + 2)
+    stop_dist = max(
+        unit.current_stats.get("range", 50), unit.radius + target.radius + 2
+    )
     if dist <= stop_dist:
         return
 
     # ----- sample directions to avoid blocking friendlies ------- #
     direction = _find_clear_direction(unit, dx, dy, dist)
-    speed = 80.0 * dt
+    speed = unit.current_stats.get("move_speed", DEFAULT_MOVE_SPEED) * dt
     unit.x += direction[0] * speed
     unit.y += direction[1] * speed
 
     # clamp inside arena (constants already imported into engine.classes->utils)
-    from ui.constants import ARENA_MIN_X, ARENA_MAX_X, ARENA_MIN_Y, ARENA_MAX_Y
+    from ui.constants import ARENA_MAX_X, ARENA_MAX_Y, ARENA_MIN_X, ARENA_MIN_Y
+
     unit.x = clamp(unit.x, ARENA_MIN_X, ARENA_MAX_X)
     unit.y = clamp(unit.y, ARENA_MIN_Y, ARENA_MAX_Y)
 
@@ -67,7 +70,7 @@ def kite_away(unit: "Unit", threat: "Unit", dt: float) -> None:
         dx /= dist
         dy /= dist
 
-    speed = 90.0 * dt
+    speed = unit.current_stats.get("move_speed", DEFAULT_MOVE_SPEED) * dt
     unit.x += dx * speed
     unit.y += dy * speed
 
@@ -78,19 +81,21 @@ def should_kite(ranged: "Unit", enemy: "Unit") -> bool:
         return False
     dx = ranged.x - enemy.x
     dy = ranged.y - enemy.y
-    dist_sq = dx*dx + dy*dy
+    dist_sq = dx * dx + dy * dy
     min_dist = ranged.current_stats.get("range", 50) * 0.3
-    return dist_sq <= min_dist ** 2
+    return dist_sq <= min_dist**2
 
 
 # ----------------------------------------------------------- #
 #                  ---- utility helpers ----                  #
 # ----------------------------------------------------------- #
 
-_ANGLE_OFFSETS = [0, 15, -15, 30, -30, 45, -45]   # degrees
+_ANGLE_OFFSETS = [0, 15, -15, 30, -30, 45, -45]  # degrees
 
 
-def _find_clear_direction(unit: "Unit", dx: float, dy: float, dist: float) -> Tuple[float, float]:
+def _find_clear_direction(
+    unit: "Unit", dx: float, dy: float, dist: float
+) -> Tuple[float, float]:
     """
     Shoot ray‑casts at several angles; pick first w/o immediate collision.
     Currently just checks overlap radius against *friendly* units; can be
@@ -105,10 +110,12 @@ def _find_clear_direction(unit: "Unit", dx: float, dy: float, dist: float) -> Tu
     for deg in _ANGLE_OFFSETS[1:]:
         rad = math.radians(deg)
         cos_a, sin_a = math.cos(rad), math.sin(rad)
-        probes.append((
-            base_dir[0] * cos_a - base_dir[1] * sin_a,
-            base_dir[0] * sin_a + base_dir[1] * cos_a
-        ))
+        probes.append(
+            (
+                base_dir[0] * cos_a - base_dir[1] * sin_a,
+                base_dir[0] * sin_a + base_dir[1] * cos_a,
+            )
+        )
 
     for vx, vy in probes:
         if not _immediate_collision(unit, vx, vy):
@@ -125,10 +132,10 @@ def _immediate_collision(unit: "Unit", vx: float, vy: float) -> bool:
     px = unit.x + vx * step
     py = unit.y + vy * step
     # local import to avoid heavy dep if caller never uses this func
-    from engine.logic import resolve_collisions  # just to reach Unit list
+
     # We only need units lists; GameState not available here, so we rely
     # on Unit.team caches – as a placeholder, skip expensive search.
-    return False   # TODO: integrate with spatial index
+    return False  # TODO: integrate with spatial index
 
 
 def nudge_random(unit: "Unit") -> None:
