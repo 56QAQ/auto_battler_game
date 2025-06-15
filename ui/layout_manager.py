@@ -57,7 +57,7 @@ class LayoutManager:
         )
         self.warehouse_button_rect = pg.Rect(
             ui_c.SHOP_X_START,
-            ui_c.WAREHOUSE_Y - ui_c.BUTTON_HEIGHT - 10,
+            ui_c.SHOP_Y + offset + ui_c.BUTTON_HEIGHT + 10,
             150,
             ui_c.BUTTON_HEIGHT,
         )

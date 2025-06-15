@@ -24,7 +24,12 @@ class WarehousePanel:
         self.context = context
         w = WAREHOUSE_COLS * (ITEM_SLOT_SIZE + SLOT_MARGIN) + SLOT_MARGIN
         h = WAREHOUSE_ROWS * (ITEM_SLOT_SIZE + SLOT_MARGIN) + 50
-        self.rect = pygame.Rect(context.shop_x_start, WAREHOUSE_Y, w, h)
+        button_bottom = (
+            context.warehouse_button_rect.bottom
+            if context.warehouse_button_rect
+            else WAREHOUSE_Y - 10
+        )
+        self.rect = pygame.Rect(context.shop_x_start, button_bottom + 10, w, h)
         self.page = 0
         self.prev_rect = pygame.Rect(self.rect.x + 10, self.rect.y + 10, 30, 20)
         self.next_rect = pygame.Rect(self.rect.right - 40, self.rect.y + 10, 30, 20)
@@ -46,8 +51,7 @@ class WarehousePanel:
                 self.page = (self.page + 1) % self._total_pages()
                 return True
             if not self.rect.collidepoint(ev.pos):
-                self.context.warehouse_panel = None
-                return True
+                return False
         return False
 
     def get_item_rect(self, index: int) -> pygame.Rect:
