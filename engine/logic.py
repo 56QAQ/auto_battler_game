@@ -76,7 +76,7 @@ from engine.enums import RemoveReason
 # Conditional imports
 if TYPE_CHECKING:
     from engine.game_state import GameState, SynergyStatus
-    from states.enums import UnitLocation, GamePhase  # Check if needed
+    from states.enums import UnitLocation, GamePhase, RemoveReason  # Check if needed
 
     # FIX: Remove type hint import for Selected*Info
     # from engine.classes import SelectedUnitInfo, SelectedItemInfo # Need type alias from state or define here? Define here.
@@ -871,11 +871,32 @@ def resolve_trigger(
     for item in items_with_abilities:
         execute_ability(item.ability, unit, targets, base_value, state)
 
+def resolve_passive(
+    unit: Unit, timing: TriggerTiming, state: "GameState", event_target: Optional[Unit]
+):
+    if (
+        not unit.passive
+        or "timing_type" not in unit.passive
+        or unit.passive["timing_type"] != timing
+    ):
+        return
+    ability = unit.passive.get("ability")
+    if not ability:
+        return
+    base_value = calculate_base_value(unit, unit.passive)
+    if "target_type" not in unit.passive:
+        return
+    targets = find_targets(unit, unit.passive["target_type"], state, event_target)
+    if not targets:
+        return
+    execute_ability(ability, unit, targets, base_value, state)
+
 
 # FIX: Assign the actual function directly to the class attribute AFTER definition
 import engine.classes
 
 engine.classes.resolve_trigger_func = resolve_trigger
+engine.classes.resolve_passive_func = resolve_passive
 # ----------------------------------------------------
 
 

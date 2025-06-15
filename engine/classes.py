@@ -10,9 +10,7 @@ from collections import defaultdict, deque
 # FIX: Add Callable to typing imports
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 
-
 from ai.behaviors import BehaviorContext  # NEW
-
 from data.constants import (
     ATTACK_ANIM_DURATION,
     ATTACK_LUNGE_ANGLE,
@@ -112,7 +110,7 @@ if TYPE_CHECKING:
 # These will be assigned by logic.py or main.py after definition
 # FIX: This attribute holds the actual function pointer, assigned by logic.py
 resolve_trigger_func: Optional[Callable] = None
-
+resolve_passive_func: Optional[Callable] = None
 
 class Item:
     def __init__(
@@ -298,6 +296,7 @@ class Unit:
             }
             self.primary_color = _map.get(tag, Color.WHITE)
         self.trigger = definition.get("trigger", None)
+        self.passive = definition.get("passive", None)
         self.level = level
         self.is_enemy = is_enemy
         self.equipped_items: List[Optional[Item]] = [None] * MAX_ITEMS_EQUIPPED
@@ -351,6 +350,7 @@ class Unit:
         self.target: Optional["Unit"] = None
         self.attack_timer: float = 0.0
         self.trigger_timer: float = 0.0
+        self.passive_timer: float = 0.0
         self.is_alive: bool = True
         # Color keys for UI
         self.base_color_key = "ENEMY_COLOR" if is_enemy else "ALLY_COLOR"
@@ -592,6 +592,7 @@ class Unit:
         self.target = None
         self.attack_timer = 0.0
         self.trigger_timer = 0.0
+        self.passive_timer = 0.0
         self.is_alive = True
         self.x, self.y = 0.0, 0.0
         self.anim_state = AnimationState.IDLE
@@ -757,7 +758,15 @@ class Unit:
             resolve_trigger_func(
                 self, TriggerTiming.ON_TAKE_DAMAGE, state, event_target=source
             )
-
+        if (
+            state
+            and self.passive
+            and self.passive["timing_type"] == TriggerTiming.ON_TAKE_DAMAGE
+            and resolve_passive_func
+        ):
+            resolve_passive_func(
+                self, TriggerTiming.ON_TAKE_DAMAGE, state, event_target=source
+            )
         if self.current_hp <= 0:
             self.current_hp = 0
             self.is_alive = False
@@ -782,6 +791,14 @@ class Unit:
                     and resolve_trigger_func
                 ):
                     resolve_trigger_func(
+                        self, TriggerTiming.ON_DEATH, state, event_target=source
+                    )
+                if (
+                    self.passive
+                    and self.passive["timing_type"] == TriggerTiming.ON_DEATH
+                    and resolve_passive_func
+                ):
+                    resolve_passive_func(
                         self, TriggerTiming.ON_DEATH, state, event_target=source
                     )
         return effective_damage
@@ -986,6 +1003,14 @@ class Unit:
                     resolve_trigger_func(
                         self, TriggerTiming.ON_HIT, state, event_target=self.target
                     )
+                if (
+                    self.passive
+                    and self.passive["timing_type"] == TriggerTiming.ON_HIT
+                    and resolve_passive_func
+                ):
+                    resolve_passive_func(
+                        self, TriggerTiming.ON_HIT, state, event_target=self.target
+                    )
         return damage_dealt
 
     def combat_update(self, potential_targets: List["Unit"], state: "GameState"):
@@ -1006,7 +1031,18 @@ class Unit:
                 resolve_trigger_func(
                     self, TriggerTiming.TIMED, state, event_target=None
                 )
-
+        if (
+            self.passive
+            and self.passive["timing_type"] == TriggerTiming.TIMED
+            and resolve_passive_func
+        ):
+            self.passive_timer += state.delta_time_combat
+            interval = self.passive.get("timing_data", {}).get("interval", 999.0)
+            while self.passive_timer >= interval and interval > 0:
+                self.passive_timer -= interval
+                resolve_passive_func(
+                    self, TriggerTiming.TIMED, state, event_target=None
+                )
         # 3) hand the rest to behaviour context (handles blocking / kiting / attack etc.)
         self.behavior.update(potential_targets, state)
 

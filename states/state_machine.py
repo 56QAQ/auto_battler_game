@@ -15,7 +15,7 @@ from engine.logic import (add_item_to_inventory, apply_artifact_buffs,
                           calculate_active_synergies, create_enemy_units,
                           give_node_rewards, remove_synergy_buffs,
                           resolve_trigger, setup_combat_team,
-                          setup_enemy_combat_team, update_player_synergies)
+                          setup_enemy_combat_team, update_player_synergies,resolve_passive)
 from states.enums import GamePhase
 from ui.constants import (EVENT_BUTTON_HEIGHT, EVENT_BUTTON_WIDTH,
                           EVENT_CHOICE_RECT)
@@ -69,7 +69,7 @@ def start_combat(state: GameState, enemy_team_data: List[Dict]):
     all_units = state.player_combat_team + state.enemy_combat_team
     for unit in all_units:
         resolve_trigger(unit, TriggerTiming.START_OF_COMBAT, state, event_target=None)
-
+        resolve_passive(unit, TriggerTiming.START_OF_COMBAT, state, event_target=None)
 
 def end_combat(
     state: GameState,

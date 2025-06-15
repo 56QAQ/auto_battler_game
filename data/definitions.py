@@ -4,10 +4,30 @@ from data.enums import TriggerTiming, TriggerTarget, StatSource, AbilityEffect, 
 
 # Stats: HP, AD, AS, AP, Armor, MR, Range (pixels)
 UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
-    "Clockwork Soldier": {"rarity": "COMMON", "traits": ["Automaton", "Defender"], 
-                          "base_stats": {"hp": 600, "ad": 50, "as": 0.6, "ap": 0, "armor": 40, "mr": 40, "range": 50},
-                          "trigger": {"timing_type": TriggerTiming.ON_HIT, "target_type": TriggerTarget.ATTACK_TARGET,
-                                      "base_value_source": StatSource.AD, "base_value_multiplier": 0.2, "base_value_flat": 0}},
+    "Clockwork Soldier": {
+        "rarity": "COMMON",
+        "traits": ["Automaton", "Defender"],
+        "base_stats": {"hp": 600, "ad": 50, "as": 0.6, "ap": 0, "armor": 40, "mr": 40, "range": 50},
+        "trigger": {
+            "timing_type": TriggerTiming.ON_HIT,
+            "target_type": TriggerTarget.ATTACK_TARGET,
+            "base_value_source": StatSource.AD,
+            "base_value_multiplier": 0.2,
+            "base_value_flat": 0,
+        },
+        "passive": {
+            "timing_type": TriggerTiming.START_OF_COMBAT,
+            "target_type": TriggerTarget.SELF,
+            "base_value_source": StatSource.FLAT,
+            "base_value_multiplier": 0.0,
+            "base_value_flat": 0,
+            "ability": {
+                "name": "Fortitude",
+                "effect_type": AbilityEffect.HEAL,
+                "effect_data": {"scale_factor": 0.0, "flat_value": 20},
+            },
+        },
+    },
     "Gear Grinder":    {"rarity": "COMMON", "traits": ["Automaton", "Brawler"], 
                         "base_stats": {"hp": 700, "ad": 55, "as": 0.5, "ap": 0, "armor": 30, "mr": 30, "range": 40},
                          "trigger": {"timing_type": TriggerTiming.ON_HIT, "target_type": TriggerTarget.ATTACK_TARGET,
