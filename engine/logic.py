@@ -1,82 +1,41 @@
 # engine/logic.py
 from __future__ import annotations
-import random
-import math
-import copy
-from collections import defaultdict
-from typing import List, Dict, Tuple, Optional, Any, Union, TYPE_CHECKING
 
-# Data imports
-from data.definitions import (
-    SYNERGY_DEFINITIONS,
-    ITEM_DEFINITIONS,
-    ITEM_RECIPES,
-    ARTIFACT_DEFINITIONS,
-    UNIT_DEFINITIONS,
-    NODE_REWARDS,
-    ENEMY_TEAM_DEFINITIONS,
-    POSSIBLE_EVENT_ITEMS,
-    POSSIBLE_EVENT_ARTIFACTS,
-)
+import copy
+import math
+import random
+from collections import defaultdict
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 # 新引入常量
-from data.constants import (
-    MAX_COMBINED_ITEMS,
-    MAX_ITEMS_EQUIPPED,
-    MAX_ITEMS_INVENTORY,
-    MAX_UNITS_ON_BOARD,
-    BENCH_SLOTS,
-    BOARD_ROWS,
-    BOARD_COLS,
-    SLOT_SIZE,
-    SLOT_MARGIN,
-    MAX_COMBAT_DURATION,
-    OVERTIME_START,
-    OVERTIME_DAMAGE_INTERVAL,
-    OVERTIME_DAMAGE_PERCENT,
-    PASSIVE_XP,
-    HEAL_ANIM_DURATION,
-    CAST_ANIM_DURATION,
-    DEATH_ANIM_DURATION,
-    COST_BY_RARITY_MATERIALS,
-)
-
+from data.constants import (BENCH_SLOTS, BOARD_COLS, BOARD_ROWS,
+                            CAST_ANIM_DURATION, COST_BY_RARITY_MATERIALS,
+                            DEATH_ANIM_DURATION, HEAL_ANIM_DURATION,
+                            MAX_COMBAT_DURATION, MAX_COMBINED_ITEMS,
+                            MAX_ITEMS_EQUIPPED, MAX_ITEMS_INVENTORY,
+                            MAX_UNITS_ON_BOARD, OVERTIME_DAMAGE_INTERVAL,
+                            OVERTIME_DAMAGE_PERCENT, OVERTIME_START,
+                            PASSIVE_XP, SLOT_MARGIN, SLOT_SIZE, ARENA_MAX_Y,COMBAT_ARENA_HEIGHT,ARENA_MAX_X, ARENA_MIN_X, ARENA_MIN_Y,
+                            COMBAT_ARENA_WIDTH, COMBAT_ARENA_X, COMBAT_ARENA_Y,
+                              )
+# Data imports
+from data.definitions import (ARTIFACT_DEFINITIONS, ENEMY_TEAM_DEFINITIONS,
+                              ITEM_DEFINITIONS, ITEM_RECIPES, NODE_REWARDS,
+                              POSSIBLE_EVENT_ARTIFACTS, POSSIBLE_EVENT_ITEMS,
+                              SYNERGY_DEFINITIONS, UNIT_DEFINITIONS,)
 # 新增 DamageSource
-from data.enums import (
-    TriggerTiming,
-    TriggerTarget,
-    StatSource,
-    AbilityEffect,
-    DamageType,
-    DamageSource,
-)
-
+from data.enums import (AbilityEffect, DamageSource, DamageType, StatSource,
+                        TriggerTarget, TriggerTiming)
+from engine.classes import (Artifact,Item, Player, Shop, Unit,
+                            VisualEffect,DamageFloater)
 # Engine imports
-from engine.classes import (
-    Player,
-    Shop,
-    Unit,
-    Item,
-    Artifact,
-    VisualEffect,
-    DamageFloater,
-    ARENA_MIN_X,
-    ARENA_MAX_X,
-    ARENA_MIN_Y,
-    ARENA_MAX_Y,  # Arena bounds
-    COMBAT_ARENA_X,
-    COMBAT_ARENA_Y,
-    COMBAT_ARENA_WIDTH,
-    COMBAT_ARENA_HEIGHT,  # Setup bounds
-)
-from engine.enums import AnimationState, EffectType
+from engine.enums import AnimationState, EffectType, RemoveReason
 from engine.utils import clamp
-from engine.enums import RemoveReason
 
 # Conditional imports
 if TYPE_CHECKING:
     from engine.game_state import GameState, SynergyStatus
-    from states.enums import UnitLocation, GamePhase, RemoveReason  # Check if needed
+    from states.enums import UnitLocation
 
     # FIX: Remove type hint import for Selected*Info
     # from engine.classes import SelectedUnitInfo, SelectedItemInfo # Need type alias from state or define here? Define here.
@@ -98,11 +57,16 @@ def end_combat(*args, **kwargs):
     return _end_combat(*args, **kwargs)
 
 
-# Forward declaration for type hinting
-def resolve_trigger(
-    unit: Unit, timing: TriggerTiming, state: "GameState", event_target: Optional[Unit]
-):
-    pass  # Implementation below
+# Forward declaration for type hinting. The real implementation appears later.
+if TYPE_CHECKING:
+
+    def resolve_trigger(
+        unit: Unit,
+        timing: TriggerTiming,
+        state: "GameState",
+        event_target: Optional[Unit],
+        event_data: Optional[dict[str, Any]] = None,
+    ) -> None: ...
 
 
 # IMPORTANT: Assign the function to the class attribute to resolve circular dependency
@@ -851,7 +815,11 @@ def execute_ability(
 
 
 def resolve_trigger(
-    unit: Unit, timing: TriggerTiming, state: "GameState", event_target: Optional[Unit]
+    unit: Unit,
+    timing: TriggerTiming,
+    state: "GameState",
+    event_target: Optional[Unit],
+    event_data: Optional[dict[str, Any]] = None,
 ):
     # FIX: Check unit.trigger is not None and has 'timing_type'
     if (
@@ -877,6 +845,7 @@ def resolve_trigger(
     for item in items_with_abilities:
         execute_ability(item.ability, unit, targets, base_value, state)
 
+
 def resolve_passive(
     unit: Unit, timing: TriggerTiming, state: "GameState", event_target: Optional[Unit]
 ):
@@ -899,7 +868,7 @@ def resolve_passive(
 
 
 # FIX: Assign the actual function directly to the class attribute AFTER definition
-import engine.classes
+import engine.classes  # noqa: E402
 
 engine.classes.resolve_trigger_func = resolve_trigger
 engine.classes.resolve_passive_func = resolve_passive
@@ -939,6 +908,7 @@ def setup_combat_team(player: Player, is_enemy: bool) -> List[Unit]:
             team.append(combat_unit)
     return team
 
+
 def calculate_enemy_positions(enemy_units: List[Unit]) -> list[tuple[int, int]]:
     """Return board positions for enemy preview and spawning."""
     positions: list[tuple[int, int]] = []
@@ -954,6 +924,7 @@ def calculate_enemy_positions(enemy_units: List[Unit]) -> list[tuple[int, int]]:
             back_row_idx = (back_row_idx + 1) % BOARD_COLS
         positions.append((row, col))
     return positions
+
 
 def setup_enemy_combat_team(enemy_units: List[Unit]) -> List[Unit]:
     team = []
@@ -1174,3 +1145,4 @@ def run_combat_tick(state: "GameState", delta_time: float):
         unit.combat_update(targets, state)  # update always runs animation logic
     # Resolve collisions only among alive units
     resolve_collisions(all_units_processing)
+    state.process_triggers()

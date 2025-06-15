@@ -8,97 +8,40 @@ import uuid
 from collections import defaultdict, deque
 
 # FIX: Add Callable to typing imports
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple
 
 from ai.behaviors import BehaviorContext  # NEW
-from data.constants import (
-    ATTACK_ANIM_DURATION,
-    ATTACK_LUNGE_ANGLE,
-    BOSS_NODES,
-    CAST_ANIM_DURATION,
-    DEATH_ANIM_DURATION,
-    DEFAULT_MOVE_SPEED,
-    FLOATER_LIFESPAN,
-    FLOATER_SPEED,
-    HARD_NODES,
-    HEAL_ANIM_DURATION,
-    HIT_ANIM_DURATION,
-    HIT_RECOIL_ANGLE,
-    IDLE_WOBBLE_ANGLE,
-    IDLE_WOBBLE_SPEED,
-    LEVEL_PROBABILITIES,
-    MAP_DEPTH,
-    MAX_COMBINED_ITEMS,
-    MAX_ITEMS_EQUIPPED,
-    MAX_LEVEL,
-    MEDIUM_NODES,
-    NODE_TYPE_DISTRIBUTION,
-    NODES_PER_LAYER,
-    PROJECTILE_SPEED,
-    RARITY_COST,
-    RARITY_ORDER,
-    STARTING_HEALTH,
-    UNIT_POOL_SIZE_MULTIPLIER,
-    XP_PER_LEVEL,
-)
-
+from data.constants import (ATTACK_ANIM_DURATION, ATTACK_LUNGE_ANGLE,
+                            BOSS_NODES, CAST_ANIM_DURATION,
+                            DEATH_ANIM_DURATION, DEFAULT_MOVE_SPEED,
+                            FLOATER_LIFESPAN, FLOATER_SPEED, HARD_NODES,
+                            HEAL_ANIM_DURATION, HIT_ANIM_DURATION,
+                            HIT_RECOIL_ANGLE, IDLE_WOBBLE_ANGLE,
+                            IDLE_WOBBLE_SPEED, LEVEL_PROBABILITIES, MAP_DEPTH,
+                            MAX_ITEMS_EQUIPPED, MAX_LEVEL, MEDIUM_NODES,
+                            NODE_TYPE_DISTRIBUTION, NODES_PER_LAYER,
+                            PROJECTILE_SPEED, RARITY_COST, RARITY_ORDER,
+                            STARTING_HEALTH, UNIT_POOL_SIZE_MULTIPLIER,
+                            XP_PER_LEVEL)
 # Data imports
-from data.definitions import (
-    ARTIFACT_DEFINITIONS,
-    ITEM_DEFINITIONS,
-    UNIT_DEFINITIONS,
-)
-
+from data.definitions import (ARTIFACT_DEFINITIONS, ITEM_DEFINITIONS,
+                              UNIT_DEFINITIONS)
 # 新增 DamageSource
-from data.enums import (
-    DamageType,
-    StatSource,
-    TriggerTiming,
-    DamageSource,
-    ItemType,
-    Color,
-    AbilityEffect,
-)
-
+from data.enums import (AbilityEffect, Color, DamageSource, DamageType,
+                        ItemType, TriggerTiming)
 # Engine imports
 from engine.enums import AnimationState, EffectType, RemoveReason
-from engine.status_effects import (
-    StatusEffect,
-    StackRule,
-    ActionDenialEffect,
-    StatModifierEffect,
-)
-
+from engine.status_effects import StackRule, StatModifierEffect, StatusEffect
 # from engine.utils import clamp, lerp, normalize_vector
 # UI Constants used for positioning/size - ideally pass these in, but for now:
-from ui.constants import (
-    ARENA_MAX_X,
-    ARENA_MAX_Y,
-    ARENA_MIN_X,
-    ARENA_MIN_Y,
-    BENCH_SLOTS,
-    BOARD_COLS,
-    BOARD_ROWS,
-    COMBAT_ARENA_HEIGHT,
-    COMBAT_ARENA_WIDTH,
-    COMBAT_ARENA_X,
-    COMBAT_ARENA_Y,
-    COMBAT_UNIT_RADIUS,
-    MAP_HEIGHT,
-    MAP_NODE_RADIUS,
-    MAP_WIDTH,
-    MAP_X_START,
-    MAP_Y_START,
-    MAX_ITEMS_INVENTORY,
-    SHOP_SLOTS,
-    SLOT_MARGIN,
-    SLOT_SIZE,
-)
+from ui.constants import (BENCH_SLOTS, BOARD_COLS, BOARD_ROWS,
+                          COMBAT_UNIT_RADIUS, MAP_HEIGHT, MAP_NODE_RADIUS,
+                          MAP_WIDTH, MAP_X_START, MAP_Y_START,
+                          MAX_ITEMS_INVENTORY, SHOP_SLOTS)
 
 # Conditional type import to avoid circular dependency
 if TYPE_CHECKING:
     from engine.game_state import Buff, GameState, SynergyStatus
-    from states.enums import UnitLocation
 
     # FIX: remove redundant type hint
     # from engine.logic import resolve_trigger # Unit.take_damage needs this
@@ -112,6 +55,7 @@ if TYPE_CHECKING:
 # FIX: This attribute holds the actual function pointer, assigned by logic.py
 resolve_trigger_func: Optional[Callable] = None
 resolve_passive_func: Optional[Callable] = None
+
 
 class Item:
     def __init__(
@@ -223,7 +167,7 @@ class VisualEffect:
         size: float = 5.0,
         angle: float = 0.0,
     ):
-        from engine.utils import clamp, lerp, normalize_vector
+        from engine.utils import normalize_vector
 
         self.type = effect_type
         self.x, self.y = x, y
@@ -248,7 +192,7 @@ class VisualEffect:
                 )  # Override lifespan based on distance
 
     def update(self, dt: float):
-        from engine.utils import clamp, lerp, normalize_vector
+        from engine.utils import clamp, lerp
 
         self.timer += dt
         if self.type in [EffectType.PROJECTILE_BASIC, EffectType.PROJECTILE_MAGIC]:
@@ -353,6 +297,12 @@ class Unit:
         self.attack_timer: float = 0.0
         self.trigger_timer: float = 0.0
         self.passive_timer: float = 0.0
+        self.magic_damage_progress: float = 0.0
+        self.physical_damage_progress: float = 0.0
+        self.damage_progress: float = 0.0
+        self.damage_taken_progress: float = 0.0
+        self.heal_progress: float = 0.0
+        self.healed_progress: float = 0.0
         self.is_alive: bool = True
         # Color keys for UI
         self.base_color_key = "ENEMY_COLOR" if is_enemy else "ALLY_COLOR"
@@ -650,6 +600,35 @@ class Unit:
                 state.combat_stats.record_healing_done(
                     source, actual_heal, source_action
                 )
+                timing = source.trigger.get("timing_type") if source.trigger else None
+                if timing == TriggerTiming.ON_HEAL:
+                    source.heal_progress += actual_heal
+                    threshold = source.trigger.get("timing_data", {}).get(
+                        "threshold", 20
+                    )
+                    if source.heal_progress >= threshold:
+                        source.heal_progress = 0.0
+                        state.queue_trigger(
+                            source,
+                            TriggerTiming.ON_HEAL,
+                            event_target=self,
+                            data={"heal": actual_heal},
+                        )
+            if (
+                state
+                and self.trigger
+                and self.trigger.get("timing_type") == TriggerTiming.ON_HEALED
+            ):
+                self.healed_progress += actual_heal
+                threshold = self.trigger.get("timing_data", {}).get("threshold", 20)
+                if self.healed_progress >= threshold:
+                    self.healed_progress = 0.0
+                    state.queue_trigger(
+                        self,
+                        TriggerTiming.ON_HEALED,
+                        event_target=source,
+                        data={"heal": actual_heal},
+                    )
         return actual_heal
 
     def _xs(self, key: str, default: float = 0.0) -> float:
@@ -768,15 +747,65 @@ class Unit:
                 state.combat_stats.record_damage_dealt(
                     source, effective_damage, source_action
                 )
+                timing = source.trigger.get("timing_type") if source.trigger else None
+                if timing:
+                    progress_attr = None
+                    if (
+                        timing == TriggerTiming.ON_MAGIC_DAMAGE
+                        and damage_type == DamageType.MAGIC
+                    ):
+                        progress_attr = "magic_damage_progress"
+                    elif (
+                        timing == TriggerTiming.ON_PHYSICAL_DAMAGE
+                        and damage_type == DamageType.PHYSICAL
+                    ):
+                        progress_attr = "physical_damage_progress"
+                    elif timing == TriggerTiming.ON_DAMAGE:
+                        progress_attr = "damage_progress"
+                    if progress_attr:
+                        setattr(
+                            source,
+                            progress_attr,
+                            getattr(source, progress_attr) + effective_damage,
+                        )
+                        threshold = source.trigger.get("timing_data", {}).get(
+                            "threshold", 20
+                        )
+                        if getattr(source, progress_attr) >= threshold:
+                            total = getattr(source, progress_attr)
+                            setattr(source, progress_attr, 0.0)
+                            state.queue_trigger(
+                                source,
+                                timing,
+                                event_target=self,
+                                data={"damage": total},
+                            )
         if (
             state
             and self.trigger
             and self.trigger["timing_type"] == TriggerTiming.ON_TAKE_DAMAGE
-            and resolve_trigger_func
         ):
-            resolve_trigger_func(
-                self, TriggerTiming.ON_TAKE_DAMAGE, state, event_target=source
+            state.queue_trigger(
+                self,
+                TriggerTiming.ON_TAKE_DAMAGE,
+                event_target=source,
+                data={"damage": effective_damage},
             )
+        if (
+            state
+            and self.trigger
+            and self.trigger["timing_type"] == TriggerTiming.ON_DAMAGE_TAKEN
+        ):
+            self.damage_taken_progress += effective_damage
+            threshold = self.trigger.get("timing_data", {}).get("threshold", 20)
+            if self.damage_taken_progress >= threshold:
+                self.damage_taken_progress = 0.0
+                state.queue_trigger(
+                    self,
+                    TriggerTiming.ON_DAMAGE_TAKEN,
+                    event_target=source,
+                    data={"damage": effective_damage},
+                )
         if (
             state
             and self.passive
@@ -807,10 +836,12 @@ class Unit:
                 if (
                     self.trigger
                     and self.trigger["timing_type"] == TriggerTiming.ON_DEATH
-                    and resolve_trigger_func
                 ):
-                    resolve_trigger_func(
-                        self, TriggerTiming.ON_DEATH, state, event_target=source
+                    state.queue_trigger(
+                        self,
+                        TriggerTiming.ON_DEATH,
+                        event_target=source,
+                        data={"damage": effective_damage},
                     )
                 if (
                     self.passive
@@ -1016,13 +1047,12 @@ class Unit:
                             )
                         )
                 # FIX: Call resolve_trigger_func with keyword argument
-                if (
-                    self.trigger
-                    and self.trigger["timing_type"] == TriggerTiming.ON_HIT
-                    and resolve_trigger_func
-                ):
-                    resolve_trigger_func(
-                        self, TriggerTiming.ON_HIT, state, event_target=self.target
+                if self.trigger and self.trigger["timing_type"] == TriggerTiming.ON_HIT:
+                    state.queue_trigger(
+                        self,
+                        TriggerTiming.ON_HIT,
+                        event_target=self.target,
+                        data={"damage": current_attack_damage},
                     )
                 if (
                     self.passive
@@ -1040,17 +1070,13 @@ class Unit:
         self.update_animation(state.delta_time_combat)
 
         # 2) still run timed triggers exactly as before (no change)
-        if (
-            self.trigger
-            and self.trigger["timing_type"] == TriggerTiming.TIMED
-            and resolve_trigger_func
-        ):
+        if self.trigger and self.trigger["timing_type"] == TriggerTiming.TIMED:
             self.trigger_timer += state.delta_time_combat
             interval = self.trigger.get("timing_data", {}).get("interval", 999.0)
             while self.trigger_timer >= interval and interval > 0:
                 self.trigger_timer -= interval
-                resolve_trigger_func(
-                    self, TriggerTiming.TIMED, state, event_target=None
+                state.queue_trigger(
+                    self, TriggerTiming.TIMED, event_target=None, data={}
                 )
         if (
             self.passive
@@ -1068,7 +1094,7 @@ class Unit:
         self.behavior.update(potential_targets, state)
 
     def update_animation(self, dt: float):
-        from engine.utils import clamp, lerp
+        from engine.utils import clamp
 
         self.anim_timer += dt
         self.rotation_offset = 0.0
@@ -1113,7 +1139,7 @@ class Player:
     def __init__(self):
         self.health: int = STARTING_HEALTH
         self.gold: int = 0
-        from data.constants import STARTING_MATERIALS, STARTING_CRYSTAL
+        from data.constants import STARTING_CRYSTAL, STARTING_MATERIALS
 
         self.materials: dict[str, int] = STARTING_MATERIALS.copy()
         self.crystals: int = STARTING_CRYSTAL

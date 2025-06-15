@@ -2,10 +2,22 @@
 # forward declarations for type hints
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
+from collections import deque
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+
+import engine.classes as engine_classes
+from data.enums import TriggerTiming
 # from states.enums import GamePhase, UnitLocation # Cannot import yet, circular dependency risk
-from engine.classes import (Artifact, DamageFloater, GameMap, Item, Player,
-                            Shop, Unit, VisualEffect)
+from engine.classes import (
+    DamageFloater,
+    GameMap,
+    Item,
+    Player,
+    Shop,
+    Unit,
+    VisualEffect,
+)
 from engine.combat_stats import CombatStats
 
 if TYPE_CHECKING:
@@ -27,6 +39,12 @@ EventChoice = Dict[
 # SelectedUnitInfo = Tuple[UnitLocation, Union[int, Tuple[int, int]], Unit]
 # SelectedItemInfo = Tuple[UnitLocation, Union[int, SelectedUnitInfo], Item] # loc, index_or_unit_info, item
 
+@dataclass
+class TriggerEvent:
+    unit: "Unit"
+    timing: "TriggerTiming"
+    event_target: "Unit | None"
+    data: Dict[str, Any]
 
 class GameState:
     def __init__(self):
@@ -76,8 +94,30 @@ class GameState:
         self.enemy_preview_positions: List[tuple[int, int]] = []
         self.event_choices: List[EventChoice] = []
         self.combat_stats = CombatStats()
+        self.pending_triggers: deque[TriggerEvent] = deque()
         # Button rects belong in UI/States, not engine state.
+    def queue_trigger(
+        self,
+        unit: "Unit",
+        timing: TriggerTiming,
+        event_target: "Unit | None" = None,
+        data: Dict[str, Any] | None = None,
+    ) -> None:
+        self.pending_triggers.append(
+            TriggerEvent(unit, timing, event_target, data or {})
+        )
 
+    def process_triggers(self) -> None:
+        while self.pending_triggers:
+            event = self.pending_triggers.popleft()
+            if engine_classes.resolve_trigger_func:
+                engine_classes.resolve_trigger_func(
+                    event.unit,
+                    event.timing,
+                    self,
+                    event.event_target,
+                    event.data,
+                )
 
 # Global state instance
 run_state: Optional[GameState] = None

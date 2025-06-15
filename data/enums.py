@@ -8,7 +8,11 @@ class TriggerTiming(Enum):
     ON_TAKE_DAMAGE = auto()
     ON_DEATH = auto()
     ON_MAGIC_DAMAGE = auto()
-
+    ON_PHYSICAL_DAMAGE = auto()
+    ON_DAMAGE = auto()
+    ON_DAMAGE_TAKEN = auto()
+    ON_HEAL = auto()
+    ON_HEALED = auto()
 
 class TriggerTarget(Enum):
     ATTACK_TARGET = auto()  # Requires event_target
