@@ -6,9 +6,14 @@ from data.constants import (ATTACK_ANIM_DURATION, CAST_ANIM_DURATION,
                             HIT_ANIM_DURATION)
 
 # Display
-SCREEN_WIDTH = 1280
-SCREEN_HEIGHT = 720
+SCREEN_WIDTH = 1920
+SCREEN_HEIGHT = 1080
 FPS = 60
+
+BASE_WIDTH = 1920
+BASE_HEIGHT = 1080
+BASE_SLOT_SIZE = 120
+_ITEM_RATIO = 0.6
 # Use a serif font for a more "clockwork" feel if available
 FONT_NAME = "./assets/fonts/DejaVuSerif.ttf"
 FONT_SIZE = 18
@@ -28,6 +33,14 @@ PANEL_IMAGE = f"{ASSET_DIR}/ui/panel.png"
 SHOP_BG_IMAGE = f"{ASSET_DIR}/backgrounds/shop_bg.png"
 MAP_BG_IMAGE = f"{ASSET_DIR}/backgrounds/map_bg.png"
 COMBAT_BG_IMAGE = f"{ASSET_DIR}/backgrounds/combat_bg.png"
+
+def _scale_sizes() -> None:
+    """Compute SLOT_SIZE and dependent constants from the current resolution."""
+    global SLOT_SIZE, ITEM_SLOT_SIZE, COMBAT_UNIT_RADIUS
+    factor = SCREEN_HEIGHT / BASE_HEIGHT
+    SLOT_SIZE = int(BASE_SLOT_SIZE * factor)
+    ITEM_SLOT_SIZE = int(SLOT_SIZE * _ITEM_RATIO)
+    COMBAT_UNIT_RADIUS = SLOT_SIZE // 2
 
 # Colors
 WHITE = (240, 240, 235)
@@ -128,7 +141,7 @@ STATUS_ICON_KEYS = {
 BENCH_SLOTS = 8
 BENCH_Y = SCREEN_HEIGHT - 60
 BENCH_X_START = 250
-SLOT_SIZE = 50
+SLOT_SIZE = BASE_SLOT_SIZE
 SLOT_MARGIN = 10
 
 BOARD_ROWS = 3
@@ -151,7 +164,7 @@ SYNERGY_LINE_HEIGHT = 40
 MAX_ITEMS_INVENTORY = 6
 INVENTORY_X_START = SHOP_X_START
 INVENTORY_Y = BOARD_Y_START - SLOT_SIZE + 40
-ITEM_SLOT_SIZE = 30
+ITEM_SLOT_SIZE = int(SLOT_SIZE * _ITEM_RATIO)
 RELIC_ICON_SIZE = 24
 
 BUTTON_HEIGHT = 40
@@ -160,7 +173,7 @@ COMBAT_ARENA_X = 220
 COMBAT_ARENA_Y = 100
 COMBAT_ARENA_WIDTH = SCREEN_WIDTH - 400
 COMBAT_ARENA_HEIGHT = SCREEN_HEIGHT - 200
-COMBAT_UNIT_RADIUS = 16
+COMBAT_UNIT_RADIUS = SLOT_SIZE // 2
 ARENA_MIN_X = COMBAT_ARENA_X + COMBAT_UNIT_RADIUS
 ARENA_MAX_X = COMBAT_ARENA_X + COMBAT_ARENA_WIDTH - COMBAT_UNIT_RADIUS
 ARENA_MIN_Y = COMBAT_ARENA_Y + COMBAT_UNIT_RADIUS
@@ -188,10 +201,10 @@ EVENT_BUTTON_HEIGHT = 60
 # ------------------------------------------------------------------ #
 
 _pg_info = pg.display.Info()  # valid only *after* pg.init()!
-SCREEN_HEIGHT = _pg_info.current_h if _pg_info.current_h else 900
+SCREEN_HEIGHT = _pg_info.current_h if _pg_info.current_h else BASE_HEIGHT
 # 1 × on a 900‑px tall screen, 2 × on 1800 px, etc. (rounded .25 steps)
 SCALE = round(max(0.75, SCREEN_HEIGHT / DESIGN_HEIGHT) * 4) / 4
-
+_scale_sizes()
 
 def update_resolution(width: int, height: int) -> None:
     """Update layout constants to match a new resolution."""

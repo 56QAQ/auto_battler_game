@@ -56,9 +56,9 @@ class GameState:
         self.previous_phase: "GamePhase" | None = None
         self.volume: float = 0.6
         self.resolution_options: list[tuple[int, int]] = [
-            (1280, 720),
-            (1600, 900),
             (1920, 1080),
+            (1600, 900),
+            (1280, 720),
         ]
         self.resolution_index: int = 0
 
