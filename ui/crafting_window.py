@@ -20,6 +20,7 @@ from ui.constants import (
     RARITY_COLORS,
     GRAY,
 )
+from ui.drawing import draw_button
 from ui.ui_context import UIContext
 
 
@@ -38,7 +39,20 @@ class CraftingWindow:
         self.sliders = {"RED": 1, "GREEN": 1, "BLUE": 0}
         self.mode = "CRAFT"  # or "DISMANTLE"
         self.item_rects: List[pygame.Rect] = []
-
+        # Pre-computed button rects for easier hit detection
+        self.close_rect = pygame.Rect(self.rect.right - 26, self.rect.y + 4, 20, 20)
+        self.tab_rects = {
+            "CRAFT": pygame.Rect(self.rect.x + 20, self.rect.y, 100, 20),
+            "DISMANTLE": pygame.Rect(self.rect.x + 140, self.rect.y, 100, 20),
+        }
+        self.slider_rects = {
+            "RED": pygame.Rect(self.rect.x + 20, self.rect.y + 30, 100, 24),
+            "GREEN": pygame.Rect(self.rect.x + 160, self.rect.y + 30, 100, 24),
+            "BLUE": pygame.Rect(self.rect.x + 300, self.rect.y + 30, 100, 24),
+        }
+        self.craft_arm_rect = pygame.Rect(self.rect.x + 20, self.rect.y + 70, 160, 30)
+        self.craft_disk_rect = pygame.Rect(self.rect.x + 200, self.rect.y + 70, 160, 30)
+        self.craft_mod_rect = pygame.Rect(self.rect.x + 100, self.rect.y + 120, 240, 30)
     # ------------ input --------------- #
     def handle_click(self, ev: pygame.event.Event) -> bool:
         if ev.type != pygame.MOUSEBUTTONDOWN or ev.button != 1:
@@ -47,35 +61,26 @@ class CraftingWindow:
             self.context.crafting_window = None
             return True
         # Very coarse button zones
-        bx, by = ev.pos
-        mx, my = self.rect.topleft
-        relx, rely = bx - mx, by - my
-        # tab switch
-        if 0 <= rely < 20:
-            if 20 <= relx < 120:
-                self.mode = "CRAFT"
-                return True
-            if 140 <= relx < 240:
-                self.mode = "DISMANTLE"
-                return True
-        if self.mode == "CRAFT" and 20 < rely < 50:
-            # sliders (toggle +1 modulo 4)
-            if 20 <= relx < 120:
-                self.sliders["RED"] = (self.sliders["RED"] + 1) % 4
-            elif 160 <= relx < 260:
-                self.sliders["GREEN"] = (self.sliders["GREEN"] + 1) % 4
-            elif 300 <= relx < 400:
-                self.sliders["BLUE"] = (self.sliders["BLUE"] + 1) % 4
+        if self.close_rect.collidepoint(ev.pos):
+            self.context.crafting_window = None
             return True
-        if self.mode == "CRAFT":
-            mats = {k: v for k, v in self.sliders.items() if v}
-            if 40 < rely < 80 and can_craft(mats):
-                if 20 <= relx < 200:
-                    self._do_craft(ItemType.ARMAMENT, mats)
-                elif 220 <= relx < 420:
-                    self._do_craft(ItemType.DISK, mats)
+        for mode, rect in self.tab_rects.items():
+            if rect.collidepoint(ev.pos):
+                self.mode = mode
                 return True
-            if 100 < rely < 140 and 100 <= relx < 340:
+        if self.mode == "CRAFT":
+            for color, rect in self.slider_rects.items():
+                if rect.collidepoint(ev.pos):
+                    self.sliders[color] = (self.sliders[color] + 1) % 4
+                    return True
+            mats = {k: v for k, v in self.sliders.items() if v}
+            if self.craft_arm_rect.collidepoint(ev.pos) and can_craft(mats):
+                self._do_craft(ItemType.ARMAMENT, mats)
+                return True
+            if self.craft_disk_rect.collidepoint(ev.pos) and can_craft(mats):
+                self._do_craft(ItemType.DISK, mats)
+                return True
+            if self.craft_mod_rect.collidepoint(ev.pos) and can_craft(mats):
                 self._do_craft(ItemType.MODULE, mats)
                 return True
         else:  # dismantle mode
@@ -114,46 +119,64 @@ class CraftingWindow:
         s = ctx.screen
         pygame.draw.rect(s, PANEL_BG, self.rect)
         pygame.draw.rect(s, WHITE, self.rect, 2)
+        mouse_pos = pygame.mouse.get_pos()
         font = ctx.get_font("default")
+        draw_button(
+            ctx,
+            self.close_rect,
+            "X",
+            "default",
+            self.close_rect.collidepoint(mouse_pos),
+        )
 
         # --- tab headers ---
-        for i, (label, mode) in enumerate(
-            [("Craft", "CRAFT"), ("Dismantle", "DISMANTLE")]
-        ):
-            rect = pygame.Rect(self.rect.x + 20 + i * 120, self.rect.y, 100, 20)
+        for mode, rect in self.tab_rects.items():
             color = YELLOW if self.mode == mode else BLUE
-            pygame.draw.rect(s, color, rect)
-            s.blit(font.render(label, True, PANEL_BG), (rect.x + 6, rect.y + 2))
+            is_hov = rect.collidepoint(mouse_pos)
+            pygame.draw.rect(s, color if not is_hov else WHITE, rect)
+            text_col = PANEL_BG if not is_hov else BLUE
+            s.blit(
+                font.render(mode.capitalize(), True, text_col), (rect.x + 6, rect.y + 2)
+            )
 
         if self.mode == "CRAFT":
             # sliders
-            lx = self.rect.x + 20
-            ly = self.rect.y + 30
-            for i, (clr, col) in enumerate(
-                [("RED", RED), ("GREEN", GREEN), ("BLUE", BLUE)]
-            ):
-                pygame.draw.rect(s, col, (lx + i * 140, ly, 100, 24))
+            for clr, rect in self.slider_rects.items():
+                color = {"RED": RED, "GREEN": GREEN, "BLUE": BLUE}[clr]
+                is_hov = rect.collidepoint(mouse_pos)
+                pygame.draw.rect(s, color, rect)
+                if is_hov:
+                    pygame.draw.rect(s, WHITE, rect, 2)
                 text = font.render(f"{clr}:{self.sliders[clr]}", True, WHITE)
-                s.blit(text, (lx + i * 140 + 8, ly + 2))
+                s.blit(text, (rect.x + 8, rect.y + 2))
 
-            # craft buttons
-            by = self.rect.y + 70
-            for idx, (txt, w) in enumerate(
-                [("Craft Armament", 160), ("Craft Disk", 160)]
-            ):
-                bx = self.rect.x + 20 + idx * 180
-                pygame.draw.rect(s, YELLOW, (bx, by, w, 30))
-                s.blit(font.render(txt, True, PANEL_BG), (bx + 8, by + 4))
-            pygame.draw.rect(s, YELLOW, (self.rect.x + 100, by + 50, 240, 30))
-            s.blit(
-                font.render("Craft Module", True, PANEL_BG),
-                (self.rect.x + 108, by + 54),
+            draw_button(
+                ctx,
+                self.craft_arm_rect,
+                "Craft Armament",
+                "default",
+                self.craft_arm_rect.collidepoint(mouse_pos),
+            )
+            draw_button(
+                ctx,
+                self.craft_disk_rect,
+                "Craft Disk",
+                "default",
+                self.craft_disk_rect.collidepoint(mouse_pos),
+            )
+            draw_button(
+                ctx,
+                self.craft_mod_rect,
+                "Craft Module",
+                "default",
+                self.craft_mod_rect.collidepoint(mouse_pos),
             )
 
             total = sum(self.sliders.values())
             refund = int(total * DISMANTLE_REFUND_RATIO)
             info_text = f"Total {total}  Refund {refund}"
-            s.blit(font.render(info_text, True, WHITE), (self.rect.x + 20, by + 90))
+            info_y = self.craft_mod_rect.bottom + 10
+            s.blit(font.render(info_text, True, WHITE), (self.rect.x + 20, info_y))
 
             # rarity preview bar
             dist = preview_rarity_distribution(total)

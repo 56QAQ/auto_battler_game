@@ -142,6 +142,19 @@ class DetailsWindow:
         else:
             context.screen.blit(fnt.render("None", True, (200, 200, 200)), (body_x, y))
             y += fnt.get_linesize()
+        y += fnt.get_linesize()
+        context.screen.blit(fnt.render("Passive:", True, (240, 240, 235)), (body_x, y))
+        y += fnt.get_linesize()
+        passive = getattr(self.unit, "passive", None)
+        ability_name = passive.get("ability", {}).get("name") if passive else None
+        if ability_name:
+            context.screen.blit(
+                fnt.render(ability_name, True, (200, 200, 200)), (body_x, y)
+            )
+            y += fnt.get_linesize()
+        else:
+            context.screen.blit(fnt.render("None", True, (200, 200, 200)), (body_x, y))
+            y += fnt.get_linesize()
 
         # Description
         desc = self.unit.definition.get("description", "No description.")

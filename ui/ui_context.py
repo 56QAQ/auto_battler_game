@@ -26,17 +26,17 @@ class UIContext:
         # Type hinting definitions - Input sets these, Drawing reads
         self.selected_unit_info: Optional[SelectedUnitInfo] = None
         self.selected_item_info: Optional[SelectedItemInfo] = None
-
+        offset = ui_c.SLOT_SIZE + 20 
         # Define all static button rects
         self.refresh_shop_button_rect = pygame.Rect(
             ui_c.SHOP_X_START,
-            ui_c.SHOP_Y + ui_c.SLOT_SIZE + 10,
+            ui_c.SHOP_Y + offset,
             100,
             ui_c.BUTTON_HEIGHT,
         )
         self.buy_xp_button_rect = pygame.Rect(
             ui_c.SHOP_X_START + 110,
-            ui_c.SHOP_Y + ui_c.SLOT_SIZE + 10,
+            ui_c.SHOP_Y + offset,
             100,
             ui_c.BUTTON_HEIGHT,
         )
@@ -210,7 +210,7 @@ class UIContext:
         if not self.info_panel_rect:
             return None
         line_height = self.get_font("default").get_linesize() + 4
-        start_y = self.info_panel_rect.y + 10 + 5 * line_height + 10
+        start_y = self.info_panel_rect.y + 10 + 7 * line_height + 10
         x = self.info_panel_rect.x + 10 + (index % 4) * (ui_c.RELIC_ICON_SIZE + 4)
         y = start_y + (index // 4) * (ui_c.RELIC_ICON_SIZE + 4)
         return pygame.Rect(x, y, ui_c.RELIC_ICON_SIZE, ui_c.RELIC_ICON_SIZE)
