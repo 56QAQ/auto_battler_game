@@ -931,9 +931,9 @@ def setup_combat_team(player: Player, is_enemy: bool) -> List[Unit]:
     team = []
     # FIX: Adjust y_base calculation
     y_base = (
-        COMBAT_ARENA_Y + 20
+        COMBAT_ARENA_Y + 40
         if not is_enemy
-        else COMBAT_ARENA_Y + COMBAT_ARENA_HEIGHT - SLOT_SIZE * BOARD_ROWS - 20
+        else COMBAT_ARENA_Y + COMBAT_ARENA_HEIGHT - SLOT_SIZE * BOARD_ROWS - 40
     )
     x_base = (
         COMBAT_ARENA_X
@@ -981,10 +981,11 @@ def calculate_enemy_positions(enemy_units: List[Unit]) -> list[tuple[int, int]]:
 def setup_enemy_combat_team(enemy_units: List[Unit]) -> List[Unit]:
     team = []
     # FIX: Adjust y_base calculation
-    y_base = COMBAT_ARENA_Y + COMBAT_ARENA_HEIGHT - SLOT_SIZE * BOARD_ROWS - 20
+    y_base = COMBAT_ARENA_Y + COMBAT_ARENA_HEIGHT - SLOT_SIZE * BOARD_ROWS - 40
     x_base = (
         COMBAT_ARENA_X
         + (COMBAT_ARENA_WIDTH - BOARD_COLS * (SLOT_SIZE + SLOT_MARGIN)) / 2.0
+        + (SLOT_SIZE + SLOT_MARGIN) / 2
     )
     if not enemy_units:
         return []
