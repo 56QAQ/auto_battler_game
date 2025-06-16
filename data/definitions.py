@@ -515,6 +515,35 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
             "base_value_flat": 0,
         },
     },
+    "Forge Adept": {
+        "rarity": "EPIC",
+        "primary_color": Color.RED,
+        "traits": ["Steamcraft"],
+        "base_stats": {
+            "hp": 1000,
+            "ad": 75,
+            "as": 0.6,
+            "ap": 0,
+            "armor": 50,
+            "mr": 50,
+            "range": 80,
+        },
+        "passive": {
+            "timing_type": TriggerTiming.ON_HIT,
+            "target_type": TriggerTarget.ATTACK_TARGET,
+            "base_value_source": StatSource.AD,
+            "base_value_multiplier": 0.0,
+            "base_value_flat": 0,
+            "burning_attack": True,
+        },
+        "trigger": {
+            "timing_type": TriggerTiming.ON_DOT_DAMAGE,
+            "target_type": TriggerTarget.ATTACK_TARGET,
+            "base_value_source": StatSource.AD,
+            "base_value_multiplier": 0.02,
+            "base_value_flat": 0,
+        },
+    },
     # Enemies
     "Rust Bug": {
         "rarity": "ENEMY",

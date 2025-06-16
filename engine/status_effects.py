@@ -1,12 +1,10 @@
 # engine/status_effects.py
 # 状态效果系统 —— 核心实现
 from __future__ import annotations
-import math
-from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, TYPE_CHECKING, List
-
-from engine.enums import StatusCategory, StackRule, RemoveReason
+from abc import ABC
+from typing import TYPE_CHECKING, Any, Dict, Optional
 from data.enums import DamageSource
+from engine.enums import RemoveReason, StackRule, StatusCategory
 if TYPE_CHECKING:
     from engine.classes import Unit
 
@@ -109,7 +107,35 @@ class DamageOverTime(StatusEffect):
                 source_unit,
                 source_action=DamageSource.ITEM_ABILITY,
             )
+class BurningDOT(DamageOverTime):
+    """Damage over time that also triggers the source unit."""
 
+    name = "BURN_DOT"
+    tick_interval = 0.1
+
+    def on_tick(self, dt: float) -> None:
+        super().on_tick(dt)
+        from data.enums import TriggerTiming
+        from engine.game_state import get_game_state
+
+        state = get_game_state()
+        if not state:
+            return
+        source_unit = next(
+            (
+                u
+                for u in state.player_combat_team + state.enemy_combat_team
+                if u.id == self.source_id
+            ),
+            None,
+        )
+        if source_unit:
+            state.queue_trigger(
+                source_unit,
+                TriggerTiming.ON_DOT_DAMAGE,
+                event_target=self.host,
+                data={"damage": self.params.get("damage", 0) * self.stacks},
+            )
 
 class HealOverTime(StatusEffect):
     name = "HOT"

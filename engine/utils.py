@@ -48,6 +48,7 @@ def format_trigger_description(trigger: Optional[Dict], items) -> str:
         TriggerTiming.ON_TAKE_DAMAGE: "On Take Damage:",
         TriggerTiming.ON_DEATH: "On Death:",
         TriggerTiming.ON_ANY_DEATH: "Any Unit Dies:",
+        TriggerTiming.ON_DOT_DAMAGE: "On DoT Damage:",
     }
     target_map = {
         TriggerTarget.ATTACK_TARGET: "Target ->",

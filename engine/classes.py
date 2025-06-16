@@ -1368,16 +1368,39 @@ class Unit:
                         False,
                         self.target,
                     )
-                    current_attack_damage = self.target.take_damage(
-                        outgoing,
-                        DamageType.PHYSICAL,
-                        state,
-                        self,
-                        source_action=DamageSource.BASIC_ATTACK,
-                        is_aoe=False,
-                    )
-                    self.apply_lifesteal(current_attack_damage, DamageType.PHYSICAL)
-                    damage_dealt += current_attack_damage
+                    if self.passive and self.passive.get("burning_attack"):
+                        from engine.status_effects import BurningDOT
+
+                        dot_damage = outgoing * 0.1
+                        bucket = self.target.statuses.get(BurningDOT.name, [])
+                        same_source = [
+                            st
+                            for st in bucket
+                            if isinstance(st, BurningDOT) and st.source_id == self.id
+                        ]
+                        if len(same_source) < 10:
+                            dot = BurningDOT(
+                                host=self.target,
+                                source_id=self.id,
+                                duration=None,
+                                params={
+                                    "damage": dot_damage,
+                                    "dtype": DamageType.PHYSICAL,
+                                },
+                            )
+                            self.target.add_status(dot)
+                        current_attack_damage = 0.0
+                    else:
+                        current_attack_damage = self.target.take_damage(
+                            outgoing,
+                            DamageType.PHYSICAL,
+                            state,
+                            self,
+                            source_action=DamageSource.BASIC_ATTACK,
+                            is_aoe=False,
+                        )
+                        self.apply_lifesteal(current_attack_damage, DamageType.PHYSICAL)
+                        damage_dealt += current_attack_damage
                     chain_hits = [self.target]
                 if self.passive and self.passive.get("chain_bounces"):
                     last = self.target
@@ -1489,6 +1512,7 @@ class Unit:
                                 )
                             )
                 # FIX: Call resolve_trigger_func with keyword argument
+                data = {}
                 if self.trigger and self.trigger["timing_type"] == TriggerTiming.ON_HIT:
                     ev_tgt = (
                         chain_hits
