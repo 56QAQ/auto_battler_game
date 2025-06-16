@@ -947,7 +947,10 @@ def resolve_trigger(
         return
     for ability in abilities:
         execute_ability(ability, unit, targets, base_value, state)
-
+    if unit.passive and unit.passive.get("hp_loss_on_trigger_percent"):
+        loss_pct = unit.passive.get("hp_loss_on_trigger_percent", 0)
+        loss_amount = max(1, int(unit.current_hp * loss_pct))
+        unit.current_hp = max(1, unit.current_hp - loss_amount)
 
 def resolve_passive(
     unit: Unit,

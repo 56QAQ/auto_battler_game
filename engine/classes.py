@@ -1610,6 +1610,34 @@ class Unit:
                     event_target=None,
                     event_data={},
                 )
+        if self.trigger and "all_allies_below_hp" in self.trigger:
+            threshold = self.trigger.get("all_allies_below_hp", 1.0)
+            pool = (
+                state.player_combat_team
+                if not self.is_enemy
+                else state.enemy_combat_team
+            )
+            allies = [
+                u for u in pool if u.is_alive and u.anim_state != AnimationState.DYING
+            ]
+            if allies:
+                below = [
+                    u
+                    for u in allies
+                    if u.current_stats.get("hp", 0) > 0
+                    and u.current_hp / u.current_stats["hp"] < threshold
+                ]
+                if len(below) == len(allies) and not self._allies_low_triggered:
+                    targets = [u for u in allies if u.id != self.id]
+                    state.queue_trigger(
+                        self,
+                        self.trigger.get("timing_type", TriggerTiming.TIMED),
+                        event_target=targets,
+                        data={},
+                    )
+                    self._allies_low_triggered = True
+                elif len(below) != len(allies):
+                    self._allies_low_triggered = False
         # 3) hand the rest to behaviour context (handles blocking / kiting / attack etc.)
         self.behavior.update(potential_targets, state)
 

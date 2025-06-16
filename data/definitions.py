@@ -581,6 +581,35 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
             "base_value_flat": 0,
         },
     },
+    "Lifebond Sentinel": {
+        "rarity": "RARE",
+        "primary_color": Color.GREEN,
+        "traits": ["Mystic", "Defender"],
+        "base_stats": {
+            "hp": 850,
+            "ad": 45,
+            "as": 0.6,
+            "ap": 30,
+            "armor": 50,
+            "mr": 60,
+            "range": 120,
+        },
+        "trigger": {
+            "timing_type": TriggerTiming.TIMED,
+            "target_type": TriggerTarget.EVENT_TARGETS,
+            "all_allies_below_hp": 0.5,
+            "base_value_source": StatSource.CURRENT_HP,
+            "base_value_multiplier": 0.5,
+            "base_value_flat": 0,
+        },
+        "passive": {
+            "timing_type": TriggerTiming.ON_HIT,
+            "target_type": TriggerTarget.ATTACK_TARGET,
+            "base_value_source": StatSource.AD,
+            "base_value_multiplier": 0.0,
+            "base_value_flat": 0,
+            "hp_loss_on_trigger_percent": 0.5},
+    },
     # Enemies
     "Rust Bug": {
         "rarity": "ENEMY",
