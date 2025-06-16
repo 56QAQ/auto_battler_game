@@ -354,6 +354,8 @@ class Unit:
         self.behavior = BehaviorContext(self)  # smart‑AI wrapper
         self._blocked_time: float = 0.0  # for targeting helper
         self.trigger_counts: dict[TriggerTiming, int] = defaultdict(int)
+        self.double_heal_stacks: int = 0
+        self.double_heal_uses: int = 0
         # Last pos for stuck detection handled by BehaviorContext
 
     def __repr__(self):
@@ -581,6 +583,7 @@ class Unit:
         self.attack_timer = 0.0
         self.trigger_timer = 0.0
         self.passive_timer = 0.0
+        self.double_heal_uses = 0
         self.is_alive = True
         self.x, self.y = 0.0, 0.0
         self.anim_state = AnimationState.IDLE
@@ -1565,9 +1568,31 @@ class Unit:
             self.trigger_timer += state.delta_time_combat
             interval = self.trigger.get("timing_data", {}).get("interval", 999.0)
             while self.trigger_timer >= interval and interval > 0:
+                target = None
+                if self.trigger.get("target_type") == TriggerTarget.NEAREST_ALLY:
+                    threshold = self.trigger.get("hp_threshold", 1.0)
+                    pool = (
+                        state.player_combat_team
+                        if not self.is_enemy
+                        else state.enemy_combat_team
+                    )
+                    candidates = [
+                        u
+                        for u in pool
+                        if u.is_alive
+                        and u.anim_state != AnimationState.DYING
+                        and u.current_stats.get("hp", 0) > 0
+                        and u.current_hp / u.current_stats["hp"] < threshold
+                    ]
+                    if not candidates:
+                        break
+                    target = min(
+                        candidates,
+                        key=lambda u: (u.x - self.x) ** 2 + (u.y - self.y) ** 2,
+                    )
                 self.trigger_timer -= interval
                 state.queue_trigger(
-                    self, TriggerTiming.TIMED, event_target=None, data={}
+                    self, TriggerTiming.TIMED, event_target=target, data={}
                 )
         if (
             self.passive

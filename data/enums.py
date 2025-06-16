@@ -21,6 +21,7 @@ class TriggerTiming(Enum):
 class TriggerTarget(Enum):
     ATTACK_TARGET = auto()  # Requires event_target
     NEAREST_ENEMY = auto()
+    NEAREST_ALLY = auto()
     SELF = auto()
     LOWEST_HP_ENEMY = auto()
     RANDOM_ENEMY = auto()

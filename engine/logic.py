@@ -678,9 +678,19 @@ def find_targets(
         if not source_unit.is_enemy
         else state.player_combat_team
     )
+    potential_allies = (
+        state.player_combat_team
+        if not source_unit.is_enemy
+        else state.enemy_combat_team
+    )
     alive_enemies = [
         u
         for u in potential_enemies
+        if u.is_alive and u.anim_state != AnimationState.DYING
+    ]
+    alive_allies = [
+        u
+        for u in potential_allies
         if u.is_alive and u.anim_state != AnimationState.DYING
     ]
     if target_type == TriggerTarget.SELF:
@@ -701,6 +711,23 @@ def find_targets(
         if getattr(event_target, "is_alive", False):
             return [event_target]
         return []
+    if target_type == TriggerTarget.NEAREST_ALLY:
+        threshold = 1.0
+        if source_unit.trigger:
+            threshold = source_unit.trigger.get("hp_threshold", 1.0)
+        candidates = [
+            u
+            for u in alive_allies
+            if u.current_stats.get("hp", 0) > 0
+            and u.current_hp / u.current_stats["hp"] < threshold
+        ]
+        if not candidates:
+            return []
+        nearest = min(
+            candidates,
+            key=lambda u: (u.x - source_unit.x) ** 2 + (u.y - source_unit.y) ** 2,
+        )
+        return [nearest]
     if not alive_enemies:
         return []
     if target_type == TriggerTarget.NEAREST_ENEMY:
@@ -847,6 +874,17 @@ def execute_ability(
             "flat_value", 0
         )
         heal_amount *= source._xs("outgoing_healing_bonus", 100.0) / 100.0
+        if hasattr(source, "double_heal_stacks") and source.passive:
+            max_first = source.passive.get("double_heal_first", 0)
+            max_stack = source.passive.get("max_double_heal_stacks", 0)
+            if (
+                source.double_heal_uses < max_first
+                and source.double_heal_stacks < max_stack
+            ):
+                source.double_heal_stacks += 1
+                source.double_heal_uses += 1
+            if source.double_heal_stacks > 0:
+                heal_amount *= 2**source.double_heal_stacks
         if heal_amount <= 0.1:
             return
         for target in targets:
