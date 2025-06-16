@@ -722,7 +722,98 @@ class Unit:
         base_damage += self._xs("flat_damage_bonus", 0.0)
 
         return max(0.0, base_damage)
+    def _perform_line_attack(
+        self,
+        state: "GameState",
+        angle: float,
+        scatter_rad: float,
+        length: float,
+        width: float,
+    ) -> tuple[float, list["Unit"]]:
+        """Deal damage in a line with scatter and return total damage and hits."""
+        angle += random.uniform(-scatter_rad, scatter_rad)
+        pool = (
+            state.enemy_combat_team if not self.is_enemy else state.player_combat_team
+        )
+        hits: list[Unit] = []
+        for unit in pool:
+            if not unit.is_alive or unit.anim_state == AnimationState.DYING:
+                continue
+            if unit.id == self.id:
+                continue
+            rel_x = unit.x - self.x
+            rel_y = unit.y - self.y
+            proj = rel_x * math.cos(angle) + rel_y * math.sin(angle)
+            if proj < 0 or proj > length:
+                continue
+            perp = abs(-math.sin(angle) * rel_x + math.cos(angle) * rel_y)
+            if perp <= width / 2 + unit.radius:
+                hits.append(unit)
 
+        damage_total = 0.0
+        for target in hits:
+            raw = self.current_stats.get("ad", 0)
+            outgoing = self.compute_outgoing_damage(
+                raw,
+                DamageType.PHYSICAL,
+                DamageSource.BASIC_ATTACK,
+                True,
+                target,
+            )
+            dmg = target.take_damage(
+                outgoing,
+                DamageType.PHYSICAL,
+                state,
+                self,
+                source_action=DamageSource.BASIC_ATTACK,
+                is_aoe=True,
+            )
+            self.apply_lifesteal(dmg, DamageType.PHYSICAL)
+            damage_total += dmg
+            if dmg > 0.1:
+                if self._last_outgoing_was_crit:
+                    text = f"{dmg:.0f}!"
+                    color = "DAMAGE_CRIT_COLOR"
+                else:
+                    text = f"{dmg:.0f}"
+                    color = "DAMAGE_PHYSICAL_COLOR"
+                state.damage_floaters.append(
+                    DamageFloater(target.x, target.y, text, color)
+                )
+            else:
+                if self._last_outgoing_missed:
+                    state.damage_floaters.append(
+                        DamageFloater(target.x, target.y, "MISS", "BLACK")
+                    )
+            noble_proc = False
+            for _bucket in self.statuses.values():
+                for _st in _bucket:
+                    if (
+                        isinstance(_st, StatModifierEffect)
+                        and _st.source_id == "SYNERGY_NOBLE"
+                        and _st.params.get("stat") == "heal_on_hit"
+                    ):
+                        noble_proc = True
+                        break
+                if noble_proc:
+                    break
+            if noble_proc:
+                healed = self.heal(10, state, self, DamageSource.ITEM_ABILITY)
+                if healed > 0.1:
+                    state.damage_floaters.append(
+                        DamageFloater(self.x, self.y, f"+{healed:.0f}", "HEAL_COLOR")
+                    )
+                    state.visual_effects.append(
+                        VisualEffect(
+                            EffectType.HEAL_AURA,
+                            self.x,
+                            self.y,
+                            HEAL_ANIM_DURATION,
+                            "HEAL_COLOR",
+                            size=self.radius,
+                        )
+                    )
+        return damage_total, hits
     def take_damage(
         self,
         damage: float,
@@ -1031,57 +1122,64 @@ class Unit:
                 if not self.target or not self.target.is_alive:
                     break
                 angle = math.atan2(dy, dx)
-                # Use range definition, not visual threshold
-                is_melee = (
-                    self.current_stats.get("range", 50) < 80
-                )  # dist <= MELEE_RANGE_THRESHOLD
-                if is_melee:
-                    slash_x = self.x + math.cos(angle) * (dist - self.target.radius)
-                    slash_y = self.y + math.sin(angle) * (dist - self.target.radius)
-                    state.visual_effects.append(
-                        VisualEffect(
-                            EffectType.SLASH,
-                            slash_x,
-                            slash_y,
-                            0.2,
-                            "SLASH_COLOR",
-                            target_pos=target_pos,
-                            size=self.radius * 1.5,
-                            angle=angle,
-                        )
+                if self.passive and self.passive.get("line_attack"):
+                    scatter = math.radians(self.passive.get("scatter_deg", 0))
+                    width = self.passive.get("line_width", 20)
+                    length = self.passive.get("line_length", 1000)
+                    dmg, hits = self._perform_line_attack(
+                        state, angle, scatter, length, width
                     )
+                    damage_dealt += dmg
+                    chain_hits = hits
                 else:
-                    state.visual_effects.append(
-                        VisualEffect(
-                            EffectType.PROJECTILE_BASIC,
-                            self.x,
-                            self.y,
-                            1.0,
-                            "PROJECTILE_BASIC_COLOR",
-                            target_pos=target_pos,
-                            size=4,
+                    is_melee = self.current_stats.get("range", 50) < 80
+                    if is_melee:
+                        slash_x = self.x + math.cos(angle) * (dist - self.target.radius)
+                        slash_y = self.y + math.sin(angle) * (dist - self.target.radius)
+                        state.visual_effects.append(
+                            VisualEffect(
+                                EffectType.SLASH,
+                                slash_x,
+                                slash_y,
+                                0.2,
+                                "SLASH_COLOR",
+                                target_pos=target_pos,
+                                size=self.radius * 1.5,
+                                angle=angle,
+                            )
                         )
-                    )
+                    else:
+                        state.visual_effects.append(
+                            VisualEffect(
+                                EffectType.PROJECTILE_BASIC,
+                                self.x,
+                                self.y,
+                                1.0,
+                                "PROJECTILE_BASIC_COLOR",
+                                target_pos=target_pos,
+                                size=4,
+                            )
+                        )
 
-                raw = self.current_stats.get("ad", 0)
-                outgoing = self.compute_outgoing_damage(
-                    raw,
-                    DamageType.PHYSICAL,
-                    DamageSource.BASIC_ATTACK,
-                    False,
-                    self.target,
-                )
-                current_attack_damage = self.target.take_damage(
-                    outgoing,
-                    DamageType.PHYSICAL,
-                    state,
-                    self,
-                    source_action=DamageSource.BASIC_ATTACK,
-                    is_aoe=False,
-                )
-                self.apply_lifesteal(current_attack_damage, DamageType.PHYSICAL)
-                damage_dealt += current_attack_damage  # Accumulate damage
-                chain_hits = [self.target]
+                    raw = self.current_stats.get("ad", 0)
+                    outgoing = self.compute_outgoing_damage(
+                        raw,
+                        DamageType.PHYSICAL,
+                        DamageSource.BASIC_ATTACK,
+                        False,
+                        self.target,
+                    )
+                    current_attack_damage = self.target.take_damage(
+                        outgoing,
+                        DamageType.PHYSICAL,
+                        state,
+                        self,
+                        source_action=DamageSource.BASIC_ATTACK,
+                        is_aoe=False,
+                    )
+                    self.apply_lifesteal(current_attack_damage, DamageType.PHYSICAL)
+                    damage_dealt += current_attack_damage
+                    chain_hits = [self.target]
                 if self.passive and self.passive.get("chain_bounces"):
                     last = self.target
                     for _ in range(self.passive.get("chain_bounces", 0)):
@@ -1128,61 +1226,63 @@ class Unit:
                         chain_hits.append(next_t)
                         last = next_t
                 # FIX: only create floater if damage > 0
-                if current_attack_damage > 0.1:
-                    if self._last_outgoing_was_crit:
-                        floater_text = f"{current_attack_damage:.0f}!"
-                        floater_color = "DAMAGE_CRIT_COLOR"
-                    else:
-                        floater_text = f"{current_attack_damage:.0f}"
-                        floater_color = "DAMAGE_PHYSICAL_COLOR"
-                    state.damage_floaters.append(
-                        DamageFloater(
-                            self.target.x,
-                            self.target.y,
-                            floater_text,
-                            floater_color,
-                        )
-                    )
-                else:
-                    if self._last_outgoing_missed:
+                if not (self.passive and self.passive.get("line_attack")):
+                    # FIX: only create floater if damage > 0
+                    if current_attack_damage > 0.1:
+                        if self._last_outgoing_was_crit:
+                            floater_text = f"{current_attack_damage:.0f}!"
+                            floater_color = "DAMAGE_CRIT_COLOR"
+                        else:
+                            floater_text = f"{current_attack_damage:.0f}"
+                            floater_color = "DAMAGE_PHYSICAL_COLOR"
                         state.damage_floaters.append(
                             DamageFloater(
                                 self.target.x,
                                 self.target.y,
-                                "MISS",
-                                "BLACK",
+                                floater_text,
+                                floater_color,
                             )
                         )
-                noble_proc = False
-                for _bucket in self.statuses.values():
-                    for _st in _bucket:
-                        if (
-                            isinstance(_st, StatModifierEffect)
-                            and _st.source_id == "SYNERGY_NOBLE"
-                            and _st.params.get("stat") == "heal_on_hit"
-                        ):
-                            noble_proc = True
+                    else:
+                        if self._last_outgoing_missed:
+                            state.damage_floaters.append(
+                                DamageFloater(
+                                    self.target.x,
+                                    self.target.y,
+                                    "MISS",
+                                    "BLACK",
+                                )
+                            )
+                    noble_proc = False
+                    for _bucket in self.statuses.values():
+                        for _st in _bucket:
+                            if (
+                                isinstance(_st, StatModifierEffect)
+                                and _st.source_id == "SYNERGY_NOBLE"
+                                and _st.params.get("stat") == "heal_on_hit"
+                            ):
+                                noble_proc = True
+                                break
+                        if noble_proc:
                             break
                     if noble_proc:
-                        break
-                if noble_proc:
-                    healed = self.heal(10, state, self, DamageSource.ITEM_ABILITY)
-                    if healed > 0.1:  # FIX: check meaningful heal
-                        state.damage_floaters.append(
-                            DamageFloater(
-                                self.x, self.y, f"+{healed:.0f}", "HEAL_COLOR"
+                        healed = self.heal(10, state, self, DamageSource.ITEM_ABILITY)
+                        if healed > 0.1:  # FIX: check meaningful heal
+                            state.damage_floaters.append(
+                                DamageFloater(
+                                    self.x, self.y, f"+{healed:.0f}", "HEAL_COLOR"
+                                )
                             )
-                        )
-                        state.visual_effects.append(
-                            VisualEffect(
-                                EffectType.HEAL_AURA,
-                                self.x,
-                                self.y,
-                                HEAL_ANIM_DURATION,
-                                "HEAL_COLOR",
-                                size=self.radius,
+                            state.visual_effects.append(
+                                VisualEffect(
+                                    EffectType.HEAL_AURA,
+                                    self.x,
+                                    self.y,
+                                    HEAL_ANIM_DURATION,
+                                    "HEAL_COLOR",
+                                    size=self.radius,
+                                )
                             )
-                        )
                 # FIX: Call resolve_trigger_func with keyword argument
                 if self.trigger and self.trigger["timing_type"] == TriggerTiming.ON_HIT:
                     ev_tgt = (
@@ -1191,11 +1291,16 @@ class Unit:
                         == TriggerTarget.EVENT_TARGETS
                         else self.target
                     )
+                    aoe_flag = (
+                        True
+                        if self.passive and self.passive.get("line_attack")
+                        else len(chain_hits) > 1
+                    )
                     state.queue_trigger(
                         self,
                         TriggerTiming.ON_HIT,
                         event_target=ev_tgt,
-                        data={"aoe": len(chain_hits) > 1},
+                        data={"aoe": aoe_flag},
                     )
                 if (
                     self.passive
