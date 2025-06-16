@@ -393,7 +393,6 @@ def handle_game_event(
             and context.settings_button_rect.collidepoint(pos)
         ):
             open_settings(state)
-            return None
         if (
             is_left
             and context.stats_toggle_button_rect
@@ -403,7 +402,6 @@ def handle_game_event(
                 context.stats_panel = None
             else:
                 context.stats_panel = StatsPanel(state, context)
-            return None
         if (
             is_left
             and context.warehouse_button_rect
@@ -415,7 +413,6 @@ def handle_game_event(
                 from ui.warehouse_panel import WarehousePanel
 
                 context.warehouse_panel = WarehousePanel(state, context)
-            return None
         if state.current_phase == GamePhase.MAIN_MENU:
             if (
                 is_left
@@ -594,7 +591,7 @@ def handle_game_event(
                     and context.map_button_rect
                     and context.map_button_rect.collidepoint(pos)
                 ):
-                    go_to_map(state)
+                    go_to_map(state, context)
                     sounds.play("buy")
                 elif (
                     state.allow_combat_start

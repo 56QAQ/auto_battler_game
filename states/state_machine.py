@@ -34,6 +34,7 @@ def start_new_run(state: GameState, difficulty_level: str | None = None):
     if difficulty_level is None:
         difficulty_level = getattr(state, "difficulty_level", "medium")
     reset_game_state(difficulty_level)
+    UIContext.warehouse_button_rect = None
     UIContext.warehouse_panel = None
     return get_game_state()
 
@@ -131,6 +132,7 @@ def end_combat(
 
 
 def go_to_map(state: GameState):
+    context.warehouse_button_rect = None
     UIContext.warehouse_panel = None
     current_node = state.game_map.get_node(state.current_node_id)
     if current_node and not current_node.completed:
@@ -225,6 +227,7 @@ def run_preparation_phase(
     print(f"\n--- ENTER PREPARATION PHASE (Node: {node_type}) ---")
     state.current_phase = GamePhase.PREPARATION
     state.shop.refresh(state.player.level)
+    context.warehouse_button_rect = context.layout.warehouse_button_rect
     state.allow_combat_start = allow_combat_start
     state.current_node_type = node_type
     update_player_synergies(state.player)
