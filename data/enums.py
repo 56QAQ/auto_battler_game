@@ -15,6 +15,9 @@ class TriggerTiming(Enum):
     ON_HEALED = auto()
     ON_SHIELD_BROKEN = auto()
     ON_ANY_DEATH = auto()
+    ON_AOE_DAMAGE = auto()
+
+    
 class TriggerTarget(Enum):
     ATTACK_TARGET = auto()  # Requires event_target
     NEAREST_ENEMY = auto()

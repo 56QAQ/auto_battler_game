@@ -908,6 +908,58 @@ class Unit:
                         )
                     )
         return damage_total, hits
+
+    def _perform_circle_attack(
+        self,
+        state: "GameState",
+        radius: float,
+    ) -> tuple[float, list["Unit"]]:
+        """Deal damage in a circle around the unit."""
+        pool = state.player_combat_team + state.enemy_combat_team
+        hits: list[Unit] = []
+        for unit in pool:
+            if not unit.is_alive or unit.anim_state == AnimationState.DYING:
+                continue
+            dist_sq = (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2
+            if dist_sq <= (radius + unit.radius) ** 2:
+                hits.append(unit)
+
+        damage_total = 0.0
+        for target in hits:
+            raw = self.current_stats.get("ad", 0)
+            outgoing = self.compute_outgoing_damage(
+                raw,
+                DamageType.PHYSICAL,
+                DamageSource.BASIC_ATTACK,
+                True,
+                target,
+            )
+            dmg = target.take_damage(
+                outgoing,
+                DamageType.PHYSICAL,
+                state,
+                self,
+                source_action=DamageSource.BASIC_ATTACK,
+                is_aoe=True,
+            )
+            self.apply_lifesteal(dmg, DamageType.PHYSICAL)
+            damage_total += dmg
+            if dmg > 0.1:
+                if self._last_outgoing_was_crit:
+                    text = f"{dmg:.0f}!"
+                    color = "DAMAGE_CRIT_COLOR"
+                else:
+                    text = f"{dmg:.0f}"
+                    color = "DAMAGE_PHYSICAL_COLOR"
+                state.damage_floaters.append(
+                    DamageFloater(target.x, target.y, text, color)
+                )
+            else:
+                if self._last_outgoing_missed:
+                    state.damage_floaters.append(
+                        DamageFloater(target.x, target.y, "MISS", "BLACK")
+                    )
+        return damage_total, hits
     def take_damage(
         self,
         damage: float,
@@ -1046,6 +1098,37 @@ class Unit:
                     event_target=source,
                     data={"damage": effective_damage},
                 )
+        if (
+            state
+            and self.trigger
+            and self.trigger["timing_type"] == TriggerTiming.ON_AOE_DAMAGE
+            and is_aoe
+        ):
+            angle = math.atan2(source.y - self.y, source.x - self.x) if source else 0.0
+            radius = self.trigger.get("radius", 100)
+            pool = state.player_combat_team + state.enemy_combat_team
+            targets = []
+            for unit in pool:
+                if (
+                    not unit.is_alive
+                    or unit.anim_state == AnimationState.DYING
+                    or unit.id == self.id
+                ):
+                    continue
+                dx = unit.x - self.x
+                dy = unit.y - self.y
+                dist = math.hypot(dx, dy)
+                if dist > radius:
+                    continue
+                diff = (math.atan2(dy, dx) - angle + math.pi) % (2 * math.pi) - math.pi
+                if abs(diff) <= math.pi / 2:
+                    targets.append(unit)
+            state.queue_trigger(
+                self,
+                TriggerTiming.ON_AOE_DAMAGE,
+                event_target=targets,
+                data={"damage": effective_damage, "is_aoe": True},
+            )
         if (
             state
             and self.passive
@@ -1242,6 +1325,11 @@ class Unit:
                     dmg, hits = self._perform_cone_attack(state, angle, arc, length)
                     damage_dealt += dmg
                     chain_hits = hits
+                elif self.passive and self.passive.get("circle_attack"):
+                    radius = self.passive.get("circle_radius", 80)
+                    dmg, hits = self._perform_circle_attack(state, radius)
+                    damage_dealt += dmg
+                    chain_hits = hits
                 else:
                     is_melee = self.current_stats.get("range", 50) < 80
                     if is_melee:
@@ -1341,6 +1429,7 @@ class Unit:
                     and (
                         self.passive.get("line_attack")
                         or self.passive.get("cone_attack")
+                        or self.passive.get("circle_attack")
                     )
                 ):
                     # FIX: only create floater if damage > 0
@@ -1413,6 +1502,7 @@ class Unit:
                         and (
                             self.passive.get("line_attack")
                             or self.passive.get("cone_attack")
+                            or self.passive.get("circle_attack")
                         )
                         else len(chain_hits) > 1
                     )

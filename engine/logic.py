@@ -892,9 +892,13 @@ def resolve_trigger(
     items_with_abilities = [
         item for item in unit.equipped_items if item and item.ability
     ]
+    abilities = [item.ability for item in items_with_abilities]
+    if "ability" in unit.trigger:
+        abilities.append(unit.trigger["ability"])
     # FIX: This design means only units with items equipped can use their triggers.
     # The trigger defines the condition (timing, target, value source), the item defines the effect.
-    if not items_with_abilities:
+    # Allow ability defined directly on the trigger as well.
+    if not abilities:
         return
     base_value = calculate_base_value(unit, unit.trigger, event_data)
     # FIX: Check 'target_type' exists
@@ -903,8 +907,8 @@ def resolve_trigger(
     targets = find_targets(unit, unit.trigger["target_type"], state, event_target)
     if not targets:
         return
-    for item in items_with_abilities:
-        execute_ability(item.ability, unit, targets, base_value, state)
+    for ability in abilities:
+        execute_ability(ability, unit, targets, base_value, state)
 
 
 def resolve_passive(
