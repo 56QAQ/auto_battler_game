@@ -962,7 +962,7 @@ def setup_combat_team(player: Player, is_enemy: bool) -> List[Unit]:
                 y_base + actual_row * (SLOT_SIZE + SLOT_MARGIN) + SLOT_SIZE / 2.0
             )
             combat_unit.is_enemy = is_enemy
-            combat_unit.base_color_key = "ENEMY_COLOR" if is_enemy else "ALLY_COLOR"
+            combat_unit.base_color_key = "WHITE"
             combat_unit.current_color_key = combat_unit.base_color_key
             team.append(combat_unit)
     return team
@@ -1004,8 +1004,8 @@ def setup_enemy_combat_team(enemy_units: List[Unit]) -> List[Unit]:
         combat_unit.x = x_base + col * (SLOT_SIZE + SLOT_MARGIN) + SLOT_SIZE / 2.0
         combat_unit.y = y_base + row * (SLOT_SIZE + SLOT_MARGIN) + SLOT_SIZE / 2.0
         combat_unit.is_enemy = True
-        combat_unit.base_color_key = "ENEMY_COLOR"
-        combat_unit.current_color_key = "ENEMY_COLOR"
+        combat_unit.base_color_key = "WHITE"
+        combat_unit.current_color_key = combat_unit.base_color_key
         team.append(combat_unit)
     return team
 

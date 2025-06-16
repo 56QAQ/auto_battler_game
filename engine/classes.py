@@ -339,7 +339,7 @@ class Unit:
         self.healed_progress: float = 0.0
         self.is_alive: bool = True
         # Color keys for UI
-        self.base_color_key = "ENEMY_COLOR" if is_enemy else "ALLY_COLOR"
+        self.base_color_key = "WHITE"
         self.current_color_key = self.base_color_key
 
         self.anim_state: AnimationState = AnimationState.IDLE
