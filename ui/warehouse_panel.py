@@ -43,26 +43,26 @@ class WarehousePanel:
         )
 
     def handle_event(self, ev: pygame.event.Event) -> bool:
-        # if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
-        #     start = self.page * self._page_size()
-        #     end   = start + self._page_size()
-        #     items = self.state.player.item_inventory[start:end]
-        #     for local_idx, _ in enumerate(items):
-        #         if self.get_item_rect(local_idx).collidepoint(ev.pos):
-        #             global_idx = start + local_idx
-        #             itm = self.state.player.item_inventory[global_idx]
-        #             self.context.selected_item_info = (
-        #                 UnitLocation.INVENTORY, global_idx, itm
-        #             )
-        #             return True
-        #     if self.prev_rect.collidepoint(ev.pos):
-        #         self.page = (self.page - 1) % self._total_pages()
-        #         return True
-        #     if self.next_rect.collidepoint(ev.pos):
-        #         self.page = (self.page + 1) % self._total_pages()
-        #         return True
-        #     if not self.rect.collidepoint(ev.pos):
-        #         return False
+        if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
+            start = self.page * self._page_size()
+            end   = start + self._page_size()
+            items = self.state.player.item_inventory[start:end]
+            for local_idx, _ in enumerate(items):
+                if self.get_item_rect(local_idx).collidepoint(ev.pos):
+                    global_idx = start + local_idx
+                    itm = self.state.player.item_inventory[global_idx]
+                    self.context.selected_item_info = (
+                        UnitLocation.INVENTORY, global_idx, itm
+                    )
+                    return True
+            if self.prev_rect.collidepoint(ev.pos):
+                self.page = (self.page - 1) % self._total_pages()
+                return True
+            if self.next_rect.collidepoint(ev.pos):
+                self.page = (self.page + 1) % self._total_pages()
+                return True
+            if not self.rect.collidepoint(ev.pos):
+                return False
         return False
 
     def get_item_rect(self, index: int) -> pygame.Rect:

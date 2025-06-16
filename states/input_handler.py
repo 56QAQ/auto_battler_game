@@ -130,7 +130,24 @@ def get_clicked_object_info(
             return (UnitLocation.SHOP, i, shop.slots[i])
     return None
 
+def _handle_details_window(event: pygame.event.Event, context: UIContext) -> bool:
+    """Let the details window consume relevant events."""
+    if context.details_window:
+        dw = context.details_window
+        dw.handle_event(event, context)
+        if event.type == pygame.KEYDOWN:
+            return True
+        if getattr(event, "pos", None) and dw.rect.collidepoint(event.pos):
+            return True
+        if dw.dragging or context.details_window is None:
+            return True
+    return False
 
+
+def _handle_stats_panel(event: pygame.event.Event, context: UIContext) -> bool:
+    if context.stats_panel and context.stats_panel.handle_event(event):
+        return True
+    return False
 def handle_game_event(
     event: pygame.event.Event, state: GameState, context: UIContext
 ) -> Optional[GameState]:
@@ -139,24 +156,10 @@ def handle_game_event(
     # FIX: Ensure state and context are valid
     if not state or not context:
         return None
-
-    # Give the details window priority to handle interactions and
-    # consume events that occur within its bounds. This prevents other
-    # UI logic from reacting to clicks or drags intended for the
-    # window, which previously made the close button and dragging
-    # unreliable.
-    if context.details_window:
-        dw = context.details_window
-        dw.handle_event(event, context)
-        if event.type == pygame.KEYDOWN:
-            return None
-        if getattr(event, "pos", None) and dw.rect.collidepoint(event.pos):
-            return None
-        if dw.dragging or context.details_window is None:
-            return None
-    if context.stats_panel:
-        if context.stats_panel.handle_event(event):
-            return None
+    if _handle_details_window(event, context):
+        return None
+    if _handle_stats_panel(event, context):
+        return None
     if event.type == pygame.MOUSEMOTION:
         pos =  getattr(event,"pos",None)
         if pos == None:
@@ -181,155 +184,97 @@ def handle_game_event(
             and context.stats_toggle_button_rect.collidepoint(pos)
         ):
             context.hovered_button_rect = context.stats_toggle_button_rect
-    if context.warehouse_panel:
-        pos =  getattr(event,"pos",None)
-        if pos == None:
-            return
-        # Phase-specific motion handling
-        elif (
-            state.current_phase == GamePhase.MAIN_MENU
-            and context.start_menu_button_rect
-            and context.start_menu_button_rect.collidepoint(pos)
+#    if context.warehouse_panel:
+    pos =  getattr(event,"pos",None)
+    if pos == None:
+        return
+    # Phase-specific motion handling
+    elif (
+        state.current_phase == GamePhase.MAIN_MENU
+        and context.start_menu_button_rect
+        and context.start_menu_button_rect.collidepoint(pos)
+    ):
+        context.hovered_button_rect = context.start_menu_button_rect
+    elif state.current_phase in [GamePhase.GAME_OVER, GamePhase.RUN_COMPLETE]:
+        if (
+            context.restart_button_rect
+            and context.restart_button_rect.collidepoint(pos)
         ):
-            context.hovered_button_rect = context.start_menu_button_rect
-        elif state.current_phase in [GamePhase.GAME_OVER, GamePhase.RUN_COMPLETE]:
+            context.hovered_button_rect = context.restart_button_rect
+        elif (
+            context.main_menu_button_rect
+            and context.main_menu_button_rect.collidepoint(pos)
+        ):
+            context.hovered_button_rect = context.main_menu_button_rect
+    elif state.current_phase == GamePhase.DIFFICULTY_SELECT:
+        for rect in context.difficulty_button_rects:
+            if rect.collidepoint(pos):
+                context.hovered_button_rect = rect
+                break
+    elif state.current_phase == GamePhase.THEME_SELECT:
+        for rect in context.theme_button_rects:
+            if rect.collidepoint(pos):
+                context.hovered_button_rect = rect
+                break
+    elif state.current_phase == GamePhase.EVENT_CHOICE:
+        for choice in state.event_choices:
+            # FIX: check if rect exists
             if (
-                context.restart_button_rect
-                and context.restart_button_rect.collidepoint(pos)
+                "rect" in choice
+                and choice["rect"]
+                and choice["rect"].collidepoint(pos)
             ):
-                context.hovered_button_rect = context.restart_button_rect
-            elif (
-                context.main_menu_button_rect
-                and context.main_menu_button_rect.collidepoint(pos)
-            ):
-                context.hovered_button_rect = context.main_menu_button_rect
-        elif state.current_phase == GamePhase.DIFFICULTY_SELECT:
-            for rect in context.difficulty_button_rects:
-                if rect.collidepoint(pos):
-                    context.hovered_button_rect = rect
-                    break
-        elif state.current_phase == GamePhase.THEME_SELECT:
-            for rect in context.theme_button_rects:
-                if rect.collidepoint(pos):
-                    context.hovered_button_rect = rect
-                    break
-        elif state.current_phase == GamePhase.EVENT_CHOICE:
-            for choice in state.event_choices:
-                # FIX: check if rect exists
-                if (
-                    "rect" in choice
-                    and choice["rect"]
-                    and choice["rect"].collidepoint(pos)
-                ):
-                    context.hovered_button_rect = choice["rect"]
-                    break
-        elif state.current_phase == GamePhase.SETTINGS:
-            if context.volume_down_rect and context.volume_down_rect.collidepoint(pos):
-                context.hovered_button_rect = context.volume_down_rect
-            elif context.volume_up_rect and context.volume_up_rect.collidepoint(pos):
-                context.hovered_button_rect = context.volume_up_rect
-            elif context.resolution_rect and context.resolution_rect.collidepoint(pos):
-                context.hovered_button_rect = context.resolution_rect
-            elif (
-                context.settings_back_button_rect
-                and context.settings_back_button_rect.collidepoint(pos)
-            ):
-                context.hovered_button_rect = context.settings_back_button_rect
-            elif (
-                context.settings_abandon_button_rect
-                and context.settings_abandon_button_rect.collidepoint(pos)
-            ):
-                context.hovered_button_rect = context.settings_abandon_button_rect
-        elif state.current_phase == GamePhase.PREPARATION:
-            # Button hovers
-            if (
-                context.refresh_shop_button_rect
-                and context.refresh_shop_button_rect.collidepoint(pos)
-            ):
-                context.hovered_button_rect = context.refresh_shop_button_rect
-            elif context.buy_xp_button_rect and context.buy_xp_button_rect.collidepoint(
-                pos
-            ):
-                context.hovered_button_rect = context.buy_xp_button_rect
-            elif context.sell_area_rect and context.sell_area_rect.collidepoint(pos):
-                context.hovered_rect = context.sell_area_rect
-                state.hovered_info = "SELL UNIT"
-            elif (
-                state.allow_combat_start
-                and context.start_combat_button_rect
-                and context.start_combat_button_rect.collidepoint(pos)
-            ):
-                context.hovered_button_rect = context.start_combat_button_rect
-            elif (
-                not state.allow_combat_start
-                and context.map_button_rect
-                and context.map_button_rect.collidepoint(pos)
-            ):
-                context.hovered_button_rect = context.map_button_rect
-            # Slot/Object hovers
-            else:
-                # FIX: Pass pos to get_clicked_object_info for item rect detection
-                # The logic in get_clicked_object_info needs the rects first.
-                # Instead, determine hover target rect here based on pos.
-                hover_rect = None
-                clicked_info = get_clicked_object_info(pos, state, context)
-                if not clicked_info:
-                    for idx, art in enumerate(state.player.artifacts):
-                        rect = context.get_artifact_rect(idx)
-                        if rect and rect.collidepoint(pos):
-                            context.hovered_rect = rect
-                            state.hovered_info = f"{art.name}\n{art.description}"
-                            break
-                if clicked_info:
-                    loc, idx, obj = clicked_info
-                    # FIX: Determine the correct rect for hovering highlight and info text
-                    if loc == UnitLocation.EQUIPPED:
-                        unit_info_tuple = idx
-                        unit_loc, unit_idx, unit = unit_info_tuple
-                        # Find item index to get its specific rect
-                        item_index = -1
-                        if unit and obj:  # obj is the item
-                            for i, item_on_unit in enumerate(unit.equipped_items):
-                                if item_on_unit and item_on_unit.id == obj.id:
-                                    item_index = i
-                                    break
-                        if item_index != -1:
-                            unit_base_rect = context.get_slot_rect(unit_loc, unit_idx)
-                            hover_rect = context.get_slot_rect(
-                                UnitLocation.EQUIPPED,
-                                item_index,
-                                base_rect=unit_base_rect,
-                            )
-                    else:  # Unit or Inventory/Shop item
-                        hover_rect = context.get_slot_rect(loc, idx)
-
-                    context.hovered_rect = (
-                        hover_rect  # Assign the correctly identified rect
-                    )
-
-                    if obj:  # Generate hover text only if an object exists
-                        if isinstance(obj, Unit):
-                            cs = obj.current_stats
-                            info_lines = [
-                                obj.name,
-                                f"HP: {int(obj.current_hp)}/{int(cs['hp'])}",
-                                f"Phys {int(cs['ad'])} / {int(cs['armor'])}",
-                                f"Magic {int(cs['ap'])} / {int(cs['mr'])}",
-                                f"Bonus {int(cs.get('percentage_damage_bonus',100))}% / Red {int(cs.get('percentage_damage_reduction',100))}%",
-                            ]
-                            state.hovered_info = "\n".join(info_lines)
-                        elif isinstance(obj, Item):
-                            state.hovered_info = (
-                                f"{obj.name} ({obj.type})\n{obj.description}"
-                            )
-                # Synergy hover
-                elif (
-                    context.synergy_panel_rect
-                    and context.synergy_panel_rect.collidepoint(pos)
-                ):
-                    # Logic to find which synergy is hovered
-                    pass  # Simplified for now
-        elif state.current_phase == GamePhase.MAP_NAVIGATION:
+                context.hovered_button_rect = choice["rect"]
+                break
+    elif state.current_phase == GamePhase.SETTINGS:
+        if context.volume_down_rect and context.volume_down_rect.collidepoint(pos):
+            context.hovered_button_rect = context.volume_down_rect
+        elif context.volume_up_rect and context.volume_up_rect.collidepoint(pos):
+            context.hovered_button_rect = context.volume_up_rect
+        elif context.resolution_rect and context.resolution_rect.collidepoint(pos):
+            context.hovered_button_rect = context.resolution_rect
+        elif (
+            context.settings_back_button_rect
+            and context.settings_back_button_rect.collidepoint(pos)
+        ):
+            context.hovered_button_rect = context.settings_back_button_rect
+        elif (
+            context.settings_abandon_button_rect
+            and context.settings_abandon_button_rect.collidepoint(pos)
+        ):
+            context.hovered_button_rect = context.settings_abandon_button_rect
+    elif state.current_phase == GamePhase.PREPARATION:
+        # Button hovers
+        if (
+            context.refresh_shop_button_rect
+            and context.refresh_shop_button_rect.collidepoint(pos)
+        ):
+            context.hovered_button_rect = context.refresh_shop_button_rect
+        elif context.buy_xp_button_rect and context.buy_xp_button_rect.collidepoint(
+            pos
+        ):
+            context.hovered_button_rect = context.buy_xp_button_rect
+        elif context.sell_area_rect and context.sell_area_rect.collidepoint(pos):
+            context.hovered_rect = context.sell_area_rect
+            state.hovered_info = "SELL UNIT"
+        elif (
+            state.allow_combat_start
+            and context.start_combat_button_rect
+            and context.start_combat_button_rect.collidepoint(pos)
+        ):
+            context.hovered_button_rect = context.start_combat_button_rect
+        elif (
+            not state.allow_combat_start
+            and context.map_button_rect
+            and context.map_button_rect.collidepoint(pos)
+        ):
+            context.hovered_button_rect = context.map_button_rect
+        # Slot/Object hovers
+        else:
+            # FIX: Pass pos to get_clicked_object_info for item rect detection
+            # The logic in get_clicked_object_info needs the rects first.
+            # Instead, determine hover target rect here based on pos.
+            hover_rect = None
             clicked_info = get_clicked_object_info(pos, state, context)
             if not clicked_info:
                 for idx, art in enumerate(state.player.artifacts):
@@ -338,44 +283,102 @@ def handle_game_event(
                         context.hovered_rect = rect
                         state.hovered_info = f"{art.name}\n{art.description}"
                         break
-            for node in state.game_map.nodes.values():
-                if node and node.collidepoint(pos):
-                    context.hovered_rect = pygame.Rect(
-                        node.x - node.radius,
-                        node.y - node.radius,
-                        node.radius * 2,
-                        node.radius * 2,
-                    )
-                    rewards = NODE_REWARDS.get(node.node_type, {})
-                    state.hovered_info = f"Node {node.node_id}: {node.node_type}\n{node.enemy_team_key or ''}"
-                    break
-        elif state.current_phase == GamePhase.COMBAT:
-            all_combat_units = []
-            if state.player_combat_team:
-                all_combat_units.extend(state.player_combat_team)
-            if state.enemy_combat_team:
-                all_combat_units.extend(state.enemy_combat_team)
-            for unit in all_combat_units:
-                if unit and math.dist((unit.x, unit.y), pos) < unit.radius:
-                    cs = unit.current_stats
-                    info_lines = [
-                        unit.name,
-                        f"HP: {int(unit.current_hp)}/{int(cs['hp'])}",
-                        f"Phys {int(cs['ad'])} / Def {int(cs['armor'])}",
-                        f"Magic {int(cs['ap'])} / Res {int(cs['mr'])}",
-                        f"Bonus {int(cs.get('percentage_damage_bonus',100))}% / Red {int(cs.get('percentage_damage_reduction',100))}%",
-                    ]
-                    state.hovered_info = "\n".join(info_lines)
-                    # FIX: Set hovered rect for combat units
-                    context.hovered_rect = pygame.Rect(
-                        unit.x - unit.radius,
-                        unit.y - unit.radius,
-                        unit.radius * 2,
-                        unit.radius * 2,
-                    )
-                    break
+            if clicked_info:
+                loc, idx, obj = clicked_info
+                # FIX: Determine the correct rect for hovering highlight and info text
+                if loc == UnitLocation.EQUIPPED:
+                    unit_info_tuple = idx
+                    unit_loc, unit_idx, unit = unit_info_tuple
+                    # Find item index to get its specific rect
+                    item_index = -1
+                    if unit and obj:  # obj is the item
+                        for i, item_on_unit in enumerate(unit.equipped_items):
+                            if item_on_unit and item_on_unit.id == obj.id:
+                                item_index = i
+                                break
+                    if item_index != -1:
+                        unit_base_rect = context.get_slot_rect(unit_loc, unit_idx)
+                        hover_rect = context.get_slot_rect(
+                            UnitLocation.EQUIPPED,
+                            item_index,
+                            base_rect=unit_base_rect,
+                        )
+                else:  # Unit or Inventory/Shop item
+                    hover_rect = context.get_slot_rect(loc, idx)
 
-    elif event.type == pygame.MOUSEBUTTONDOWN:
+                context.hovered_rect = (
+                    hover_rect  # Assign the correctly identified rect
+                )
+
+                if obj:  # Generate hover text only if an object exists
+                    if isinstance(obj, Unit):
+                        cs = obj.current_stats
+                        info_lines = [
+                            obj.name,
+                            f"HP: {int(obj.current_hp)}/{int(cs['hp'])}",
+                            f"Phys {int(cs['ad'])} / {int(cs['armor'])}",
+                            f"Magic {int(cs['ap'])} / {int(cs['mr'])}",
+                            f"Bonus {int(cs.get('percentage_damage_bonus',100))}% / Red {int(cs.get('percentage_damage_reduction',100))}%",
+                        ]
+                        state.hovered_info = "\n".join(info_lines)
+                    elif isinstance(obj, Item):
+                        state.hovered_info = (
+                            f"{obj.name} ({obj.type})\n{obj.description}"
+                        )
+            # Synergy hover
+            elif (
+                context.synergy_panel_rect
+                and context.synergy_panel_rect.collidepoint(pos)
+            ):
+                # Logic to find which synergy is hovered
+                pass  # Simplified for now
+    elif state.current_phase == GamePhase.MAP_NAVIGATION:
+        clicked_info = get_clicked_object_info(pos, state, context)
+        if not clicked_info:
+            for idx, art in enumerate(state.player.artifacts):
+                rect = context.get_artifact_rect(idx)
+                if rect and rect.collidepoint(pos):
+                    context.hovered_rect = rect
+                    state.hovered_info = f"{art.name}\n{art.description}"
+                    break
+        for node in state.game_map.nodes.values():
+            if node and node.collidepoint(pos):
+                context.hovered_rect = pygame.Rect(
+                    node.x - node.radius,
+                    node.y - node.radius,
+                    node.radius * 2,
+                    node.radius * 2,
+                )
+                rewards = NODE_REWARDS.get(node.node_type, {})
+                state.hovered_info = f"Node {node.node_id}: {node.node_type}\n{node.enemy_team_key or ''}"
+                break
+    elif state.current_phase == GamePhase.COMBAT:
+        all_combat_units = []
+        if state.player_combat_team:
+            all_combat_units.extend(state.player_combat_team)
+        if state.enemy_combat_team:
+            all_combat_units.extend(state.enemy_combat_team)
+        for unit in all_combat_units:
+            if unit and math.dist((unit.x, unit.y), pos) < unit.radius:
+                cs = unit.current_stats
+                info_lines = [
+                    unit.name,
+                    f"HP: {int(unit.current_hp)}/{int(cs['hp'])}",
+                    f"Phys {int(cs['ad'])} / Def {int(cs['armor'])}",
+                    f"Magic {int(cs['ap'])} / Res {int(cs['mr'])}",
+                    f"Bonus {int(cs.get('percentage_damage_bonus',100))}% / Red {int(cs.get('percentage_damage_reduction',100))}%",
+                ]
+                state.hovered_info = "\n".join(info_lines)
+                # FIX: Set hovered rect for combat units
+                context.hovered_rect = pygame.Rect(
+                    unit.x - unit.radius,
+                    unit.y - unit.radius,
+                    unit.radius * 2,
+                    unit.radius * 2,
+                )
+                break
+
+    if event.type == pygame.MOUSEBUTTONDOWN:
         pos =  getattr(event,"pos",None)
         if pos == None:
             return
