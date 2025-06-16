@@ -814,6 +814,100 @@ class Unit:
                         )
                     )
         return damage_total, hits
+    def _perform_cone_attack(
+        self,
+        state: "GameState",
+        angle: float,
+        arc_rad: float,
+        length: float,
+    ) -> tuple[float, list["Unit"]]:
+        """Deal damage in a cone and split evenly across hits."""
+        pool = (
+            state.enemy_combat_team if not self.is_enemy else state.player_combat_team
+        )
+        hits: list[Unit] = []
+        for unit in pool:
+            if not unit.is_alive or unit.anim_state == AnimationState.DYING:
+                continue
+            if unit.id == self.id:
+                continue
+            dx = unit.x - self.x
+            dy = unit.y - self.y
+            dist = math.hypot(dx, dy)
+            if dist > length or dist <= 0:
+                continue
+            ang = math.atan2(dy, dx)
+            diff = (ang - angle + math.pi) % (2 * math.pi) - math.pi
+            if abs(diff) <= arc_rad / 2 + math.asin(min(unit.radius / dist, 1.0)):
+                hits.append(unit)
+
+        damage_total = 0.0
+        if hits:
+            raw_each = self.current_stats.get("ad", 0) / len(hits)
+        else:
+            raw_each = 0.0
+        for target in hits:
+            outgoing = self.compute_outgoing_damage(
+                raw_each,
+                DamageType.PHYSICAL,
+                DamageSource.BASIC_ATTACK,
+                True,
+                target,
+            )
+            dmg = target.take_damage(
+                outgoing,
+                DamageType.PHYSICAL,
+                state,
+                self,
+                source_action=DamageSource.BASIC_ATTACK,
+                is_aoe=True,
+            )
+            self.apply_lifesteal(dmg, DamageType.PHYSICAL)
+            damage_total += dmg
+            if dmg > 0.1:
+                if self._last_outgoing_was_crit:
+                    text = f"{dmg:.0f}!"
+                    color = "DAMAGE_CRIT_COLOR"
+                else:
+                    text = f"{dmg:.0f}"
+                    color = "DAMAGE_PHYSICAL_COLOR"
+                state.damage_floaters.append(
+                    DamageFloater(target.x, target.y, text, color)
+                )
+            else:
+                if self._last_outgoing_missed:
+                    state.damage_floaters.append(
+                        DamageFloater(target.x, target.y, "MISS", "BLACK")
+                    )
+            noble_proc = False
+            for _bucket in self.statuses.values():
+                for _st in _bucket:
+                    if (
+                        isinstance(_st, StatModifierEffect)
+                        and _st.source_id == "SYNERGY_NOBLE"
+                        and _st.params.get("stat") == "heal_on_hit"
+                    ):
+                        noble_proc = True
+                        break
+                if noble_proc:
+                    break
+            if noble_proc:
+                healed = self.heal(10, state, self, DamageSource.ITEM_ABILITY)
+                if healed > 0.1:
+                    state.damage_floaters.append(
+                        DamageFloater(self.x, self.y, f"+{healed:.0f}", "HEAL_COLOR")
+                    )
+                    state.visual_effects.append(
+                        VisualEffect(
+                            EffectType.HEAL_AURA,
+                            self.x,
+                            self.y,
+                            HEAL_ANIM_DURATION,
+                            "HEAL_COLOR",
+                            size=self.radius,
+                        )
+                    )
+        return damage_total, hits
     def take_damage(
         self,
         damage: float,
@@ -1131,6 +1225,12 @@ class Unit:
                     )
                     damage_dealt += dmg
                     chain_hits = hits
+                elif self.passive and self.passive.get("cone_attack"):
+                    arc = math.radians(self.passive.get("cone_arc_deg", 60))
+                    length = self.passive.get("cone_length", 100)
+                    dmg, hits = self._perform_cone_attack(state, angle, arc, length)
+                    damage_dealt += dmg
+                    chain_hits = hits
                 else:
                     is_melee = self.current_stats.get("range", 50) < 80
                     if is_melee:
@@ -1225,8 +1325,13 @@ class Unit:
                             )
                         chain_hits.append(next_t)
                         last = next_t
-                # FIX: only create floater if damage > 0
-                if not (self.passive and self.passive.get("line_attack")):
+                if not (
+                    self.passive
+                    and (
+                        self.passive.get("line_attack")
+                        or self.passive.get("cone_attack")
+                    )
+                ):
                     # FIX: only create floater if damage > 0
                     if current_attack_damage > 0.1:
                         if self._last_outgoing_was_crit:
@@ -1293,14 +1398,23 @@ class Unit:
                     )
                     aoe_flag = (
                         True
-                        if self.passive and self.passive.get("line_attack")
+                        if self.passive
+                        and (
+                            self.passive.get("line_attack")
+                            or self.passive.get("cone_attack")
+                        )
                         else len(chain_hits) > 1
                     )
+                    data = {"aoe": aoe_flag}
+                    if self.passive and self.passive.get("cone_attack"):
+                        data["value"] = self.current_stats.get("ad", 0) / max(
+                            len(chain_hits), 1
+                        )
                     state.queue_trigger(
                         self,
                         TriggerTiming.ON_HIT,
                         event_target=ev_tgt,
-                        data={"aoe": aoe_flag},
+                        data=data,
                     )
                 if (
                     self.passive
