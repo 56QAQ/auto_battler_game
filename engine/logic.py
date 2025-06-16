@@ -802,13 +802,15 @@ def execute_ability(
             source.apply_lifesteal(dmg_dealt, dtype, state)
     elif effect_type == AbilityEffect.APPLY_BUFF:
         # FIX: Check required keys in data
-        if all(k in data for k in ["stat", "value", "duration"]):
-            stat, value, duration, is_percent = (
-                data["stat"],
-                data["value"],
-                data["duration"],
-                data.get("is_percent", False),
-            )
+        if all(k in data for k in ["stat", "duration"]):
+            stat = data["stat"]
+            duration = data["duration"]
+            is_percent = data.get("is_percent", False)
+            value = data.get("value", 0)
+            if "scale_factor" in data or "flat_value" in data:
+                value = base_value * data.get("scale_factor", 0) + data.get(
+                    "flat_value", 0
+                )
             for target in targets:
                 if target.is_alive and target.anim_state != AnimationState.DYING:
                     target.add_timed_buff(
@@ -906,7 +908,11 @@ def resolve_trigger(
 
 
 def resolve_passive(
-    unit: Unit, timing: TriggerTiming, state: "GameState", event_target: Optional[Unit]
+    unit: Unit,
+    timing: TriggerTiming,
+    state: "GameState",
+    event_target: Optional[Unit],
+    event_data: Optional[dict[str, Any]] = None,
 ):
     if (
         not unit.passive
@@ -917,7 +923,7 @@ def resolve_passive(
     ability = unit.passive.get("ability")
     if not ability:
         return
-    base_value = calculate_base_value(unit, unit.passive)
+    base_value = calculate_base_value(unit, unit.passive, event_data)
     if "target_type" not in unit.passive:
         return
     targets = find_targets(unit, unit.passive["target_type"], state, event_target)

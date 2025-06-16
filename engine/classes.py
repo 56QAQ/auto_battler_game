@@ -1053,7 +1053,11 @@ class Unit:
             and resolve_passive_func
         ):
             resolve_passive_func(
-                self, TriggerTiming.ON_TAKE_DAMAGE, state, event_target=source
+                self,
+                TriggerTiming.ON_TAKE_DAMAGE,
+                state,
+                event_target=source,
+                event_data={"damage": effective_damage},
             )
         if self.current_hp <= 0:
             self.current_hp = 0
@@ -1089,20 +1093,18 @@ class Unit:
                     and resolve_passive_func
                 ):
                     resolve_passive_func(
-                        self, TriggerTiming.ON_DEATH, state, event_target=source
+                        self,
+                        TriggerTiming.ON_DEATH,
+                        state,
+                        event_target=source,
+                        event_data={"damage": effective_damage},
                     )
                 living = [
                     u
                     for u in state.player_combat_team + state.enemy_combat_team
                     if u.is_alive
                 ]
-                target_unit = None
-                if living:
-                    target_unit = max(
-                        living,
-                        key=lambda u: u.current_hp
-                        / max(u.current_stats.get("hp", 1), 1),
-                    )
+                target_unit = source if source and source.is_alive else None
                 for u in living:
                     if (
                         u.trigger
@@ -1113,7 +1115,11 @@ class Unit:
                             u,
                             TriggerTiming.ON_ANY_DEATH,
                             event_target=target_unit,
-                            data={"value": 100 * count},
+                            data={
+                                "value": 100 * count,
+                                "dead_unit_ad": self.current_stats.get("ad", 0),
+                                "source_unit": source,
+                            },
                         )
                         u.trigger_counts[TriggerTiming.ON_ANY_DEATH] += 1
                     if (
@@ -1126,6 +1132,11 @@ class Unit:
                             TriggerTiming.ON_ANY_DEATH,
                             state,
                             event_target=target_unit,
+                            event_data={
+                                "value": 100 * count,
+                                "dead_unit_ad": self.current_stats.get("ad", 0),
+                                "source_unit": source,
+                            },
                         )
         return effective_damage
 
@@ -1422,7 +1433,11 @@ class Unit:
                     and resolve_passive_func
                 ):
                     resolve_passive_func(
-                        self, TriggerTiming.ON_HIT, state, event_target=self.target
+                        self,
+                        TriggerTiming.ON_HIT,
+                        state,
+                        event_target=self.target,
+                        event_data=data,
                     )
         return damage_dealt
 
@@ -1450,7 +1465,11 @@ class Unit:
             while self.passive_timer >= interval and interval > 0:
                 self.passive_timer -= interval
                 resolve_passive_func(
-                    self, TriggerTiming.TIMED, state, event_target=None
+                    self,
+                    TriggerTiming.TIMED,
+                    state,
+                    event_target=None,
+                    event_data={},
                 )
         # 3) hand the rest to behaviour context (handles blocking / kiting / attack etc.)
         self.behavior.update(potential_targets, state)
