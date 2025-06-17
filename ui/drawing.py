@@ -576,16 +576,16 @@ def draw_preparation_phase(state: GameState, context: UIContext):
         context.warehouse_panel.draw()
 
     # Board grid and bench background
-    board_w = BOARD_COLS * (SLOT_SIZE + SLOT_MARGIN) - SLOT_MARGIN
-    board_h = BOARD_ROWS * (SLOT_SIZE + SLOT_MARGIN) - SLOT_MARGIN
-    board_rect = pygame.Rect(BOARD_X_START, BOARD_Y_START, board_w, board_h)
-    pygame.draw.rect(context.screen, LIGHT_GRAY, board_rect, 1)
+    # board_w = BOARD_COLS * (SLOT_SIZE + SLOT_MARGIN) - SLOT_MARGIN
+    # board_h = BOARD_ROWS * (SLOT_SIZE + SLOT_MARGIN) - SLOT_MARGIN
+    # board_rect = pygame.Rect(BOARD_X_START, BOARD_Y_START, board_w, board_h)
+    # pygame.draw.rect(context.screen, LIGHT_GRAY, board_rect, 1)
     for r in range(BOARD_ROWS):
         for c in range(BOARD_COLS):
             cell_rect = context.get_slot_rect(UnitLocation.BOARD, (r, c))
             pygame.draw.rect(context.screen, GRID_LINE, cell_rect, 1)
-    preview_rect = pygame.Rect(BOARD_X_START, PREVIEW_Y_START, board_w, board_h)
-    pygame.draw.rect(context.screen, LIGHT_GRAY, preview_rect, 1)
+    # preview_rect = pygame.Rect(BOARD_X_START, PREVIEW_Y_START, board_w, board_h)
+    # pygame.draw.rect(context.screen, LIGHT_GRAY, preview_rect, 1)
     for r in range(BOARD_ROWS):
         for c in range(BOARD_COLS):
             cell_rect = context.get_slot_rect(UnitLocation.PREVIEW, (r, c))
