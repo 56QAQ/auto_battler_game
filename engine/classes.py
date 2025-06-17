@@ -113,6 +113,7 @@ class Item:
             self.rarity = "COMMON"
             self.stats = definition.get("stats", {})
             self.ability = definition.get("ability")
+            self.special = definition.get("special")
         else:
             # ---------- 新 Color‑Item 模式 ---------- #
             self.item_type = item_type or ItemType.ARMAMENT
@@ -121,6 +122,7 @@ class Item:
             self.rarity = rarity or "COMMON"
             self.stats = stats_override or {}
             self.ability = None
+            self.special = None
 
         self.material_cost = material_cost
         self.description = f"{self.rarity.title()} {self.item_type.value}"
@@ -989,7 +991,11 @@ class Unit:
         extra_percent_penetration: float = 0.0,
     ) -> float:
 
-        if not self.is_alive or self.anim_state == AnimationState.DYING or damage <= 0:
+        if not self.is_alive or self.anim_state == AnimationState.DYING:
+            return 0.0
+        if damage <= 0:
+            if source and getattr(source, "_last_outgoing_missed", False):
+                self.on_dodge(source, state)
             return 0.0
 
         # 先让可拦截的状态（护盾等）修改伤害
@@ -1324,7 +1330,28 @@ class Unit:
         heal_amount *= self._xs("outgoing_healing_bonus", 100.0) / 100.0
         heal_amount *= self._xs("incoming_healing_bonus", 100.0) / 100.0
         self.heal(heal_amount, state, self, DamageSource.BASIC_ATTACK)
+    def on_deal_magic_damage(self, target: "Unit", state: "GameState") -> None:
+        for item in self.equipped_items:
+            if item and getattr(item, "special", None) == "poison_on_magic":
+                from engine.status_effects import DamageOverTime
 
+                dot = DamageOverTime(
+                    host=target,
+                    source_id=self.id,
+                    duration=5.0,
+                    params={"damage": 4, "dtype": DamageType.TRUE},
+                )
+                target.add_status(dot)
+                break
+
+    def on_dodge(self, attacker: "Unit", state: "GameState") -> None:
+        for item in self.equipped_items:
+            if item and getattr(item, "special", None) == "counter_on_dodge":
+                saved = self.target
+                self.target = attacker
+                self.attack_target(state)
+                self.target = saved
+                break
     def find_nearest_target(self, potential_targets: List["Unit"]):
         nearest_target = None
         min_dist_sq = float("inf")

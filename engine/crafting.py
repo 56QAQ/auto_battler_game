@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import random
 from typing import Dict
-
+from typing import Dict, List
 from data.enums import AbilityEffect, Color, DamageType, ItemType
 from data.constants import CRAFT_RARITY_BREAKPOINTS, DISMANTLE_REFUND_RATIO
 from engine.classes import Item, Unit
@@ -12,7 +12,81 @@ from engine.classes import Item, Unit
 # ------------------------------------------------------------ #
 #                   Disk ability templates                     #
 # ------------------------------------------------------------ #
+# ------------------------------------------------------------ #
+#                Armament stat tables and mappings             #
+# ------------------------------------------------------------ #
 
+STAT_BY_COLOR = {
+    Color.RED: "ad",
+    Color.GREEN: "as_percent",
+    Color.BLUE: "ap",
+    Color.YELLOW: "hp",
+    Color.PURPLE: "armor",
+    Color.CYAN: "mr",
+    Color.BLACK: "hp",
+}
+
+STAT_PREFIX = {
+    "ad": "AD",
+    "as_percent": "AS",
+    "ap": "AP",
+    "hp": "HP",
+    "armor": "Armor",
+    "mr": "MR",
+}
+
+RARITY_TO_MK = {
+    "COMMON": 1,
+    "UNCOMMON": 2,
+    "RARE": 3,
+    "EPIC": 4,
+    "LEGENDARY": 5,
+}
+
+STAT_VALUES = {
+    "ad": {
+        "COMMON": 10,
+        "UNCOMMON": 20,
+        "RARE": 30,
+        "EPIC": 45,
+        "LEGENDARY": 60,
+    },
+    "ap": {
+        "COMMON": 15,
+        "UNCOMMON": 30,
+        "RARE": 45,
+        "EPIC": 60,
+        "LEGENDARY": 80,
+    },
+    "as_percent": {
+        "COMMON": 10,
+        "UNCOMMON": 20,
+        "RARE": 30,
+        "EPIC": 40,
+        "LEGENDARY": 50,
+    },
+    "hp": {
+        "COMMON": 150,
+        "UNCOMMON": 300,
+        "RARE": 450,
+        "EPIC": 600,
+        "LEGENDARY": 800,
+    },
+    "armor": {
+        "COMMON": 15,
+        "UNCOMMON": 30,
+        "RARE": 45,
+        "EPIC": 60,
+        "LEGENDARY": 80,
+    },
+    "mr": {
+        "COMMON": 15,
+        "UNCOMMON": 30,
+        "RARE": 45,
+        "EPIC": 60,
+        "LEGENDARY": 80,
+    },
+}
 DiskAbilityRegistry: dict[Color, dict[str, List[dict]]] = {
     Color.RED: {
         "COMMON": [
@@ -263,7 +337,7 @@ def craft(item_type: ItemType, materials: Dict[str, int]) -> Item:
     r = materials.get("RED", 0)
     g = materials.get("GREEN", 0)
     b = materials.get("BLUE", 0)
-    color = _infer_color(r, g, b) if item_type != ItemType.ARMAMENT else Color.WHITE
+    color = _infer_color(r, g, b)
 
     name = f"{item_type.value}_{rarity}_{color.value}"
 
@@ -271,11 +345,10 @@ def craft(item_type: ItemType, materials: Dict[str, int]) -> Item:
     stats = {}
     ability = None
     if item_type == ItemType.ARMAMENT:
-        stats = {
-            "armor": 20
-            + 10
-            * ("UNCOMMON RARE EPIC".split().index(rarity) if rarity != "COMMON" else 0)
-        }
+        stat_key = STAT_BY_COLOR.get(color, "ad")
+        mk = RARITY_TO_MK[rarity]
+        name = f"{STAT_PREFIX[stat_key]} MK{mk}"
+        stats = {stat_key: STAT_VALUES[stat_key][rarity]}
     elif item_type == ItemType.DISK:
         stats = {
             "ap": 10

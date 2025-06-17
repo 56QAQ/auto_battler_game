@@ -941,6 +941,8 @@ def execute_ability(
                     DamageFloater(target.x, target.y, f"{dmg_dealt:.0f}", color_key)
                 )
             source.apply_lifesteal(dmg_dealt, dtype, state)
+            if dtype == DamageType.MAGIC and dmg_dealt > 0.1:
+                source.on_deal_magic_damage(target, state)
     elif effect_type == AbilityEffect.APPLY_BUFF:
         # FIX: Check required keys in data
         if all(k in data for k in ["stat", "duration"]):

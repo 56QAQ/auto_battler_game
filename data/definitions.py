@@ -1,6 +1,6 @@
 # data/definitions.py
 from typing import Any, Dict, List, Tuple
-
+from data.constants import RARITY_ORDER
 from data.enums import (
     AbilityEffect,
     Color,
@@ -891,175 +891,51 @@ ENEMY_TEAM_DEFINITIONS: Dict[str, List[Dict[str, Any]]] = {
 }
 
 ITEM_DEFINITIONS: Dict[str, Dict[str, Any]] = {
-    # Components
-    "Gear": {
+    "Viper MK2": {
         "item_type": "ARMAMENT",
         "type": "ARMAMENT",
-        "stats": {"ad": 10},
+        "stats": {"ap": 20},
+        "special": "poison_on_magic",
         "ability": None,
-        "description": "+10 AD",
+        "description": "+20AP. Passive: poison target for 20 dmg over 5s when dealing magic damage.",
     },
-    "Plate": {
+    "Riposte MK3": {
         "item_type": "ARMAMENT",
         "type": "ARMAMENT",
-        "stats": {"armor": 15},
+        "stats": {"dodge_chance": 20},
+        "special": "counter_on_dodge",
         "ability": None,
-        "description": "+15 Armor",
-    },
-    "Lubricant": {
-        "item_type": "ARMAMENT",
-        "type": "ARMAMENT",
-        "stats": {"hp": 150},
-        "ability": None,
-        "description": "+150 Health",
-    },
-    "Amp Coil": {
-        "item_type": "ARMAMENT",
-        "type": "ARMAMENT",
-        "stats": {"ap": 15},
-        # FIX-UI: Added effect to allow unit Trigger to fire, for Tooltip demo
-        "ability": {
-            "name": "Spark",
-            "effect_type": AbilityEffect.DEAL_DAMAGE,
-            "effect_data": {
-                "damage_type": DamageType.MAGIC,
-                "scale_factor": 1.0,
-                "flat_value": 0,
-            },
-        },
-        "description": "+15 AP. Ability: Spark (Deal 100% Base Value as Magic DMG)",
-    },
-    "Essence": {
-        "item_type": "ARMAMENT",
-        "type": "ARMAMENT",
-        "stats": {"mr": 15},
-        # FIX-UI: Added effect to allow unit Trigger to fire, for Tooltip demo
-        "ability": {
-            "name": "Restoration",
-            "effect_type": AbilityEffect.HEAL,
-            "effect_data": {"scale_factor": 1.0, "flat_value": 0},
-        },
-        "description": "+15 MR. Ability: Restoration (Heal 100% Base Value)",
-    },
-    # Combined
-    "Zap Blade": {
-        "item_type": "ARMAMENT",
-        "type": "ARMAMENT",
-        "stats": {"ad": 15, "ap": 20},  # Gear + Amp Coil
-        "ability": {
-            "name": "Overcharge",
-            "effect_type": AbilityEffect.DEAL_DAMAGE,
-            "effect_data": {
-                "damage_type": DamageType.MAGIC,
-                "scale_factor": 5.0,
-                "flat_value": 0,
-            },
-        },
-        "description": "+15AD,+20AP. Ability: Overcharge (Deal 500% Base Value as Magic DMG)",
-    },
-    "Fireball": {
-        "item_type": "ARMAMENT",
-        "type": "ARMAMENT",
-        "stats": {"ap": 40},  # Amp Coil + Amp Coil
-        "ability": {
-            "name": "Fireball",
-            "effect_type": AbilityEffect.DEAL_DAMAGE,
-            "effect_data": {
-                "damage_type": DamageType.MAGIC,
-                "scale_factor": 0,
-                "flat_value": 180,
-            },
-        },
-        "description": "+40AP. Ability: Fireball (Deal 180 flat Magic DMG)",
-    },
-    "SwordPlate": {
-        "item_type": "ARMAMENT",
-        "type": "ARMAMENT",
-        "stats": {"ad": 10, "armor": 20},  # Gear + Plate
-        "ability": {
-            "name": "Rend",
-            "effect_type": AbilityEffect.APPLY_BUFF,
-            "effect_data": {
-                "stat": "armor",
-                "value": -15,
-                "duration": 4.0,
-                "is_percent": False,
-            },
-        },
-        "description": "+10AD,+20Armor. Ability: Rend (-15 Armor for 4s)",
-    },
-    "Bulwark": {
-        "item_type": "ARMAMENT",
-        "type": "ARMAMENT",
-        "stats": {"armor": 20, "hp": 200},  # Plate + Lubricant
-        # FIX-UI: Added effect to allow unit Trigger to fire, for Tooltip demo
-        "ability": {
-            "name": "Fortify",
-            "effect_type": AbilityEffect.APPLY_BUFF,
-            "effect_data": {
-                "stat": "armor",
-                "value": 40,
-                "duration": 5.0,
-                "is_percent": False,
-            },
-        },
-        "description": "+20Ar,+200HP. Ability: Fortify (+40 Armor for 5s)",
-    },
-    "Oil Can": {
-        "item_type": "ARMAMENT",
-        "type": "ARMAMENT",
-        "stats": {"hp": 200, "ap": 20},  # Lubricant + Amp Coil
-        "ability": {
-            "name": "Mend",
-            "effect_type": AbilityEffect.HEAL,
-            "effect_data": {"scale_factor": 1.5, "flat_value": 20},
-        },
-        "description": "+200HP,+20AP. Ability: Mend (Heal 150% Base Value + 20)",
-    },
-    "Time Orb": {
-        "item_type": "ARMAMENT",
-        "type": "ARMAMENT",
-        "stats": {"ap": 20, "mr": 20},  # Amp Coil + Essence
-        "ability": {
-            "name": "Slow",
-            "effect_type": AbilityEffect.APPLY_BUFF,
-            "effect_data": {
-                "stat": "as",
-                "value": -30,
-                "duration": 3.0,
-                "is_percent": True,
-            },
-        },
-        "description": "+20AP,+20MR. Ability: Slow (-30% AS for 3s)",
-    },
-    "Aegis Shield": {
-        "item_type": "ARMAMENT",
-        "type": "ARMAMENT",
-        "stats": {"armor": 20, "mr": 20},  # Plate + Essence
-        "ability": {
-            "name": "Barrier",
-            "effect_type": AbilityEffect.APPLY_BUFF,
-            "effect_data": {
-                "stat": "mr",
-                "value": 40,
-                "duration": 5.0,
-                "is_percent": False,
-            },
-        },
-        "description": "+20Ar,+20MR. Ability: Barrier (+40 MR for 5s)",
-    },
-    "Life Gem": {
-        "item_type": "ARMAMENT",
-        "type": "ARMAMENT",
-        "stats": {"hp": 200, "mr": 20},  # Lubricant + Essence
-        "ability": {
-            "name": "Greater Mend",
-            "effect_type": AbilityEffect.HEAL,
-            "effect_data": {"scale_factor": 2.0, "flat_value": 50},
-        },
-        "description": "+200HP,+20MR. Ability: Greater Mend (Heal 200% Base Value + 50)",
+        "description": "+20% Dodge. Passive: counter attack when dodging a basic attack.",
     },
 }
+# Generate stat booster armaments for each rarity level
+_stat_prefix = {
+    "ad": "AD",
+    "ap": "AP",
+    "as_percent": "AS",
+    "hp": "HP",
+    "armor": "Armor",
+    "mr": "MR",
+}
+_stat_values = {
+    "ad": [10, 20, 30, 45, 60],
+    "ap": [15, 30, 45, 60, 80],
+    "as_percent": [10, 20, 30, 40, 50],
+    "hp": [150, 300, 450, 600, 800],
+    "armor": [15, 30, 45, 60, 80],
+    "mr": [15, 30, 45, 60, 80],
+}
+for stat, prefix in _stat_prefix.items():
+    values = _stat_values[stat]
+    for rar, val in zip(RARITY_ORDER, values):
+        ITEM_DEFINITIONS[f"{prefix} MK{RARITY_ORDER.index(rar)+1}"] = {
+            "item_type": "ARMAMENT",
+            "type": "ARMAMENT",
+            "stats": {stat: val},
+            "ability": None,
+            "description": f"+{val} {prefix if stat != 'as_percent' else 'AS%'}",
+        }
+
 for _clr, _theme in [
     ("RED", "Physical DMG"),
     ("GREEN", "Healing"),
