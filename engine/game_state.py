@@ -95,6 +95,10 @@ class GameState:
         self.event_choices: List[EventChoice] = []
         self.combat_stats = CombatStats()
         self.pending_triggers: deque[TriggerEvent] = deque()
+        self.player_total_damage: float = 0.0
+        self.enemy_total_damage: float = 0.0
+        self.player_next_damage_threshold: float = 100.0
+        self.enemy_next_damage_threshold: float = 100.0
         # Button rects belong in UI/States, not engine state.
     def queue_trigger(
         self,
@@ -118,6 +122,56 @@ class GameState:
                     event.event_target,
                     event.data,
                 )
+    def record_team_damage(self, source: Unit, amount: float) -> None:
+        if amount <= 0:
+            return
+        is_enemy = source.is_enemy
+        if is_enemy:
+            self.enemy_total_damage += amount
+            if self.enemy_total_damage >= self.enemy_next_damage_threshold:
+                self.enemy_next_damage_threshold *= 2
+                self._trigger_team_damage_doubled(True)
+        else:
+            self.player_total_damage += amount
+            if self.player_total_damage >= self.player_next_damage_threshold:
+                self.player_next_damage_threshold *= 2
+                self._trigger_team_damage_doubled(False)
+
+    def _trigger_team_damage_doubled(self, enemy_team: bool) -> None:
+        team = self.enemy_combat_team if enemy_team else self.player_combat_team
+        if not team:
+            return
+        # Determine highest damage dealer
+        top_unit: Unit | None = None
+        top_damage = -1.0
+        for u in team:
+            if not u.is_alive:
+                continue
+            dmg = sum(
+                self.combat_stats.data.get(u.id, {}).get("damage_dealt", {}).values()
+            )
+            if dmg > top_damage:
+                top_damage = dmg
+                top_unit = u
+        if not top_unit:
+            return
+        from data.enums import TriggerTiming
+
+        for u in team:
+            if (
+                u.is_alive
+                and u.trigger
+                and u.trigger.get("timing_type") == TriggerTiming.ON_TEAM_DAMAGE_DOUBLED
+            ):
+                count = u.trigger_counts[TriggerTiming.ON_TEAM_DAMAGE_DOUBLED]
+                self.queue_trigger(
+                    u,
+                    TriggerTiming.ON_TEAM_DAMAGE_DOUBLED,
+                    event_target=top_unit,
+                    data={"count": count + 1},
+                )
+                u.trigger_counts[TriggerTiming.ON_TEAM_DAMAGE_DOUBLED] += 1
+
 
 # Global state instance
 run_state: Optional[GameState] = None

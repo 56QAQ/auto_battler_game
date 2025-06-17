@@ -802,7 +802,12 @@ def find_targets(
             for ally in valid_allies:
                 for bucket in ally.statuses.values():
                     if any(
-                        st.category in (StatusCategory.DEBUFF, StatusCategory.DOT, StatusCategory.ACTION_BLOCK)
+                        st.category
+                        in (
+                            StatusCategory.DEBUFF,
+                            StatusCategory.DOT,
+                            StatusCategory.ACTION_BLOCK,
+                        )
                         for st in bucket
                     ):
                         candidates.append(ally)
@@ -1050,6 +1055,8 @@ def resolve_trigger(
     if not abilities:
         return
     base_value = calculate_base_value(unit, unit.trigger, event_data)
+    if unit.trigger.get("count_multiplier"):
+        base_value *= event_data.get("count", 1)
     if unit.trigger.get("num_negative_multiplier"):
         from engine.enums import StatusCategory
 
@@ -1076,6 +1083,27 @@ def resolve_trigger(
         return
     for ability in abilities:
         execute_ability(ability, unit, targets, base_value, state)
+    if unit.passive and unit.passive.get("empower_per_status_on_trigger"):
+        from engine.enums import StackRule
+        from engine.status_effects import StatModifierEffect
+
+        duration = unit.passive.get("empower_duration", 10.0)
+        dmg_per_stack = unit.passive.get("empower_damage", 10.0)
+        stacks = int(base_value)
+        for tgt in targets:
+            existing = sum(len(bucket) for bucket in tgt.statuses.values())
+            total = stacks + existing
+            if total <= 0:
+                continue
+            effect = StatModifierEffect(
+                host=tgt,
+                source_id=unit.id,
+                duration=duration,
+                stacks=total,
+                stack_rule=StackRule.UNLIMITED,
+                params={"stat": "flat_damage_bonus", "flat": dmg_per_stack},
+            )
+            tgt.add_status(effect)
     if unit.passive and unit.passive.get("extra_negative_stack_on_trigger"):
         from engine.enums import StackRule, StatusCategory
 

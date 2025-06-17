@@ -19,6 +19,9 @@ class TriggerTiming(Enum):
     ON_DOT_DAMAGE = auto()
     ON_ALLY_HIT = auto()
     ON_BONDED_DEATH = auto()
+    ON_TEAM_DAMAGE_DOUBLED = auto()
+
+    
 class TriggerTarget(Enum):
     ATTACK_TARGET = auto()  # Requires event_target
     NEAREST_ENEMY = auto()

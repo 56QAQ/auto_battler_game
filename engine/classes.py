@@ -1089,6 +1089,7 @@ class Unit:
                 state.combat_stats.record_damage_dealt(
                     source, effective_damage, source_action
                 )
+                state.record_team_damage(source, effective_damage)
                 if (
                     source_action == DamageSource.BASIC_ATTACK
                     and self.current_stats.get("range", 50) >= 80
