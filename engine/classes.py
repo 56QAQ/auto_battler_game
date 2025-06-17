@@ -1046,9 +1046,11 @@ class Unit:
                     )
                 )
         self.current_hp -= effective_damage
+        died = self.current_hp <= 0
 
         if (
-            self.passive
+            not died
+            and self.passive
             and self.passive.get("accuracy_counter_debuff")
             and state
         ):
@@ -1060,7 +1062,7 @@ class Unit:
                 val,
                 dur,
                 "ACC_COUNTER_DEBUFF",
-                True,
+                False,
             )
             if source:
                 source.add_stat_modifier(
@@ -1068,7 +1070,7 @@ class Unit:
                     val,
                     dur,
                     "ACC_COUNTER_DEBUFF",
-                    True,
+                    False,
                 )
 
         if (

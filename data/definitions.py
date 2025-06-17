@@ -161,15 +161,6 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
             "base_value_source": StatSource.AP,
             "base_value_multiplier": 1.0,
             "base_value_flat": 0,
-            "ability": {
-                "name": "Arcane Bolt",
-                "effect_type": AbilityEffect.DEAL_DAMAGE,
-                "effect_data": {
-                    "damage_type": DamageType.MAGIC,
-                    "scale_factor": 1.0,
-                    "flat_value": 0,
-                },
-            },
         },
     },
     "Sapphire Medic": {
@@ -193,11 +184,6 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
             "base_value_source": StatSource.AP,
             "base_value_multiplier": 0.2,
             "base_value_flat": 0,
-            "ability": {
-                "name": "Restorative Burst",
-                "effect_type": AbilityEffect.HEAL,
-                "effect_data": {"scale_factor": 1.0, "flat_value": 0},
-            },
         },
     },
     "Azure Skirmisher": {
@@ -221,11 +207,6 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
             "base_value_source": StatSource.AP,
             "base_value_multiplier": 1.0,
             "base_value_flat": 0,
-            "ability": {
-                "name": "Bolstering Strike",
-                "effect_type": AbilityEffect.HEAL,
-                "effect_data": {"scale_factor": 1.0, "flat_value": 0},
-            },
         },
     },
     "Steam Knight": {
