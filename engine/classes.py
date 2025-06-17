@@ -342,6 +342,8 @@ class Unit:
         self.heal_progress: float = 0.0
         self.healed_progress: float = 0.0
         self.is_alive: bool = True
+        self.timer_event_tally: int = 0
+        self.timer_haste_multiplier: float = 1.0
         # Color keys for UI
         self.base_color_key = "WHITE"
         self.current_color_key = self.base_color_key
@@ -603,6 +605,8 @@ class Unit:
         self.anim_state = AnimationState.IDLE
         self.anim_timer = random.uniform(0, 5)
         self.current_color_key = self.base_color_key
+        self.timer_event_tally = 0
+        self.timer_haste_multiplier = 1.0
         from ai.behaviors import BehaviorState
 
         self.behavior.state = BehaviorState.IDLE
@@ -1669,13 +1673,14 @@ class Unit:
         """Overridden: delegate high‑level decisions to AI behaviour tree."""
         # 1) keep legacy animations
         self.update_animation(state.delta_time_combat)
-
+        dt = state.delta_time_combat * getattr(self, "timer_haste_multiplier", 1.0)
         # 2) still run timed triggers exactly as before (no change)
         if self.trigger and self.trigger["timing_type"] == TriggerTiming.TIMED:
             interval = self.trigger.get("timing_data", {}).get("interval", 999.0)
             accel_pct = self.trigger.get("timing_data", {}).get(
                 "accelerate_per_negative", 0.0
             )
+            speed = 1.0
             if accel_pct:
                 from engine.enums import StatusCategory
 
@@ -1693,11 +1698,13 @@ class Unit:
                                 StatusCategory.ACTION_BLOCK,
                             )
                         )
-                self.trigger_timer += state.delta_time_combat * (
-                    1 + accel_pct * neg_count
-                )
-            else:
-                self.trigger_timer += state.delta_time_combat
+                speed += accel_pct * neg_count
+            accel_tally = self.trigger.get("timing_data", {}).get(
+                "accelerate_per_tally"
+            )
+            if accel_tally:
+                speed += accel_tally * getattr(self, "timer_event_tally", 0)
+            self.trigger_timer += dt * speed
             while self.trigger_timer >= interval and interval > 0:
                 target = None
                 t_type = self.trigger.get("target_type")
@@ -1754,7 +1761,7 @@ class Unit:
             and self.passive["timing_type"] == TriggerTiming.TIMED
             and resolve_passive_func
         ):
-            self.passive_timer += state.delta_time_combat
+            self.passive_timer += dt
             interval = self.passive.get("timing_data", {}).get("interval", 999.0)
             while self.passive_timer >= interval and interval > 0:
                 self.passive_timer -= interval
@@ -1794,8 +1801,11 @@ class Unit:
                 elif len(below) != len(allies):
                     self._allies_low_triggered = False
         # 3) hand the rest to behaviour context (handles blocking / kiting / attack etc.)
+        saved_dt = state.delta_time_combat
+        state.delta_time_combat = dt
         self.behavior.update(potential_targets, state)
-
+        state.delta_time_combat = saved_dt
+        
     def update_animation(self, dt: float):
         from engine.utils import clamp
 

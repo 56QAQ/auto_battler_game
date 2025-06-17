@@ -1055,6 +1055,8 @@ def resolve_trigger(
     if not ability_sources:
         return
     base_value = calculate_base_value(unit, unit.trigger, event_data)
+    if unit.trigger.get("tally_multiplier"):
+        base_value *= getattr(unit, "timer_event_tally", 1) / 10.0
     if unit.trigger.get("count_multiplier"):
         base_value *= event_data.get("count", 1)
     if unit.trigger.get("num_negative_multiplier"):
@@ -1081,8 +1083,13 @@ def resolve_trigger(
     targets = find_targets(unit, unit.trigger["target_type"], state, event_target)
     if not targets:
         return
+    repeat = 1
+    if unit.trigger.get("repeat_from_tally"):
+        repeat = max(1, getattr(unit, "timer_event_tally", 0) // 10)
     for item, ability in ability_sources:
-        execute_ability(ability, unit, targets, base_value, state)
+        for _ in range(repeat):
+            print(base_value)
+            execute_ability(ability, unit, targets, base_value, state)
         if item:
             extra_every = ability.get("effect_data", {}).get("extra_attack_every")
             if extra_every:
@@ -1168,6 +1175,10 @@ def resolve_passive(
     ability = unit.passive.get("ability")
     if not ability:
         return
+    if timing == TriggerTiming.TIMED:
+        for u in state.player_combat_team + state.enemy_combat_team:
+            if u.is_alive and u.passive.get("tally_timer_activations", False):
+                u.timer_event_tally += 1
     base_value = calculate_base_value(unit, unit.passive, event_data)
     if "target_type" not in unit.passive:
         return
@@ -1393,7 +1404,15 @@ def run_combat_tick(state: "GameState", delta_time: float):
 
     player_alive = [u for u in state.player_combat_team if u.is_alive]
     enemy_alive = [u for u in state.enemy_combat_team if u.is_alive]
-
+    for team in (player_alive, enemy_alive):
+        haste = 0.0
+        for u in team:
+            if u.passive and u.passive.get("ally_timer_haste"):
+                haste = u.passive.get("ally_timer_haste", 0)
+                break
+        mult = 1 + haste / 100.0 if haste else 1.0
+        for u in team:
+            u.timer_haste_multiplier = mult
     # FIX: Check if combat end condition met BEFORE updates
     # Check for draw (no units left at all)
     if not state.player_combat_team and not state.enemy_combat_team:
@@ -1424,7 +1443,7 @@ def run_combat_tick(state: "GameState", delta_time: float):
     # Process buffs and overtime damage ONLY for alive units
     all_units_processing = player_alive + enemy_alive
     for unit in all_units_processing:
-        unit.process_statuses(delta_time)
+        unit.process_statuses(delta_time * getattr(unit, "timer_haste_multiplier", 1.0))
 
     if is_overtime:
         state.overtime_damage_timer += delta_time
@@ -1453,7 +1472,12 @@ def run_combat_tick(state: "GameState", delta_time: float):
         targets = []
         if unit.is_alive:
             targets = enemy_alive if not unit.is_enemy else player_alive
-        unit.combat_update(targets, state)  # update always runs animation logic
+        saved_dt = state.delta_time_combat
+        state.delta_time_combat = delta_time * getattr(
+            unit, "timer_haste_multiplier", 1.0
+        )
+        unit.combat_update(targets, state)
+        state.delta_time_combat = saved_dt
     # Resolve collisions only among alive units
     resolve_collisions(all_units_processing)
     state.process_triggers()

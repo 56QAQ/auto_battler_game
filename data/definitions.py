@@ -632,12 +632,41 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
             "base_value_flat": 0,
         },
     },
+    "Azure Timekeeper": {
+        "rarity": "COMMON",
+        "primary_color": Color.BLUE,
+        "secondary_synergies": [],
+        "traits": ["Arcanist"],
+        "base_stats": {
+            "hp": 950,
+            "ad": 50,
+            "as": 0.7,
+            "ap": 70,
+            "armor": 40,
+            "mr": 60,
+            "range": 130,
+        },
+        "passive": {
+            "ally_timer_haste": 25,
+            "tally_timer_activations": True,
+        },
+        "trigger": {
+            "timing_type": TriggerTiming.TIMED,
+            "timing_data": {"interval": 5.0, "accelerate_per_tally": 0.1},
+            "target_type": TriggerTarget.RANDOM_ENEMY,
+            "base_value_source": StatSource.AP,
+            "base_value_multiplier": 1.0,
+            "base_value_flat": 0,
+            "repeat_from_tally": True,
+            "tally_multiplier": True,
+        },
+    },
     # Enemies
     "Rust Bug": {
         "rarity": "ENEMY",
         "traits": ["Vermin"],
         "base_stats": {
-            "hp": 400,
+            "hp": 40000,
             "ad": 40,
             "as": 0.7,
             "ap": 0,

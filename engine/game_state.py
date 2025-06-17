@@ -107,6 +107,11 @@ class GameState:
         event_target: "Unit | None" = None,
         data: Dict[str, Any] | None = None,
     ) -> None:
+        if timing == TriggerTiming.TIMED:
+            for u in self.player_combat_team + self.enemy_combat_team:
+
+                if u.is_alive and u.passive.get("tally_timer_activations", False):
+                    u.timer_event_tally += 1
         self.pending_triggers.append(
             TriggerEvent(unit, timing, event_target, data or {})
         )
