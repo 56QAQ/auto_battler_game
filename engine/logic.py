@@ -25,7 +25,6 @@ from data.constants import (
     COST_BY_RARITY_MATERIALS,
     DEATH_ANIM_DURATION,
     HEAL_ANIM_DURATION,
-    MAX_COMBAT_DURATION,
     MAX_COMBINED_ITEMS,
     MAX_ITEMS_EQUIPPED,
     MAX_UNITS_ON_BOARD,
@@ -38,13 +37,8 @@ from data.constants import (
 )
 # Data imports
 from data.definitions import (
-    ARTIFACT_DEFINITIONS,
-    ENEMY_TEAM_DEFINITIONS,
     ITEM_DEFINITIONS,
-    ITEM_RECIPES,
     NODE_REWARDS,
-    POSSIBLE_EVENT_ARTIFACTS,
-    POSSIBLE_EVENT_ITEMS,
     SYNERGY_DEFINITIONS,
     UNIT_DEFINITIONS,
 )
@@ -68,7 +62,7 @@ from engine.classes import (
     VisualEffect,
 )
 # Engine imports
-from engine.enums import AnimationState, EffectType, RemoveReason
+from engine.enums import AnimationState, EffectType
 from engine.utils import clamp
 
 # Conditional imports
@@ -937,6 +931,10 @@ def execute_ability(
                 source,
                 source_action=DamageSource.ITEM_ABILITY,
                 is_aoe=data.get("is_aoe", False),
+                extra_flat_penetration=data.get("flat_physical_penetration", 0.0),
+                extra_percent_penetration=data.get(
+                    "percentage_physical_penetration", 0.0
+                ),
             )
             if dmg_dealt > 0.1:
                 state.damage_floaters.append(
@@ -1043,16 +1041,16 @@ def resolve_trigger(
         or unit.trigger["timing_type"] != timing
     ):
         return
-    items_with_abilities = [
-        item for item in unit.equipped_items if item and item.ability
-    ]
-    abilities = [item.ability for item in items_with_abilities]
+    ability_sources: List[Tuple[Optional[Item], Dict]] = []
+    for item in unit.equipped_items:
+        if item and item.ability:
+            ability_sources.append((item, item.ability))
     if "ability" in unit.trigger:
-        abilities.append(unit.trigger["ability"])
+        ability_sources.append((None, unit.trigger["ability"]))
     # FIX: This design means only units with items equipped can use their triggers.
     # The trigger defines the condition (timing, target, value source), the item defines the effect.
     # Allow ability defined directly on the trigger as well.
-    if not abilities:
+    if not ability_sources:
         return
     base_value = calculate_base_value(unit, unit.trigger, event_data)
     if unit.trigger.get("count_multiplier"):
@@ -1081,8 +1079,21 @@ def resolve_trigger(
     targets = find_targets(unit, unit.trigger["target_type"], state, event_target)
     if not targets:
         return
-    for ability in abilities:
+    for item, ability in ability_sources:
         execute_ability(ability, unit, targets, base_value, state)
+        if item:
+            extra_every = ability.get("effect_data", {}).get("extra_attack_every")
+            if extra_every:
+                count = unit.extra_attack_counters.get(item.id, 0) + 1
+                if count >= extra_every:
+                    interval = 1.0 / max(0.1, unit.current_stats.get("as", 0.5))
+                    unit.attack_timer += interval
+                    saved_dt = state.delta_time_combat
+                    state.delta_time_combat = 0.0
+                    unit.attack_target(state)
+                    state.delta_time_combat = saved_dt
+                    count = 0
+                unit.extra_attack_counters[item.id] = count
     if unit.passive and unit.passive.get("empower_per_status_on_trigger"):
         from engine.enums import StackRule
         from engine.status_effects import StatModifierEffect

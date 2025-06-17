@@ -358,6 +358,7 @@ class Unit:
         self.trigger_counts: dict[TriggerTiming, int] = defaultdict(int)
         self.double_heal_stacks: int = 0
         self.double_heal_uses: int = 0
+        self.extra_attack_counters: dict[str, int] = {}
         self.bond_target_id: str | None = None
         self.bond_redirected_total: float = 0.0
         # Last pos for stuck detection handled by BehaviorContext
@@ -594,6 +595,7 @@ class Unit:
         self.trigger_timer = 0.0
         self.passive_timer = 0.0
         self.double_heal_uses = 0
+        self.extra_attack_counters.clear()
         self.is_alive = True
         self.x, self.y = 0.0, 0.0
         self.anim_state = AnimationState.IDLE
@@ -983,6 +985,8 @@ class Unit:
         source: Optional["Unit"],
         source_action: DamageSource = DamageSource.BASIC_ATTACK,
         is_aoe: bool = False,
+        extra_flat_penetration: float = 0.0,
+        extra_percent_penetration: float = 0.0,
     ) -> float:
 
         if not self.is_alive or self.anim_state == AnimationState.DYING or damage <= 0:
@@ -1005,6 +1009,8 @@ class Unit:
                 resistance *= (
                     1.0 - source._xs("percentage_physical_penetration", 0.0) / 100.0
                 )
+            resistance -= extra_flat_penetration
+            resistance *= 1.0 - extra_percent_penetration / 100.0
         elif damage_type == DamageType.MAGIC:
             resistance = self.current_stats.get("mr", 0.0)
             if source:
@@ -1012,7 +1018,8 @@ class Unit:
                 resistance *= (
                     1.0 - source._xs("percentage_magic_penetration", 0.0) / 100.0
                 )
-
+            resistance -= extra_flat_penetration
+            resistance *= 1.0 - extra_percent_penetration / 100.0
         dmg_mul = 1.0
         if damage_type != DamageType.TRUE:
             if resistance >= 0:
