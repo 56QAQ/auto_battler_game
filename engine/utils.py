@@ -49,12 +49,18 @@ def format_trigger_description(trigger: Optional[Dict], items) -> str:
         TriggerTiming.ON_DEATH: "On Death:",
         TriggerTiming.ON_ANY_DEATH: "Any Unit Dies:",
         TriggerTiming.ON_DOT_DAMAGE: "On DoT Damage:",
+        TriggerTiming.ON_ALLY_HIT: "Ally Hit:",
+        TriggerTiming.ON_BONDED_DEATH: "Bonded Ally Death:",
     }
     target_map = {
         TriggerTarget.ATTACK_TARGET: "Target ->",
         TriggerTarget.NEAREST_ENEMY: "Nearest Enemy ->",
+        TriggerTarget.NEAREST_ALLY: "Nearest Ally ->",
         TriggerTarget.SELF: "Self ->",
         TriggerTarget.LOWEST_HP_ENEMY: "Lowest HP Enemy ->",
+        TriggerTarget.LOWEST_HP_ALLY: "Lowest HP Ally ->",
+        TriggerTarget.LOWEST_HP_ALLY_ADJACENT: "Weakest Ally + Adjacent ->",
+        TriggerTarget.RANDOM_NEGATIVE_ALLY: "Random Debuffed Ally ->",
         TriggerTarget.RANDOM_ENEMY: "Random Enemy ->",
     }
     source_map = {

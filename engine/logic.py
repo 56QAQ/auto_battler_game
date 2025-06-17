@@ -464,6 +464,65 @@ def apply_artifact_buffs(
             for buff in global_buffs:
                 unit.apply_synergy_artifact_buff(buff, current_time)
 
+def apply_ranged_evasion_auras(all_units: List[Unit], state: GameState) -> None:
+    """Apply evasion auras from units that grant them."""
+    providers = [
+        u for u in all_units if u.passive and u.passive.get("ranged_evasion_aura")
+    ]
+    if not providers:
+        return
+    ranged_units = [
+        u for u in all_units if u.current_stats.get("range", 50) >= 80 and u.is_alive
+    ]
+    for provider in providers:
+        aura = provider.passive.get("ranged_evasion_aura", 0)
+        for unit in ranged_units:
+            unit.add_timed_buff(
+                "dodge_chance",
+                aura,
+                None,
+                state.combat_timer,
+                provider.id,
+                True,
+            )
+
+
+def apply_bond_links(all_units: List[Unit], state: GameState) -> None:
+    """Form damage bonds between units that provide them."""
+    from engine.status_effects import DamageRedirectEffect
+
+    providers = [
+        u for u in all_units if u.passive and u.passive.get("bond_damage_redirect")
+    ]
+    for provider in providers:
+        ratio = provider.passive.get("bond_damage_redirect", 0) / 100.0
+        pool = (
+            state.player_combat_team
+            if not provider.is_enemy
+            else state.enemy_combat_team
+        )
+        candidates = [u for u in pool if u.id != provider.id and u.is_alive]
+        if not candidates:
+            continue
+
+        def sort_key(u: Unit) -> tuple[int, float]:
+            dx = u.x - provider.x
+            dy = u.y - provider.y
+            dist_sq = dx * dx + dy * dy
+            behind = 0 if dy > 0 and abs(dx) < 30 else 1
+            return behind, dist_sq
+
+        target = min(candidates, key=sort_key)
+        provider.bond_target_id = target.id
+        provider.bond_redirected_total = 0.0
+        target.add_status(
+            DamageRedirectEffect(
+                host=target,
+                source_id=provider.id,
+                duration=None,
+                params={"ratio": ratio, "target_id": provider.id},
+            )
+        )
 
 def remove_synergy_buffs(team: List[Unit]):
     for unit in team:
@@ -728,6 +787,41 @@ def find_targets(
             key=lambda u: (u.x - source_unit.x) ** 2 + (u.y - source_unit.y) ** 2,
         )
         return [nearest]
+    if target_type in (
+        TriggerTarget.LOWEST_HP_ALLY,
+        TriggerTarget.LOWEST_HP_ALLY_ADJACENT,
+        TriggerTarget.RANDOM_NEGATIVE_ALLY,
+    ):
+        valid_allies = [u for u in alive_allies if u.current_stats.get("hp", 0) > 0]
+        if not valid_allies:
+            return []
+        if target_type == TriggerTarget.RANDOM_NEGATIVE_ALLY:
+            from engine.enums import StatusCategory
+
+            candidates = []
+            for ally in valid_allies:
+                for bucket in ally.statuses.values():
+                    if any(
+                        st.category in (StatusCategory.DEBUFF, StatusCategory.DOT, StatusCategory.ACTION_BLOCK)
+                        for st in bucket
+                    ):
+                        candidates.append(ally)
+                        break
+            if not candidates:
+                return []
+            return [random.choice(candidates)]
+        lowest = min(valid_allies, key=lambda u: u.current_hp / u.current_stats["hp"])
+        res = [lowest]
+        if target_type == TriggerTarget.LOWEST_HP_ALLY_ADJACENT:
+            adj = SLOT_SIZE + SLOT_MARGIN + 10
+            for ally in alive_allies:
+                if ally.id == lowest.id:
+                    continue
+                dx = ally.x - lowest.x
+                dy = ally.y - lowest.y
+                if dx * dx + dy * dy <= adj * adj:
+                    res.append(ally)
+        return res
     if not alive_enemies:
         return []
     if target_type == TriggerTarget.NEAREST_ENEMY:
@@ -947,6 +1041,21 @@ def resolve_trigger(
         return
     for ability in abilities:
         execute_ability(ability, unit, targets, base_value, state)
+    if unit.passive and unit.passive.get("regen_on_trigger"):
+        hot_info = unit.passive.get("regen_on_trigger", {})
+        duration = hot_info.get("duration", 0)
+        heal = hot_info.get("heal", 0)
+        if duration and heal:
+            from engine.status_effects import HealOverTime
+
+            for tgt in targets:
+                hot = HealOverTime(
+                    host=tgt,
+                    source_id=unit.id,
+                    duration=duration,
+                    params={"heal": heal},
+                )
+                tgt.add_status(hot)
     if unit.passive and unit.passive.get("hp_loss_on_trigger_percent"):
         loss_pct = unit.passive.get("hp_loss_on_trigger_percent", 0)
         loss_amount = max(1, int(unit.current_hp * loss_pct))

@@ -15,7 +15,7 @@ from engine.logic import (add_item_to_inventory, apply_artifact_buffs,
                           calculate_active_synergies, create_enemy_units,
                           give_node_rewards, remove_synergy_buffs,
                           resolve_trigger, setup_combat_team,
-                          setup_enemy_combat_team, update_player_synergies,resolve_passive)
+                          setup_enemy_combat_team, update_player_synergies,resolve_passive,apply_bond_links,apply_ranged_evasion_auras)
 from states.enums import GamePhase
 from ui.constants import (EVENT_BUTTON_HEIGHT, EVENT_BUTTON_WIDTH,
                           EVENT_CHOICE_RECT)
@@ -72,9 +72,11 @@ def start_combat(state: GameState, enemy_team_data: List[Dict]):
     )
 
     all_units = state.player_combat_team + state.enemy_combat_team
+    apply_bond_links(all_units, state)
     for unit in all_units:
         resolve_trigger(unit, TriggerTiming.START_OF_COMBAT, state, event_target=None)
         resolve_passive(unit, TriggerTiming.START_OF_COMBAT, state, event_target=None)
+    apply_ranged_evasion_auras(all_units, state)
 
 def end_combat(
     state: GameState,
@@ -104,7 +106,11 @@ def end_combat(
     elif overtime_loss and not player_won:  # Only XP if player lost due to time
         # state.player.gain_xp(PASSIVE_XP) # Removed: give_node_rewards handles passive xp
         give_node_rewards(state, node_type, player_won=False)  # get passive XP only
-
+    for unit in state.player.get_board_units() + [u for u in state.player.bench if u]:
+        gain = unit.passive.get("end_of_battle_ap_gain") if unit.passive else 0
+        if gain:
+            unit.base_stats["ap"] = unit.base_stats.get("ap", 0) + gain
+            unit._recalculate_stats(0)
     if state.player.health <= 0:
         state.current_phase = GamePhase.GAME_OVER
         print("--- GAME OVER ---")
@@ -132,7 +138,7 @@ def end_combat(
 
 
 def go_to_map(state: GameState):
-    context.warehouse_button_rect = None
+    UIContext.warehouse_button_rect = None
     UIContext.warehouse_panel = None
     current_node = state.game_map.get_node(state.current_node_id)
     if current_node and not current_node.completed:

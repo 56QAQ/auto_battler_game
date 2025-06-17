@@ -17,13 +17,17 @@ class TriggerTiming(Enum):
     ON_ANY_DEATH = auto()
     ON_AOE_DAMAGE = auto()
     ON_DOT_DAMAGE = auto()
-
+    ON_ALLY_HIT = auto()
+    ON_BONDED_DEATH = auto()
 class TriggerTarget(Enum):
     ATTACK_TARGET = auto()  # Requires event_target
     NEAREST_ENEMY = auto()
     NEAREST_ALLY = auto()
     SELF = auto()
     LOWEST_HP_ENEMY = auto()
+    LOWEST_HP_ALLY = auto()
+    LOWEST_HP_ALLY_ADJACENT = auto()
+    RANDOM_NEGATIVE_ALLY = auto()
     RANDOM_ENEMY = auto()
     EVENT_TARGETS = auto()
 

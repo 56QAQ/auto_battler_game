@@ -277,3 +277,68 @@ class ShieldEffect(StatusEffect):
                     data={"shield": self.params.get("accumulated", 0.0)},
                 )
         super().on_remove(reason)
+
+class DamageRedirectEffect(StatusEffect):
+    """Redirect a portion of incoming damage to another unit."""
+
+    name = "DMG_REDIRECT"
+    category = StatusCategory.BUFF
+    tick_interval = None
+
+    def intercept_incoming_damage(self, dmg: float) -> float:
+        ratio = self.params.get("ratio", 0.0)
+        target_id = self.params.get("target_id")
+        if dmg <= 0 or not target_id or ratio <= 0:
+            return dmg
+        from data.enums import DamageType
+        from engine.game_state import get_game_state
+
+        state = get_game_state()
+        if not state:
+            return dmg
+        target = next(
+            (
+                u
+                for u in state.player_combat_team + state.enemy_combat_team
+                if u.id == target_id and u.is_alive
+            ),
+            None,
+        )
+        if not target:
+            return dmg
+        redirected = dmg * ratio
+        self.params["redirected_total"] = (
+            self.params.get("redirected_total", 0.0) + redirected
+        )
+        target.bond_redirected_total += redirected
+        target.take_damage(redirected, DamageType.TRUE, state, self.host)
+        return dmg - redirected
+
+    def on_remove(self, reason: RemoveReason) -> None:
+        if reason == RemoveReason.HOST_DEAD:
+            from data.enums import TriggerTiming
+            from engine.game_state import get_game_state
+
+            state = get_game_state()
+            if state:
+                target_id = self.params.get("target_id")
+                target = next(
+                    (
+                        u
+                        for u in state.player_combat_team + state.enemy_combat_team
+                        if u.id == target_id and u.is_alive
+                    ),
+                    None,
+                )
+                if target:
+                    state.queue_trigger(
+                        target,
+                        TriggerTiming.ON_BONDED_DEATH,
+                        event_target=target,
+                        data={
+                            "redirect_total": self.params.get("redirected_total", 0.0)
+                        },
+                    )
+                    target.bond_target_id = None
+                    target.bond_redirected_total = 0.0
+        super().on_remove(reason)

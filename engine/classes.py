@@ -273,8 +273,10 @@ class Unit:
                 "WHITE": Color.WHITE,
             }
             self.primary_color = _map.get(tag, Color.WHITE)
-        self.trigger = definition.get("trigger", None)
-        self.passive = definition.get("passive", None)
+        self.trigger = definition.get("trigger", {})
+        self.passive = definition.get("passive", {})
+        if "timing_type" not in self.passive:
+            self.passive["timing_type"] = None
         self.level = level
         self.is_enemy = is_enemy
         self.equipped_items: List[Optional[Item]] = [None] * MAX_ITEMS_EQUIPPED
@@ -356,6 +358,8 @@ class Unit:
         self.trigger_counts: dict[TriggerTiming, int] = defaultdict(int)
         self.double_heal_stacks: int = 0
         self.double_heal_uses: int = 0
+        self.bond_target_id: str | None = None
+        self.bond_redirected_total: float = 0.0
         # Last pos for stuck detection handled by BehaviorContext
 
     def __repr__(self):
@@ -467,7 +471,13 @@ class Unit:
             self.current_hp = self.current_stats.get("hp", 1)  # Use .get for safety
         # 清空新状态体系（可被战斗结束调用）
         self.clear_statuses(RemoveReason.BATTLE_END)
-
+    def remove_buffs_from_source(self, source_id: str) -> None:
+        """Remove all status effects originating from the given source."""
+        for name in list(self.statuses.keys()):
+            for st in list(self.statuses[name]):
+                if st.source_id == source_id:
+                    self._queue_status_removal(st, RemoveReason.DISPEL)
+        self.process_statuses(0.0)
     # ======== Status‑Effect System API ========
     def add_status(self, status: StatusEffect) -> None:
         """将已实例化的 StatusEffect 附加到宿主。"""
@@ -591,6 +601,8 @@ class Unit:
         self.current_color_key = self.base_color_key
         from ai.behaviors import BehaviorState
 
+        self.behavior.state = BehaviorState.IDLE
+        self._blocked_time = 0.0
         self.behavior.state = BehaviorState.IDLE
         self._blocked_time = 0.0
         # Re-apply module effects that only exist during combat
@@ -1034,6 +1046,39 @@ class Unit:
                     )
                 )
         self.current_hp -= effective_damage
+
+        if (
+            self.passive
+            and self.passive.get("accuracy_counter_debuff")
+            and state
+        ):
+            info = self.passive["accuracy_counter_debuff"]
+            val = info.get("value", -25)
+            dur = info.get("duration", 3.0)
+            self.add_stat_modifier(
+                "accuracy",
+                val,
+                dur,
+                "ACC_COUNTER_DEBUFF",
+                True,
+            )
+            if source:
+                source.add_stat_modifier(
+                    "accuracy",
+                    val,
+                    dur,
+                    "ACC_COUNTER_DEBUFF",
+                    True,
+                )
+
+        if (
+            self.trigger
+            and self.trigger.get("timing_type") == TriggerTiming.TIMED
+            and self.trigger.get("timing_data", {}).get("accelerate_on_hit")
+        ):
+            self.trigger_timer += self.trigger.get("timing_data", {}).get(
+                "accelerate_on_hit", 0.0
+            )
         if state:
             state.combat_stats.record_damage_taken(
                 self, effective_damage, source_action
@@ -1042,6 +1087,29 @@ class Unit:
                 state.combat_stats.record_damage_dealt(
                     source, effective_damage, source_action
                 )
+                if (
+                    source_action == DamageSource.BASIC_ATTACK
+                    and self.current_stats.get("range", 50) >= 80
+                ):
+                    allies = (
+                        state.player_combat_team
+                        if not self.is_enemy
+                        else state.enemy_combat_team
+                    )
+                    for ally in allies:
+                        if (
+                            ally.is_alive
+                            and ally.id != self.id
+                            and ally.trigger
+                            and ally.trigger.get("timing_type")
+                            == TriggerTiming.ON_ALLY_HIT
+                        ):
+                            state.queue_trigger(
+                                ally,
+                                TriggerTiming.ON_ALLY_HIT,
+                                event_target=source,
+                                data={},
+                            )
                 timing = source.trigger.get("timing_type") if source.trigger else None
                 if timing:
                     progress_attr = None
@@ -1224,6 +1292,8 @@ class Unit:
                                 "source_unit": source,
                             },
                         )
+            for u in state.player_combat_team + state.enemy_combat_team:
+                u.remove_buffs_from_source(self.id)
         return effective_damage
 
     def apply_lifesteal(
