@@ -822,6 +822,23 @@ def find_targets(
                 if dx * dx + dy * dy <= adj * adj:
                     res.append(ally)
         return res
+    if target_type == TriggerTarget.ALL_NEGATIVE_ENEMIES:
+        from engine.enums import StatusCategory
+
+        return [
+            u
+            for u in alive_enemies
+            if any(
+                st.category
+                in (
+                    StatusCategory.DEBUFF,
+                    StatusCategory.DOT,
+                    StatusCategory.ACTION_BLOCK,
+                )
+                for bucket in u.statuses.values()
+                for st in bucket
+            )
+        ]
     if not alive_enemies:
         return []
     if target_type == TriggerTarget.NEAREST_ENEMY:
@@ -1033,6 +1050,24 @@ def resolve_trigger(
     if not abilities:
         return
     base_value = calculate_base_value(unit, unit.trigger, event_data)
+    if unit.trigger.get("num_negative_multiplier"):
+        from engine.enums import StatusCategory
+
+        all_units = state.player_combat_team + state.enemy_combat_team
+        neg_count = 0
+        for u in all_units:
+            for bucket in u.statuses.values():
+                neg_count += sum(
+                    1
+                    for st in bucket
+                    if st.category
+                    in (
+                        StatusCategory.DEBUFF,
+                        StatusCategory.DOT,
+                        StatusCategory.ACTION_BLOCK,
+                    )
+                )
+        base_value *= neg_count
     # FIX: Check 'target_type' exists
     if "target_type" not in unit.trigger:
         return
@@ -1041,6 +1076,21 @@ def resolve_trigger(
         return
     for ability in abilities:
         execute_ability(ability, unit, targets, base_value, state)
+    if unit.passive and unit.passive.get("extra_negative_stack_on_trigger"):
+        from engine.enums import StackRule, StatusCategory
+
+        for tgt in targets:
+            for bucket in tgt.statuses.values():
+                for st in bucket:
+                    if st.category in (
+                        StatusCategory.DEBUFF,
+                        StatusCategory.DOT,
+                        StatusCategory.ACTION_BLOCK,
+                    ) and st.stack_rule in (
+                        StackRule.UNLIMITED,
+                        StackRule.REFRESH_DURATION,
+                    ):
+                        st.stacks += 1
     if unit.passive and unit.passive.get("regen_on_trigger"):
         hot_info = unit.passive.get("regen_on_trigger", {})
         duration = hot_info.get("duration", 0)

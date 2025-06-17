@@ -409,11 +409,6 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
             "base_value_source": StatSource.MAX_HP,
             "base_value_multiplier": 0.2,
             "base_value_flat": 0,
-            "ability": {
-                "name": "Nurturing Pulse",
-                "effect_type": AbilityEffect.HEAL,
-                "effect_data": {"scale_factor": 1.0, "flat_value": 0},
-            },
         },
         "passive": {
             "timing_type": TriggerTiming.START_OF_COMBAT,
@@ -568,16 +563,6 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
             "base_value_multiplier": 1.0,
             "base_value_flat": 0,
             "radius": 120,
-            "ability": {
-                "name": "Whirlwind Counter",
-                "effect_type": AbilityEffect.DEAL_DAMAGE,
-                "effect_data": {
-                    "damage_type": DamageType.PHYSICAL,
-                    "scale_factor": 1.0,
-                    "flat_value": 0,
-                    "is_aoe": True,
-                },
-            },
         },
     },
     "Golem": {
@@ -707,15 +692,34 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
             "base_value_source": StatSource.MAX_HP,
             "base_value_multiplier": 0.2,
             "base_value_flat": 0,
-            "ability": {
-                "name": "Guardian's Retribution",
-                "effect_type": AbilityEffect.DEAL_DAMAGE,
-                "effect_data": {
-                    "damage_type": DamageType.PHYSICAL,
-                    "scale_factor": 1.0,
-                    "flat_value": 0,
-                },
+        },
+    },
+    "Cobalt Hexer": {
+        "rarity": "RARE",
+        "primary_color": Color.BLUE,
+        "secondary_synergies": [],
+        "traits": ["Arcanist"],
+        "base_stats": {
+            "hp": 700,
+            "ad": 40,
+            "as": 0.8,
+            "ap": 50,
+            "armor": 20,
+            "mr": 60,
+            "range": 150,
+        },
+        "passive": {"extra_negative_stack_on_trigger": True},
+        "trigger": {
+            "timing_type": TriggerTiming.TIMED,
+            "timing_data": {
+                "interval": 20.0,
+                "accelerate_per_negative": 0.05,
             },
+            "target_type": TriggerTarget.ALL_NEGATIVE_ENEMIES,
+            "base_value_source": StatSource.AP,
+            "base_value_multiplier": 0.1,
+            "base_value_flat": 0,
+            "num_negative_multiplier": True,
         },
     },
     "Lifebond Guardian": {

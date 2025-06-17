@@ -30,6 +30,7 @@ class TriggerTarget(Enum):
     RANDOM_NEGATIVE_ALLY = auto()
     RANDOM_ENEMY = auto()
     EVENT_TARGETS = auto()
+    ALL_NEGATIVE_ENEMIES = auto()
 
 class StatSource(Enum):
     AD = "ad"

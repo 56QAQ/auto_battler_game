@@ -1637,11 +1637,36 @@ class Unit:
 
         # 2) still run timed triggers exactly as before (no change)
         if self.trigger and self.trigger["timing_type"] == TriggerTiming.TIMED:
-            self.trigger_timer += state.delta_time_combat
             interval = self.trigger.get("timing_data", {}).get("interval", 999.0)
+            accel_pct = self.trigger.get("timing_data", {}).get(
+                "accelerate_per_negative", 0.0
+            )
+            if accel_pct:
+                from engine.enums import StatusCategory
+
+                all_units = state.player_combat_team + state.enemy_combat_team
+                neg_count = 0
+                for u in all_units:
+                    for bucket in u.statuses.values():
+                        neg_count += sum(
+                            1
+                            for st in bucket
+                            if st.category
+                            in (
+                                StatusCategory.DEBUFF,
+                                StatusCategory.DOT,
+                                StatusCategory.ACTION_BLOCK,
+                            )
+                        )
+                self.trigger_timer += state.delta_time_combat * (
+                    1 + accel_pct * neg_count
+                )
+            else:
+                self.trigger_timer += state.delta_time_combat
             while self.trigger_timer >= interval and interval > 0:
                 target = None
-                if self.trigger.get("target_type") == TriggerTarget.NEAREST_ALLY:
+                t_type = self.trigger.get("target_type")
+                if t_type == TriggerTarget.NEAREST_ALLY:
                     threshold = self.trigger.get("hp_threshold", 1.0)
                     pool = (
                         state.player_combat_team
@@ -1662,6 +1687,29 @@ class Unit:
                         candidates,
                         key=lambda u: (u.x - self.x) ** 2 + (u.y - self.y) ** 2,
                     )
+                elif t_type == TriggerTarget.ALL_NEGATIVE_ENEMIES:
+                    from engine.enums import StatusCategory
+
+                    pool = (
+                        state.enemy_combat_team
+                        if not self.is_enemy
+                        else state.player_combat_team
+                    )
+                    target = [
+                        u
+                        for u in pool
+                        if u.is_alive
+                        and any(
+                            st.category
+                            in (
+                                StatusCategory.DEBUFF,
+                                StatusCategory.DOT,
+                                StatusCategory.ACTION_BLOCK,
+                            )
+                            for bucket in u.statuses.values()
+                            for st in bucket
+                        )
+                    ]
                 self.trigger_timer -= interval
                 state.queue_trigger(
                     self, TriggerTiming.TIMED, event_target=target, data={}
