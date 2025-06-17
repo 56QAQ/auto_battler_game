@@ -379,14 +379,16 @@ def handle_game_event(
                 break
 
     if event.type == pygame.MOUSEBUTTONDOWN:
-        pos =  getattr(event,"pos",None)
-        if pos == None:
+        pos = getattr(event, "pos", None)
+        if pos is None:
             return
         is_left = event.button == 1
         is_right = event.button == 3
 
         drag_mgr = get_drag_manager(context)
         context.set_drag_manager(drag_mgr)
+        if context.crafting_window and context.crafting_window.handle_click(event):
+            return None
         if (
             is_left
             and context.settings_button_rect
@@ -572,9 +574,7 @@ def handle_game_event(
                     and context.craft_button_rect.collidepoint(pos)
                 ):
                     context.crafting_window = CraftingWindow(state, context)
-                elif context.crafting_window and context.crafting_window.handle_click(
-                    event
-                ):
+                elif context.crafting_window:
                     pass
                 elif (
                     context.buy_xp_button_rect

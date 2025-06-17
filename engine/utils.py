@@ -130,6 +130,6 @@ def format_trigger_description(trigger: Optional[Dict], items) -> str:
     )
     # Basic fallback
     if not items_with_abilities:
-        full_desc = f"{timing_str} {target_str} {base_value_desc} (Base)"
+        full_desc = f"{timing_str} {target_str} Deal {base_value_desc} (Base)"
 
     return full_desc

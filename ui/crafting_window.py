@@ -55,7 +55,7 @@ class CraftingWindow:
         self.craft_mod_rect = pygame.Rect(self.rect.x + 100, self.rect.y + 120, 240, 30)
     # ------------ input --------------- #
     def handle_click(self, ev: pygame.event.Event) -> bool:
-        if ev.type != pygame.MOUSEBUTTONDOWN or ev.button != 1:
+        if ev.type != pygame.MOUSEBUTTONDOWN or ev.button not in (1, 3):
             return False
         if not self.rect.collidepoint(ev.pos):
             self.context.crafting_window = None
@@ -71,7 +71,10 @@ class CraftingWindow:
         if self.mode == "CRAFT":
             for color, rect in self.slider_rects.items():
                 if rect.collidepoint(ev.pos):
-                    self.sliders[color] = (self.sliders[color] + 1) % 4
+                    if ev.button == 1:
+                        self.sliders[color] = min(self.sliders[color] + 1, 9)
+                    elif ev.button == 3:
+                        self.sliders[color] = max(self.sliders[color] - 1, 0)
                     return True
             mats = {k: v for k, v in self.sliders.items() if v}
             if self.craft_arm_rect.collidepoint(ev.pos) and can_craft(mats):
