@@ -62,6 +62,7 @@ def format_trigger_description(trigger: Optional[Dict], items) -> str:
         TriggerTarget.LOWEST_HP_ALLY_ADJACENT: "Weakest Ally + Adjacent ->",
         TriggerTarget.RANDOM_NEGATIVE_ALLY: "Random Debuffed Ally ->",
         TriggerTarget.RANDOM_ENEMY: "Random Enemy ->",
+        TriggerTarget.FARTHEST_ENEMY_ADJACENT: "Farthest Enemy + Adjacent ->",
     }
     source_map = {
         StatSource.AD: "AD",

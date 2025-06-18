@@ -20,7 +20,9 @@ def _threat(unit: "Unit", enemy: "Unit") -> float:
     hp_ratio = enemy.current_hp / max(1.0, enemy.current_stats.get("hp", 1))
     distance = ((unit.x - enemy.x) ** 2 + (unit.y - enemy.y) ** 2) ** 0.5
     reach = unit.current_stats.get("range", 50)
-    distance_factor = max(0.1, distance / reach)
+    if reach == 0:
+        distance_factor = 0.1
+    else: distance_factor = max(0.1, distance / reach)
     return (1.0 - hp_ratio) * 2.0 + 1.0 / distance_factor
 
 

@@ -140,6 +140,8 @@ def _immediate_collision(unit: "Unit", vx: float, vy: float) -> bool:
 
 def nudge_random(unit: "Unit") -> None:
     """Small side step used by BehaviorContext when a unit is stuck."""
+    if unit.current_stats.get("move_speed", DEFAULT_MOVE_SPEED) == 0:
+        return
     angle = random.random() * 2 * math.pi
     dist = unit.radius * 0.3
     unit.x += math.cos(angle) * dist

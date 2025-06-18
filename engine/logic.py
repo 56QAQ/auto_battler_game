@@ -857,6 +857,23 @@ def find_targets(
             valid_enemies, key=lambda u: u.current_hp / u.current_stats["hp"]
         )
         return [lowest_hp_unit]
+    if target_type == TriggerTarget.FARTHEST_ENEMY_ADJACENT:
+        if not alive_enemies:
+            return []
+        farthest = max(
+            alive_enemies,
+            key=lambda u: (u.x - source_unit.x) ** 2 + (u.y - source_unit.y) ** 2,
+        )
+        res = [farthest]
+        adj = SLOT_SIZE + SLOT_MARGIN + 10
+        for enemy in alive_enemies:
+            if enemy.id == farthest.id:
+                continue
+            dx = enemy.x - farthest.x
+            dy = enemy.y - farthest.y
+            if dx * dx + dy * dy <= adj * adj:
+                res.append(enemy)
+        return res
     return []
 
 
