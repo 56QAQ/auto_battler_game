@@ -35,6 +35,8 @@ class TriggerTarget(Enum):
     EVENT_TARGETS = auto()
     ALL_NEGATIVE_ENEMIES = auto()
     FARTHEST_ENEMY_ADJACENT = auto()
+    SELF_AND_EVENT_TARGETS = auto()
+
 class StatSource(Enum):
     AD = "ad"
     AP = "ap"

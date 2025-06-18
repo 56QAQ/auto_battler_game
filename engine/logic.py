@@ -764,6 +764,16 @@ def find_targets(
         if getattr(event_target, "is_alive", False):
             return [event_target]
         return []
+    if target_type == TriggerTarget.SELF_AND_EVENT_TARGETS:
+        targets = [source_unit] if source_unit.is_alive else []
+        if event_target:
+            if isinstance(event_target, Iterable) and not isinstance(
+                event_target, Unit
+            ):
+                targets.extend(u for u in event_target if getattr(u, "is_alive", False))
+            elif getattr(event_target, "is_alive", False):
+                targets.append(event_target)
+        return targets
     if target_type == TriggerTarget.NEAREST_ALLY:
         threshold = 1.0
         if source_unit.trigger:

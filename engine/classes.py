@@ -1631,7 +1631,10 @@ class Unit:
                     ev_tgt = (
                         chain_hits
                         if self.trigger.get("target_type")
-                        == TriggerTarget.EVENT_TARGETS
+                        in (
+                            TriggerTarget.EVENT_TARGETS,
+                            TriggerTarget.SELF_AND_EVENT_TARGETS,
+                        )
                         else self.target
                     )
                     aoe_flag = (
@@ -1805,7 +1808,6 @@ class Unit:
         state.delta_time_combat = dt
         self.behavior.update(potential_targets, state)
         state.delta_time_combat = saved_dt
-        
     def update_animation(self, dt: float):
         from engine.utils import clamp
 

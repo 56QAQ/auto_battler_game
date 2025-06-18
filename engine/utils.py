@@ -63,6 +63,7 @@ def format_trigger_description(trigger: Optional[Dict], items) -> str:
         TriggerTarget.RANDOM_NEGATIVE_ALLY: "Random Debuffed Ally ->",
         TriggerTarget.RANDOM_ENEMY: "Random Enemy ->",
         TriggerTarget.FARTHEST_ENEMY_ADJACENT: "Farthest Enemy + Adjacent ->",
+        TriggerTarget.SELF_AND_EVENT_TARGETS: "Self + Target ->",
     }
     source_map = {
         StatSource.AD: "AD",
