@@ -591,7 +591,7 @@ def handle_game_event(
                     and context.map_button_rect
                     and context.map_button_rect.collidepoint(pos)
                 ):
-                    go_to_map(state, context)
+                    go_to_map(state)
                     sounds.play("buy")
                 elif (
                     state.allow_combat_start

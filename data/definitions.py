@@ -17,7 +17,7 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
         "primary_color": Color.RED,
         "traits": ["Automaton", "Defender"],
         "base_stats": {
-            "hp": 600,
+            "hp": 60000,
             "ad": 50,
             "as": 0.6,
             "ap": 0,
@@ -1152,7 +1152,198 @@ for _clr, _theme in [
         "ability": None,
         "description": f"{_theme} Disk (placeholder)",
     }
-
+DiskAbilityRegistry: dict[Color, dict[str, List[dict]]] = {
+    Color.RED: {
+        "COMMON": [
+            {
+                "ability": {
+                    "name": "Power Strike",
+                    "effect_type": AbilityEffect.DEAL_DAMAGE,
+                    "effect_data": {
+                        "damage_type": DamageType.PHYSICAL,
+                        "scale_factor": 0.0,
+                        "flat_value": 50,
+                    },
+                },
+                "stats": {},
+            }
+        ],
+        "UNCOMMON": [
+            {
+                "ability": {
+                    "name": "Crushing Blow",
+                    "effect_type": AbilityEffect.DEAL_DAMAGE,
+                    "effect_data": {
+                        "damage_type": DamageType.PHYSICAL,
+                        "scale_factor": 0.0,
+                        "flat_value": 100,
+                        "flat_physical_penetration": 20,
+                    },
+                },
+                "stats": {},
+            },
+            {
+                "ability": {
+                    "name": "Frenzied Strike",
+                    "effect_type": AbilityEffect.DEAL_DAMAGE,
+                    "effect_data": {
+                        "damage_type": DamageType.PHYSICAL,
+                        "scale_factor": 0.0,
+                        "flat_value": 100,
+                        "extra_attack_every": 3,
+                    },
+                },
+                "stats": {},
+            },
+        ],
+        "RARE": [
+            {
+                "ability": {
+                    "name": "Power Strike",
+                    "effect_type": AbilityEffect.DEAL_DAMAGE,
+                    "effect_data": {
+                        "damage_type": DamageType.PHYSICAL,
+                        "scale_factor": 1.5,
+                        "flat_value": 0,
+                    },
+                },
+                "stats": {},
+            }
+        ],
+        "EPIC": [
+            {
+                "ability": {
+                    "name": "Power Strike",
+                    "effect_type": AbilityEffect.DEAL_DAMAGE,
+                    "effect_data": {
+                        "damage_type": DamageType.PHYSICAL,
+                        "scale_factor": 1.5,
+                        "flat_value": 0,
+                    },
+                },
+                "stats": {},
+            }
+        ],
+    },
+    Color.GREEN: {
+        k: [
+            {
+                "ability": {
+                    "name": "Rejuvenation",
+                    "effect_type": AbilityEffect.HEAL,
+                    "effect_data": {"scale_factor": 1.0, "flat_value": 0},
+                },
+                "stats": {},
+            }
+        ]
+        for k in ["COMMON", "UNCOMMON", "RARE", "EPIC"]
+    },
+    Color.BLUE: {
+        k: [
+            {
+                "ability": {
+                    "name": "Arcane Bolt",
+                    "effect_type": AbilityEffect.DEAL_DAMAGE,
+                    "effect_data": {
+                        "damage_type": DamageType.MAGIC,
+                        "scale_factor": 1.5,
+                        "flat_value": 0,
+                    },
+                },
+                "stats": {},
+            }
+        ]
+        for k in ["COMMON", "UNCOMMON", "RARE", "EPIC"]
+    },
+    Color.YELLOW: {
+        k: [
+            {
+                "ability": {
+                    "name": "Fortify",
+                    "effect_type": AbilityEffect.APPLY_BUFF,
+                    "effect_data": {
+                        "stat": "percentage_damage_reduction",
+                        "value": 20,
+                        "duration": 3.0,
+                        "is_percent": False,
+                    },
+                },
+                "stats": {},
+            }
+        ]
+        for k in ["COMMON", "UNCOMMON", "RARE", "EPIC"]
+    },
+    Color.PURPLE: {
+        k: [
+            {
+                "ability": {
+                    "name": "Void Pulse",
+                    "effect_type": AbilityEffect.DEAL_DAMAGE,
+                    "effect_data": {
+                        "damage_type": DamageType.TRUE,
+                        "scale_factor": 1.2,
+                        "flat_value": 0,
+                    },
+                },
+                "stats": {},
+            }
+        ]
+        for k in ["COMMON", "UNCOMMON", "RARE", "EPIC"]
+    },
+    Color.CYAN: {
+        k: [
+            {
+                "ability": {
+                    "name": "Weakening Beam",
+                    "effect_type": AbilityEffect.APPLY_BUFF,
+                    "effect_data": {
+                        "stat": "ad",
+                        "value": -10,
+                        "duration": 4.0,
+                        "is_percent": False,
+                    },
+                },
+                "stats": {},
+            }
+        ]
+        for k in ["COMMON", "UNCOMMON", "RARE", "EPIC"]
+    },
+    Color.BLACK: {
+        k: [
+            {
+                "ability": {
+                    "name": "Annihilation",
+                    "effect_type": AbilityEffect.DEAL_DAMAGE,
+                    "effect_data": {
+                        "damage_type": DamageType.TRUE,
+                        "scale_factor": 2.0,
+                        "flat_value": 0,
+                    },
+                },
+                "stats": {},
+            }
+        ]
+        for k in ["COMMON", "UNCOMMON", "RARE", "EPIC"]
+    },
+    Color.WHITE: {
+        k: [
+            {
+                "ability": {
+                    "name": "Inspiration",
+                    "effect_type": AbilityEffect.APPLY_BUFF,
+                    "effect_data": {
+                        "stat": "ap",
+                        "value": 10,
+                        "duration": 5.0,
+                        "is_percent": False,
+                    },
+                },
+                "stats": {},
+            }
+        ]
+        for k in ["COMMON", "UNCOMMON", "RARE", "EPIC"]
+    },
+}
 # ------------------------------------------------------------
 #               bespoke disk item definitions
 # ------------------------------------------------------------

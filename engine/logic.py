@@ -49,6 +49,7 @@ from data.enums import (
     DamageSource,
     DamageType,
     StatSource,
+    ItemType,
     TriggerTarget,
     TriggerTiming,
 )
@@ -184,15 +185,26 @@ def _attempt_equip_item(
     if not item or not unit or start_loc != UnitLocation.INVENTORY:
         return False
     if hasattr(item, "item_type"):
-        if any(
-            it and getattr(it, "item_type", None) == item.item_type
-            for it in unit.equipped_items
-        ):
-            print("DEBUG: Unit already has this item‑type equipped.")
-            return False
-        if not item.can_equip(unit):
-            print("DEBUG: Color / Module restriction not met.")
-            return False
+        if item.item_type == ItemType.DISK:
+            if any(
+                it and getattr(it, "item_type", None) == ItemType.DISK
+                for it in unit.equipped_items
+            ):
+                print("DEBUG: Disk slot already occupied.")
+                return False
+            if not item.can_equip(unit):
+                print("DEBUG: Color / Module restriction not met.")
+                return False
+        else:
+            if any(
+                it and getattr(it, "item_type", None) == item.item_type
+                for it in unit.equipped_items
+            ):
+                print("DEBUG: Unit already has this item‑type equipped.")
+                return False
+            if not item.can_equip(unit):
+                print("DEBUG: Color / Module restriction not met.")
+                return False
     combined_item_count = sum(
         1 for it in unit.equipped_items if it and getattr(it, "type", "") == "COMBINED"
     )

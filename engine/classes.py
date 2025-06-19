@@ -109,8 +109,9 @@ class Item:
             type_str = definition.get("type", "ARMAMENT")
             self.item_type = ItemType.__members__.get(type_str, ItemType.ARMAMENT)
             self.type = self.item_type
-            self.color = Color.WHITE
-            self.rarity = "COMMON"
+            col = definition.get("color", "WHITE")
+            self.color = Color.__members__.get(str(col), Color.WHITE)
+            self.rarity = definition.get("rarity", "COMMON")
             self.stats = definition.get("stats", {})
             self.ability = definition.get("ability")
             self.special = definition.get("special")
