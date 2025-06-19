@@ -20,7 +20,8 @@ class TriggerTiming(Enum):
     ON_ALLY_HIT = auto()
     ON_BONDED_DEATH = auto()
     ON_TEAM_DAMAGE_DOUBLED = auto()
-
+    STATUS_OVERLOAD = auto()
+    BLEED_THRESHOLD = auto()
     
 class TriggerTarget(Enum):
     ATTACK_TARGET = auto()  # Requires event_target
@@ -36,6 +37,8 @@ class TriggerTarget(Enum):
     ALL_NEGATIVE_ENEMIES = auto()
     FARTHEST_ENEMY_ADJACENT = auto()
     SELF_AND_EVENT_TARGETS = auto()
+    ALL_ALLIES = auto()
+    ALL_ENEMIES = auto()
 
 class StatSource(Enum):
     AD = "ad"
@@ -47,7 +50,8 @@ class StatSource(Enum):
     AS = "as"
     FLAT = "flat"
     EVENT = "event"
-
+    RESIST_SUM = "resist_sum"
+    
 class AbilityEffect(Enum):
     DEAL_DAMAGE = auto()
     APPLY_BUFF = auto()  # or debuff

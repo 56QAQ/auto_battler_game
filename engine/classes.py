@@ -363,8 +363,11 @@ class Unit:
         self.double_heal_stacks: int = 0
         self.double_heal_uses: int = 0
         self.extra_attack_counters: dict[str, int] = {}
+        self.purge_counts: dict[str, int] = {}
         self.bond_target_id: str | None = None
         self.bond_redirected_total: float = 0.0
+        self.bleed_damage_progress: float = 0.0
+        self.revive_used: bool = False
         # Last pos for stuck detection handled by BehaviorContext
 
     def __repr__(self):
@@ -486,6 +489,7 @@ class Unit:
     # ======== Status‑Effect System API ========
     def add_status(self, status: StatusEffect) -> None:
         """将已实例化的 StatusEffect 附加到宿主。"""
+        before_count = sum(len(b) for b in self.statuses.values())
         bucket = self.statuses[status.name]
         if status.stack_rule == StackRule.UNIQUE and bucket:
             # 覆盖：移除旧实例
@@ -493,8 +497,55 @@ class Unit:
             self._queue_status_removal(old, RemoveReason.DISPEL)
             bucket.clear()
         bucket.append(status)
-        status.on_apply()
+        from engine.enums import StatusCategory
+        from engine.game_state import get_game_state
 
+        state = get_game_state()
+        if state:
+            src = next(
+                (
+                    u
+                    for u in state.player_combat_team + state.enemy_combat_team
+                    if u.id == status.source_id
+                ),
+                None,
+            )
+            if (
+                src
+                and src.passive
+                and src.passive.get("extend_positive_duration")
+                and status.duration is not None
+                and status.category
+                in (
+                    StatusCategory.BUFF,
+                    StatusCategory.HOT,
+                    StatusCategory.SHIELD,
+                )
+            ):
+                extra = float(src.passive.get("extend_positive_duration", 0))
+                status.duration += extra
+                status.remaining += extra
+        status.on_apply()
+        if state:
+            if before_count >= 3:
+                data = {
+                    "attack_sum": self.current_stats.get("ad", 0)
+                    + self.current_stats.get("ap", 0)
+                }
+                for u in state.player_combat_team + state.enemy_combat_team:
+                    if (
+                        u.is_alive
+                        and u.trigger
+                        and u.trigger.get("timing_type")
+                        == TriggerTiming.STATUS_OVERLOAD
+                        and u.is_enemy != self.is_enemy
+                    ):
+                        state.queue_trigger(
+                            u,
+                            TriggerTiming.STATUS_OVERLOAD,
+                            event_target=self,
+                            data=data,
+                        )
     def _queue_status_removal(self, status: StatusEffect, reason: RemoveReason):
         self._pending_status_removals.append((status, reason))
 
@@ -600,6 +651,7 @@ class Unit:
         self.passive_timer = 0.0
         self.double_heal_uses = 0
         self.extra_attack_counters.clear()
+        self.revive_used = False
         self.is_alive = True
         self.x, self.y = 0.0, 0.0
         self.anim_state = AnimationState.IDLE
@@ -705,6 +757,13 @@ class Unit:
                         event_target=source,
                         data={"heal": actual_heal},
                     )
+            if (
+                self.passive
+                and self.passive.get("revive_percent")
+                and self.revive_used
+                and self.current_hp >= self.current_stats.get("hp", 0)
+            ):
+                self.revive_used = False
         return actual_heal
 
     def _xs(self, key: str, default: float = 0.0) -> float:
@@ -1062,9 +1121,33 @@ class Unit:
                         size=self.radius * 1.2,
                     )
                 )
+        if state and self.passive and self.passive.get("bleed_storage_percent"):
+            ratio = self.passive.get("bleed_storage_percent", 50) / 100.0
+            effective_damage *= (1-ratio)
         self.current_hp -= effective_damage
         died = self.current_hp <= 0
 
+        if state and self.passive and self.passive.get("bleed_storage_percent"):
+            converted = effective_damage
+            from engine.enums import StackRule
+            from engine.status_effects import BleedingEffect
+
+            bucket = self.statuses.get(BleedingEffect.name, [])
+            if bucket:
+                bleed = bucket[0]
+                remaining = bleed.params.get("damage", 0) * (bleed.remaining or 0)
+                total = remaining + converted
+                bleed.params["damage"] = total / 20.0
+                bleed.duration = bleed.remaining = 20.0
+            else:
+                bleed = BleedingEffect(
+                    host=self,
+                    source_id=self.id,
+                    duration=20.0,
+                    stack_rule=StackRule.UNIQUE,
+                    params={"damage": converted / 20.0, "dtype": DamageType.TRUE},
+                )
+                self.add_status(bleed)
         if (
             not died
             and self.passive
@@ -1292,6 +1375,7 @@ class Unit:
                             data={
                                 "value": 100 * count,
                                 "dead_unit_ad": self.current_stats.get("ad", 0),
+                                "dead_unit_hp": self.current_stats.get("hp", 0),
                                 "source_unit": source,
                             },
                         )
@@ -1309,9 +1393,25 @@ class Unit:
                             event_data={
                                 "value": 100 * count,
                                 "dead_unit_ad": self.current_stats.get("ad", 0),
+                                "dead_unit_hp": self.current_stats.get("hp", 0),
                                 "source_unit": source,
                             },
                         )
+                if (
+                    self.passive
+                    and self.passive.get("revive_percent")
+                    and not self.revive_used
+                ):
+                    self.revive_used = True
+                    self.current_hp = (
+                        self.current_stats.get("hp", 0)
+                        * self.passive.get("revive_percent", 0)
+                        / 100.0
+                    )
+                    self.is_alive = True
+                    self.anim_state = AnimationState.HEALED
+                    self.anim_timer = 0
+                    self.flash_color_key = "HEAL_FLASH_COLOR"
             for u in state.player_combat_team + state.enemy_combat_team:
                 u.remove_buffs_from_source(self.id)
         return effective_damage
@@ -1648,6 +1748,11 @@ class Unit:
                         else len(chain_hits) > 1
                     )
                     data = {"aoe": aoe_flag}
+                    if self.target:
+                        data["missing_hp"] = (
+                            self.target.current_stats.get("hp", 0)
+                            - self.target.current_hp
+                        )
                     if self.passive and self.passive.get("cone_attack"):
                         data["value"] = self.current_stats.get("ad", 0) / max(
                             len(chain_hits), 1

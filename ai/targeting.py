@@ -53,4 +53,15 @@ def acquire_target_if_needed(unit: "Unit", enemies: List["Unit"], dt: float) -> 
         if alt and alt[0] is not unit.target:
             unit.target = alt[0]
             blocked = 0.0
-    setattr(unit, "_blocked_time", blocked)           # type: ignore
+    setattr(unit, "_blocked_time", blocked)  # type: ignore
+
+
+def acquire_lowest_hp_ally(unit: "Unit", allies: List["Unit"]) -> None:
+    """Pick the ally with the lowest HP ratio as target."""
+    live = [a for a in allies if a and a.is_alive]
+    if not live:
+        unit.target = None
+        return
+    unit.target = min(
+        live, key=lambda u: u.current_hp / max(1.0, u.current_stats.get("hp", 1))
+    )

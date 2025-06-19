@@ -62,7 +62,7 @@ from engine.classes import (
     VisualEffect,
 )
 # Engine imports
-from engine.enums import AnimationState, EffectType
+from engine.enums import AnimationState, EffectType, RemoveReason
 from engine.utils import clamp
 
 # Conditional imports
@@ -707,6 +707,10 @@ def calculate_base_value(
     if source == StatSource.EVENT and event_data is not None:
         key = trigger.get("event_key", "value")
         return event_data.get(key, 0.0) * multiplier + flat
+    if source == StatSource.RESIST_SUM:
+        armor = unit.current_stats.get("armor", 0)
+        mr = unit.current_stats.get("mr", 0)
+        return (armor + mr) * multiplier + flat
     stat_key = source.value
     return unit.current_stats.get(stat_key, 0) * multiplier + flat
 
@@ -774,6 +778,10 @@ def find_targets(
             elif getattr(event_target, "is_alive", False):
                 targets.append(event_target)
         return targets
+    if target_type == TriggerTarget.ALL_ALLIES:
+        return alive_allies
+    if target_type == TriggerTarget.ALL_ENEMIES:
+        return alive_enemies
     if target_type == TriggerTarget.NEAREST_ALLY:
         threshold = 1.0
         if source_unit.trigger:
@@ -1185,6 +1193,14 @@ def resolve_trigger(
         loss_pct = unit.passive.get("hp_loss_on_trigger_percent", 0)
         loss_amount = max(1, int(unit.current_hp * loss_pct))
         unit.current_hp = max(1, unit.current_hp - loss_amount)
+    if unit.passive and unit.passive.get("purge_after_trigger"):
+        threshold = unit.passive.get("purge_after_trigger", 3)
+        for tgt in targets:
+            count = unit.purge_counts.get(tgt.id, 0) + 1
+            unit.purge_counts[tgt.id] = count
+            if count >= threshold:
+                tgt.clear_statuses(RemoveReason.DISPEL)
+                unit.purge_counts[tgt.id] = 0
 
 def resolve_passive(
     unit: Unit,

@@ -160,6 +160,52 @@ class HealOverTime(StatusEffect):
                 source_unit,
                 source_action=DamageSource.ITEM_ABILITY,
             )
+class BleedingEffect(DamageOverTime):
+    """Accumulated damage over time applied to the host."""
+
+    name = "BLEED_DOT"
+
+    def on_tick(self, dt: float) -> None:
+        from engine.game_state import get_game_state
+
+        dmg_per_tick = self.params.get("damage", 0) * self.stacks
+        if dmg_per_tick <= 0 or not self.host.is_alive:
+            return
+        state = get_game_state()
+        source_unit = next(
+            (
+                u
+                for u in state.player_combat_team + state.enemy_combat_team
+                if u.id == self.source_id
+            ),
+            None,
+        )
+        dealt = self.host.take_damage(
+            dmg_per_tick,
+            self.params.get("dtype"),
+            state,
+            source_unit,
+            source_action=DamageSource.ITEM_ABILITY,
+        )
+        self.host.bleed_damage_progress += dealt
+        from data.enums import TriggerTiming
+
+        if (
+            source_unit
+            and source_unit.trigger
+            and source_unit.trigger.get("timing_type") == TriggerTiming.BLEED_THRESHOLD
+        ):
+            thresh = source_unit.current_stats.get("hp", 0) * source_unit.trigger.get(
+                "timing_data", {}
+            ).get("threshold", 0)
+            if self.host.bleed_damage_progress >= thresh:
+                self.host.bleed_damage_progress = 0.0
+                state.queue_trigger(
+                    source_unit,
+                    TriggerTiming.BLEED_THRESHOLD,
+                    event_target=source_unit,
+                    data={},
+                )
 
 
 class StatModifierEffect(StatusEffect):

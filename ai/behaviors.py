@@ -67,8 +67,11 @@ class BehaviorContext:
             return
 
         # ----- refresh / validate target ------------------------------ #
-        tgt.acquire_target_if_needed(host, potential_targets, dt)
-
+        if host.passive.get("target_lowest_hp_ally"):
+            pool = gs.player_combat_team if not host.is_enemy else gs.enemy_combat_team
+            tgt.acquire_lowest_hp_ally(host, pool)
+        else:
+            tgt.acquire_target_if_needed(host, potential_targets, dt)
         # ----- decision logic ----------------------------------------- #
         if host.target is None:
             self.state = BehaviorState.IDLE
@@ -76,9 +79,9 @@ class BehaviorContext:
             dist_sq = (host.x - host.target.x) ** 2 + (host.y - host.target.y) ** 2
             ideal_range = host.current_stats.get("range", 50)
             melee = ideal_range < 80
-            in_range = dist_sq <= max(ideal_range ** 2,
-                                      (host.radius + host.target.radius + 5) ** 2)
-
+            in_range = dist_sq <= max(
+                ideal_range**2, (host.radius + host.target.radius + 5) ** 2
+            )
             if not melee and nav.should_kite(host, host.target):
                 self.state = BehaviorState.KITE
             elif in_range:
