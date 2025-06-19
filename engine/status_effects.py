@@ -323,7 +323,12 @@ class ShieldEffect(StatusEffect):
                     data={"shield": self.params.get("accumulated", 0.0)},
                 )
         super().on_remove(reason)
+class DoomBrand(StatusEffect):
+    """Mark that explodes at a stack threshold."""
 
+    name = "DOOM_BRAND"
+    category = StatusCategory.DEBUFF
+    tick_interval = None
 class DamageRedirectEffect(StatusEffect):
     """Redirect a portion of incoming damage to another unit."""
 

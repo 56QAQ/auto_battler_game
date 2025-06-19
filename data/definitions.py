@@ -1152,6 +1152,182 @@ for _clr, _theme in [
         "ability": None,
         "description": f"{_theme} Disk (placeholder)",
     }
+
+# ------------------------------------------------------------
+#               bespoke disk item definitions
+# ------------------------------------------------------------
+
+ITEM_DEFINITIONS["Crimson Burn Disk"] = {
+    "item_type": "DISK",
+    "type": "DISK",
+    "color": "RED",
+    "rarity": "UNCOMMON",
+    "stats": {},
+    "ability": {
+        "name": "Sear",
+        "effect_type": AbilityEffect.DEAL_DAMAGE,
+        "effect_data": {
+            "damage_type": DamageType.PHYSICAL,
+            "scale_factor": 0.0,
+            "flat_value": 70,
+            "dot_damage": 12,
+            "dot_duration": 3.0,
+            "dot_max_stacks": 5,
+        },
+    },
+    "description": "Deal 70 physical damage and apply a stacking burn.",
+}
+
+ITEM_DEFINITIONS["Crimson Fury Disk"] = {
+    "item_type": "DISK",
+    "type": "DISK",
+    "color": "RED",
+    "rarity": "UNCOMMON",
+    "stats": {},
+    "ability": {
+        "name": "Overload",
+        "effect_type": AbilityEffect.DEAL_DAMAGE,
+        "effect_data": {
+            "damage_type": DamageType.PHYSICAL,
+            "scale_factor": 0.0,
+            "flat_value": 200,
+            "max_damage_uses": 6,
+        },
+    },
+    "description": "Deals 200 physical damage, then fizzles after 6 uses.",
+}
+
+ITEM_DEFINITIONS["Crimson Precision Disk"] = {
+    "item_type": "DISK",
+    "type": "DISK",
+    "color": "RED",
+    "rarity": "UNCOMMON",
+    "stats": {},
+    "ability": {
+        "name": "Piercing Strike",
+        "effect_type": AbilityEffect.DEAL_DAMAGE,
+        "effect_data": {
+            "damage_type": DamageType.PHYSICAL,
+            "scale_factor": 0.0,
+            "flat_value": 70,
+            "can_crit": True,
+            "extra_crit_chance": 50,
+        },
+    },
+    "description": "70 physical damage that gains +50% crit chance.",
+}
+
+ITEM_DEFINITIONS["Crimson Impact Disk"] = {
+    "item_type": "DISK",
+    "type": "DISK",
+    "color": "RED",
+    "rarity": "UNCOMMON",
+    "stats": {},
+    "ability": {
+        "name": "Impact Burst",
+        "effect_type": AbilityEffect.DEAL_DAMAGE,
+        "effect_data": {
+            "damage_type": DamageType.PHYSICAL,
+            "scale_factor": 2.0,
+            "flat_value": 300,
+            "cooldown": 5.0,
+        },
+    },
+    "description": "300 + 2×value physical damage, 5s cooldown.",
+}
+
+ITEM_DEFINITIONS["Crimson Execution Disk"] = {
+    "item_type": "DISK",
+    "type": "DISK",
+    "color": "RED",
+    "rarity": "RARE",
+    "stats": {},
+    "ability": {
+        "name": "Execute",
+        "effect_type": AbilityEffect.DEAL_DAMAGE,
+        "effect_data": {
+            "damage_type": DamageType.PHYSICAL,
+            "flat_value": 120,
+            "hp_compare_factor": 5.0,
+            "hp_compare_multiplier": 2.0,
+        },
+    },
+    "description": "120 damage doubled vs targets with >5× your HP.",
+}
+
+ITEM_DEFINITIONS["Crimson Knockback Disk"] = {
+    "item_type": "DISK",
+    "type": "DISK",
+    "color": "RED",
+    "rarity": "RARE",
+    "stats": {},
+    "ability": {
+        "name": "Force Thrust",
+        "effect_type": AbilityEffect.DEAL_DAMAGE,
+        "effect_data": {
+            "damage_type": DamageType.PHYSICAL,
+            "flat_value": 120,
+            "knockback_per_value": 20.0,
+        },
+    },
+    "description": "120 damage and knockback 20×value.",
+}
+
+ITEM_DEFINITIONS["Crimson Splash Disk"] = {
+    "item_type": "DISK",
+    "type": "DISK",
+    "color": "RED",
+    "rarity": "RARE",
+    "stats": {},
+    "ability": {
+        "name": "Splash Hit",
+        "effect_type": AbilityEffect.DEAL_DAMAGE,
+        "effect_data": {
+            "damage_type": DamageType.PHYSICAL,
+            "flat_value": 100,
+            "splash_ratio": 0.5,
+            "splash_radius": 60,
+        },
+    },
+    "description": "100 damage and splash half in a radius.",
+}
+
+ITEM_DEFINITIONS["Crimson Doom Disk"] = {
+    "item_type": "DISK",
+    "type": "DISK",
+    "color": "RED",
+    "rarity": "EPIC",
+    "stats": {},
+    "ability": {
+        "name": "Doom Brand",
+        "effect_type": AbilityEffect.APPLY_BUFF,
+        "effect_data": {
+            "status_name": "DOOM_BRAND",
+            "threshold": 7,
+            "damage_pct": 0.35,
+        },
+    },
+    "description": "Stacking mark; at 7 stacks deal 35% current HP true damage.",
+}
+
+ITEM_DEFINITIONS["Crimson Frenzy Disk"] = {
+    "item_type": "DISK",
+    "type": "DISK",
+    "color": "RED",
+    "rarity": "EPIC",
+    "stats": {},
+    "ability": {
+        "name": "Frenzy",
+        "effect_type": AbilityEffect.APPLY_BUFF,
+        "effect_data": {
+            "stack_buff_stat": "as_percent",
+            "value": 8,
+            "is_percent": True,
+            "duration": None,
+        },
+    },
+    "description": "Grants +8% attack speed per trigger indefinitely.",
+}
 ITEM_RECIPES: Dict[Tuple[str, str], str] = {}
 THEMES: list[str] = ["MECHANICAL", "FROST", "ARCANE", "DESERT"]
 # FIX-UI: Add used_in_run flag to definition
@@ -1184,24 +1360,6 @@ ARTIFACT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
         "type": "GOLD_GRANT",
         "value": 10,
         "description": "Gain 10 Gold immediately.",
-        "one_shot": True,
-    },
-    "Spare Gear": {
-        "type": "ITEM_GRANT",
-        "item": "Gear",
-        "description": "Gain 1 Gear component.",
-        "one_shot": True,
-    },
-    "Spare Coil": {
-        "type": "ITEM_GRANT",
-        "item": "Amp Coil",
-        "description": "Gain 1 Amp Coil component.",
-        "one_shot": True,
-    },
-    "Spare Essence": {
-        "type": "ITEM_GRANT",
-        "item": "Essence",
-        "description": "Gain 1 Essence component.",
         "one_shot": True,
     },
 }

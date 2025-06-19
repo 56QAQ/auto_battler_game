@@ -364,6 +364,8 @@ class Unit:
         self.double_heal_uses: int = 0
         self.extra_attack_counters: dict[str, int] = {}
         self.purge_counts: dict[str, int] = {}
+        self.item_trigger_counts: dict[str, int] = {}
+        self.item_trigger_last_time: dict[str, float] = {}
         self.bond_target_id: str | None = None
         self.bond_redirected_total: float = 0.0
         self.bleed_damage_progress: float = 0.0
@@ -651,6 +653,8 @@ class Unit:
         self.passive_timer = 0.0
         self.double_heal_uses = 0
         self.extra_attack_counters.clear()
+        self.item_trigger_counts.clear()
+        self.item_trigger_last_time.clear()
         self.revive_used = False
         self.is_alive = True
         self.x, self.y = 0.0, 0.0

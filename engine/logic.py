@@ -63,7 +63,7 @@ from engine.classes import (
 )
 # Engine imports
 from engine.enums import AnimationState, EffectType, RemoveReason
-from engine.utils import clamp
+from engine.utils import clamp, normalize_vector
 
 # Conditional imports
 if TYPE_CHECKING:
@@ -143,6 +143,17 @@ def resolve_collisions(units: List[Unit]):
         unit.x = clamp(unit.x, ARENA_MIN_X, ARENA_MAX_X)
         unit.y = clamp(unit.y, ARENA_MIN_Y, ARENA_MAX_Y)
 
+
+def _apply_knockback(target: Unit, source: Unit, distance: float) -> None:
+    if distance <= 0:
+        return
+    dx = target.x - source.x
+    dy = target.y - source.y
+    nx, ny, _ = normalize_vector(dx, dy, math.hypot(dx, dy))
+    target.x += nx * distance
+    target.y += ny * distance
+    target.x = clamp(target.x, ARENA_MIN_X, ARENA_MAX_X)
+    target.y = clamp(target.y, ARENA_MIN_Y, ARENA_MAX_Y)
 
 def update_player_synergies(player: Player):
     player.active_synergies = calculate_active_synergies(player)
@@ -929,6 +940,13 @@ def execute_ability(
         )
     if effect_type == AbilityEffect.DEAL_DAMAGE:
         damage = base_value * data.get("scale_factor", 0) + data.get("flat_value", 0)
+        if data.get("can_crit"):
+            crit = source._xs("critical_chance", 5.0) + data.get(
+                "extra_crit_chance", 0.0
+            )
+            if random.random() < crit / 100.0:
+                damage *= source._xs("critical_damage", 150.0) / 100.0
+                source._last_outgoing_was_crit = True
         if damage <= 0.1:
             return
         dtype = data.get("damage_type", DamageType.TRUE)  # FIX: default dtype
@@ -952,8 +970,12 @@ def execute_ability(
                     size=6,
                 )
             )
+            adj_damage = damage
+            factor = data.get("hp_compare_factor")
+            if factor and target.current_hp > source.current_hp * factor:
+                adj_damage *= data.get("hp_compare_multiplier", 1.0)
             outgoing = source.compute_outgoing_damage(
-                damage,
+                adj_damage,
                 dtype,
                 DamageSource.ITEM_ABILITY,
                 data.get("is_aoe", False),
@@ -976,6 +998,64 @@ def execute_ability(
                     DamageFloater(target.x, target.y, f"{dmg_dealt:.0f}", color_key)
                 )
             source.apply_lifesteal(dmg_dealt, dtype, state)
+            if data.get("splash_radius"):
+                radius = data["splash_radius"]
+                ratio = data.get("splash_ratio", 0.5)
+                team = (
+                    state.enemy_combat_team
+                    if target.is_enemy
+                    else state.player_combat_team
+                )
+                for other in team:
+                    if other is target or not other.is_alive:
+                        continue
+                    if (other.x - target.x) ** 2 + (
+                        other.y - target.y
+                    ) ** 2 <= radius**2:
+                        aoe_damage = source.compute_outgoing_damage(
+                            adj_damage * ratio,
+                            dtype,
+                            DamageSource.ITEM_ABILITY,
+                            True,
+                            other,
+                        )
+                        dealt = other.take_damage(
+                            aoe_damage,
+                            dtype,
+                            state,
+                            source,
+                            source_action=DamageSource.ITEM_ABILITY,
+                            is_aoe=True,
+                        )
+                        if dealt > 0.1:
+                            state.damage_floaters.append(
+                                DamageFloater(
+                                    other.x, other.y, f"{dealt:.0f}", color_key
+                                )
+                            )
+                        source.apply_lifesteal(dealt, dtype, state)
+            if data.get("knockback_per_value"):
+                dist = base_value * data.get("knockback_per_value", 0.0)
+                _apply_knockback(target, source, dist)
+            if data.get("dot_damage") and data.get("dot_duration"):
+                from engine.enums import StackRule
+                from engine.status_effects import DamageOverTime
+
+                bucket = target.statuses.get(DamageOverTime.name, [])
+                same_source = [
+                    st
+                    for st in bucket
+                    if isinstance(st, DamageOverTime) and st.source_id == source.id
+                ]
+                if len(same_source) < data.get("dot_max_stacks", len(bucket) + 1):
+                    dot = DamageOverTime(
+                        host=target,
+                        source_id=source.id,
+                        duration=data.get("dot_duration"),
+                        stack_rule=StackRule.UNLIMITED,
+                        params={"damage": data.get("dot_damage"), "dtype": dtype},
+                    )
+                    target.add_status(dot)
             if dtype == DamageType.MAGIC and dmg_dealt > 0.1:
                 source.on_deal_magic_damage(target, state)
     elif effect_type == AbilityEffect.APPLY_BUFF:
@@ -1020,6 +1100,57 @@ def execute_ability(
                             target.x, target.y - 10, f"{stat} {val_str}", "BUFF_COLOR"
                         )
                     )
+        elif data.get("status_name") == "DOOM_BRAND":
+            from engine.enums import StackRule
+            from engine.status_effects import DoomBrand
+
+            threshold = data.get("threshold", 7)
+            pct = data.get("damage_pct", 0.35)
+            for target in targets:
+                bucket = target.statuses.get(DoomBrand.name, [])
+                total = len(bucket) + 1
+                if total > threshold:
+                    for st in list(bucket):
+                        target._queue_status_removal(st, RemoveReason.CUSTOM_TRIGGER)
+                    dmg = target.current_hp * pct
+                    dealt = target.take_damage(
+                        dmg, DamageType.TRUE, state, source, DamageSource.ITEM_ABILITY
+                    )
+                    if dealt > 0.1:
+                        state.damage_floaters.append(
+                            DamageFloater(
+                                target.x, target.y, f"{dealt:.0f}", "DAMAGE_TRUE_COLOR"
+                            )
+                        )
+                    target.process_statuses(0.0)
+                else:
+                    mark = DoomBrand(
+                        target, source.id, None, 1, False, StackRule.UNLIMITED, {}
+                    )
+                    target.add_status(mark)
+        elif data.get("stack_buff_stat"):
+            from engine.enums import StackRule
+            from engine.status_effects import StatModifierEffect
+
+            stat = data["stack_buff_stat"]
+            value = data.get("value", 0)
+            is_percent = data.get("is_percent", False)
+            for target in targets:
+                if target.is_alive and target.anim_state != AnimationState.DYING:
+                    params = {
+                        "stat": stat,
+                        "flat": 0.0 if is_percent else value,
+                        "percent": value if is_percent else 0.0,
+                    }
+                    effect = StatModifierEffect(
+                        host=target,
+                        source_id=source.id,
+                        duration=data.get("duration"),
+                        stacks=1,
+                        stack_rule=StackRule.UNLIMITED,
+                        params=params,
+                    )
+                    target.add_status(effect)
     elif effect_type == AbilityEffect.HEAL:
         heal_amount = base_value * data.get("scale_factor", 0) + data.get(
             "flat_value", 0
@@ -1122,9 +1253,26 @@ def resolve_trigger(
     if unit.trigger.get("repeat_from_tally"):
         repeat = max(1, getattr(unit, "timer_event_tally", 0) // 10)
     for item, ability in ability_sources:
+        adj_ability = ability
+        if item:
+            uses_limit = ability.get("effect_data", {}).get("max_damage_uses")
+            if uses_limit:
+                count = unit.item_trigger_counts.get(item.id, 0)
+                if count >= uses_limit:
+                    adj_ability = copy.deepcopy(ability)
+                    adj_ability["effect_data"] = adj_ability.get(
+                        "effect_data", {}
+                    ).copy()
+                    adj_ability["effect_data"]["flat_value"] = 0
+                unit.item_trigger_counts[item.id] = count + 1
+            cooldown = ability.get("effect_data", {}).get("cooldown")
+            if cooldown is not None:
+                last = unit.item_trigger_last_time.get(item.id, -999.0)
+                if state.combat_timer - last < cooldown:
+                    continue
+                unit.item_trigger_last_time[item.id] = state.combat_timer
         for _ in range(repeat):
-            print(base_value)
-            execute_ability(ability, unit, targets, base_value, state)
+            execute_ability(adj_ability, unit, targets, base_value, state)
         if item:
             extra_every = ability.get("effect_data", {}).get("extra_attack_every")
             if extra_every:

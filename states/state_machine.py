@@ -4,18 +4,31 @@ from typing import Any, Dict, List, Optional
 import pygame  # Only for Rect creation in events
 
 from data.constants import MAX_COMBAT_DURATION
-from data.definitions import (ENEMY_TEAM_DEFINITIONS, ITEM_DEFINITIONS,
-                              POSSIBLE_EVENT_ARTIFACTS, POSSIBLE_EVENT_ITEMS,
-                              SYNERGY_DEFINITIONS)
+from data.definitions import (
+    ENEMY_TEAM_DEFINITIONS,
+    POSSIBLE_EVENT_ARTIFACTS,
+    POSSIBLE_EVENT_ITEMS,
+)
 from data.enums import TriggerTiming
-from engine.classes import Artifact, Item, Player
+from engine.classes import Artifact, Item
 from engine.game_state import GameState, reset_game_state
-from engine.logic import (add_item_to_inventory, apply_artifact_buffs,
-                          apply_artifact_effect, apply_synergy_buffs,
-                          calculate_active_synergies, create_enemy_units,
-                          give_node_rewards, remove_synergy_buffs,
-                          resolve_trigger, setup_combat_team,
-                          setup_enemy_combat_team, update_player_synergies,resolve_passive,apply_bond_links,apply_ranged_evasion_auras)
+from engine.logic import (
+    add_item_to_inventory,
+    apply_artifact_buffs,
+    apply_artifact_effect,
+    apply_bond_links,
+    apply_ranged_evasion_auras,
+    apply_synergy_buffs,
+    calculate_active_synergies,
+    create_enemy_units,
+    give_node_rewards,
+    remove_synergy_buffs,
+    resolve_passive,
+    resolve_trigger,
+    setup_combat_team,
+    setup_enemy_combat_team,
+    update_player_synergies,
+)
 from states.enums import GamePhase
 from ui.constants import (EVENT_BUTTON_HEIGHT, EVENT_BUTTON_WIDTH,
                           EVENT_CHOICE_RECT)
@@ -36,7 +49,21 @@ def start_new_run(state: GameState, difficulty_level: str | None = None):
     reset_game_state(difficulty_level)
     UIContext.warehouse_button_rect = None
     UIContext.warehouse_panel = None
-    return get_game_state()
+    new_state = get_game_state()
+    disk_names = [
+        "Crimson Burn Disk",
+        "Crimson Fury Disk",
+        "Crimson Precision Disk",
+        "Crimson Impact Disk",
+        "Crimson Execution Disk",
+        "Crimson Knockback Disk",
+        "Crimson Splash Disk",
+        "Crimson Doom Disk",
+        "Crimson Frenzy Disk",
+    ]
+    for name in disk_names:
+        add_item_to_inventory(new_state.player, Item(name))
+    return new_state
 
 
 def start_combat(state: GameState, enemy_team_data: List[Dict]):
