@@ -1,5 +1,5 @@
 import random
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 import pygame  # Only for Rect creation in events
 
@@ -30,10 +30,10 @@ from engine.logic import (
     update_player_synergies,
 )
 from states.enums import GamePhase
-from ui.constants import (EVENT_BUTTON_HEIGHT, EVENT_BUTTON_WIDTH,
-                          EVENT_CHOICE_RECT)
-from ui.ui_context import UIContext
+from ui.constants import EVENT_BUTTON_HEIGHT, EVENT_BUTTON_WIDTH, EVENT_CHOICE_RECT
 from ui.layout_manager import LayoutManager
+from ui.ui_context import UIContext
+
 
 # State Transition Functions
 def go_to_main_menu(state: GameState):
@@ -44,6 +44,7 @@ def go_to_main_menu(state: GameState):
 def start_new_run(state: GameState, difficulty_level: str | None = None):
     # Must return the NEW state instance
     from engine.game_state import get_game_state
+
     if difficulty_level is None:
         difficulty_level = getattr(state, "difficulty_level", "medium")
     reset_game_state(difficulty_level)
@@ -60,6 +61,14 @@ def start_new_run(state: GameState, difficulty_level: str | None = None):
         "Crimson Splash Disk",
         "Crimson Doom Disk",
         "Crimson Frenzy Disk",
+        "Azure Flame Disk",
+        "Azure Frost Disk",
+        "Azure Storm Disk",
+        "Azure Scorch Disk",
+        "Azure Bastion Disk",
+        "Azure Surge Disk",
+        "Azure Blizzard Disk",
+        "Azure Detonation Disk",
     ]
     for name in disk_names:
         add_item_to_inventory(new_state.player, Item(name))
@@ -105,6 +114,7 @@ def start_combat(state: GameState, enemy_team_data: List[Dict]):
         resolve_passive(unit, TriggerTiming.START_OF_COMBAT, state, event_target=None)
     apply_ranged_evasion_auras(all_units, state)
 
+
 def end_combat(
     state: GameState,
     player_won: bool,
@@ -147,7 +157,8 @@ def end_combat(
         if state.act < 4:
             state.act += 1
             from engine.classes import GameMap
-            state.game_map = GameMap()             # 新地图
+
+            state.game_map = GameMap()  # 新地图
             state.current_node_id = state.game_map.start_node_id
             state.allow_combat_start = False
             # 幕 2、3 进入主题选择
@@ -210,7 +221,7 @@ def setup_event_choice(state: GameState, context: UIContext):
     )
     choices_data.append(
         {
-            "text": f"Trade 10 HP for 15 Gold",
+            "text": "Trade 10 HP for 15 Gold",
             "apply_func": lambda p: setattr(p, "health", max(1, p.health - 10))
             or setattr(p, "gold", p.gold + 15),
         }
@@ -280,7 +291,7 @@ def run_preparation_phase(
             f"{node_type}: Prepare for battle against {enemy_count} foes!"
         )
         state.enemy_combat_team_data_cache = enemy_team_data
-        from engine.logic import create_enemy_units, calculate_enemy_positions
+        from engine.logic import calculate_enemy_positions, create_enemy_units
 
         state.enemy_preview_units = create_enemy_units(enemy_team_data or [], state)
         state.enemy_preview_positions = calculate_enemy_positions(

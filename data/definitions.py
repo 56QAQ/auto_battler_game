@@ -1,10 +1,12 @@
 # data/definitions.py
 from typing import Any, Dict, List, Tuple
+
 from data.constants import RARITY_ORDER
 from data.enums import (
     AbilityEffect,
     Color,
     DamageType,
+    Element,
     StatSource,
     TriggerTarget,
     TriggerTiming,
@@ -200,8 +202,7 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
             "base_value_multiplier": 0.0,
             "base_value_flat": 0,
             "overheal_to_shield": True,
-            "ability": {
-            },
+            "ability": {},
         },
         # FIX-UI: Example: Give Steam Knight a Trigger for demonstration
         "trigger": {
@@ -234,8 +235,7 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
             "base_value_multiplier": 0.0,
             "base_value_flat": 10,
             "chain_bounces": 3,
-            "ability": {
-            },
+            "ability": {},
         },
         "trigger": {
             "timing_type": TriggerTiming.ON_HIT,
@@ -410,8 +410,7 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
             "base_value_source": StatSource.FLAT,
             "base_value_multiplier": 0.0,
             "base_value_flat": 10,
-            "ability": {
-            },
+            "ability": {},
             "line_attack": True,
             "scatter_deg": 30,
             "line_width": 20,
@@ -514,7 +513,7 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
             "base_value_source": StatSource.AD,
             "base_value_multiplier": 0.0,
             "base_value_flat": 0,
-          "hp_loss_on_trigger_percent": 0.5,
+            "hp_loss_on_trigger_percent": 0.5,
         },
     },
     "Emerald Warden": {
@@ -1519,6 +1518,164 @@ ITEM_DEFINITIONS["Crimson Frenzy Disk"] = {
         },
     },
     "description": "Grants +8% attack speed per trigger indefinitely.",
+}
+
+ITEM_DEFINITIONS["Azure Flame Disk"] = {
+    "item_type": "DISK",
+    "type": "DISK",
+    "color": "BLUE",
+    "rarity": "UNCOMMON",
+    "stats": {},
+    "ability": {
+        "name": "Flame Burst",
+        "effect_type": AbilityEffect.DEAL_DAMAGE,
+        "effect_data": {
+            "damage_type": DamageType.MAGIC,
+            "scale_factor": 2.0,
+            "flat_value": 0,
+            "element": Element.FIRE,
+        },
+    },
+    "description": "Deal fire damage equal to 2×value.",
+}
+
+ITEM_DEFINITIONS["Azure Frost Disk"] = {
+    "item_type": "DISK",
+    "type": "DISK",
+    "color": "BLUE",
+    "rarity": "UNCOMMON",
+    "stats": {},
+    "ability": {
+        "name": "Frost Lance",
+        "effect_type": AbilityEffect.DEAL_DAMAGE,
+        "effect_data": {
+            "damage_type": DamageType.MAGIC,
+            "scale_factor": 1.7,
+            "flat_value": 0,
+            "element": Element.ICE,
+            "flat_magic_penetration": 20,
+        },
+    },
+    "description": "Deal ice damage equal to 1.7×value with 20 flat pen.",
+}
+
+ITEM_DEFINITIONS["Azure Storm Disk"] = {
+    "item_type": "DISK",
+    "type": "DISK",
+    "color": "BLUE",
+    "rarity": "UNCOMMON",
+    "stats": {},
+    "ability": {
+        "name": "Chain Spark",
+        "effect_type": AbilityEffect.DEAL_DAMAGE,
+        "effect_data": {
+            "damage_type": DamageType.MAGIC,
+            "scale_factor": 1.0,
+            "flat_value": 0,
+            "element": Element.LIGHTNING,
+            "bounces": 2,
+        },
+    },
+    "description": "Deal lightning damage equal to value and bounce twice.",
+}
+
+ITEM_DEFINITIONS["Azure Scorch Disk"] = {
+    "item_type": "DISK",
+    "type": "DISK",
+    "color": "BLUE",
+    "rarity": "RARE",
+    "stats": {},
+    "ability": {
+        "name": "Scorch",
+        "effect_type": AbilityEffect.DEAL_DAMAGE,
+        "effect_data": {
+            "damage_type": DamageType.MAGIC,
+            "scale_factor": 0.0,
+            "flat_value": 0,
+            "dot_damage": 0.8,
+            "dot_duration": 5.0,
+            "dot_max_stacks": 1,
+            "element": Element.FIRE,
+        },
+    },
+    "description": "Applies a 5s fire DoT dealing 0.8×value per second.",
+}
+
+ITEM_DEFINITIONS["Azure Bastion Disk"] = {
+    "item_type": "DISK",
+    "type": "DISK",
+    "color": "BLUE",
+    "rarity": "RARE",
+    "stats": {},
+    "ability": {
+        "name": "Bastion",
+        "effect_type": AbilityEffect.APPLY_BUFF,
+        "effect_data": {
+            "status_name": "DECAY_SHIELD",
+            "hp_per_value": 5.0,
+            "break_damage_per_value": 2.0,
+            "duration": 5.0,
+        },
+    },
+    "description": "Shield worth 5×value that decays and explodes on break.",
+}
+
+ITEM_DEFINITIONS["Azure Surge Disk"] = {
+    "item_type": "DISK",
+    "type": "DISK",
+    "color": "BLUE",
+    "rarity": "RARE",
+    "stats": {},
+    "ability": {
+        "name": "Surge Strike",
+        "effect_type": AbilityEffect.DEAL_DAMAGE,
+        "effect_data": {
+            "damage_type": DamageType.MAGIC,
+            "scale_factor": 3.0,
+            "flat_value": 0,
+            "element": Element.LIGHTNING,
+            "auto_crit_if_status": ["SHOCK", "SUPERCONDUCT"],
+        },
+    },
+    "description": "3×value lightning damage that crits if Shocked.",
+}
+
+ITEM_DEFINITIONS["Azure Blizzard Disk"] = {
+    "item_type": "DISK",
+    "type": "DISK",
+    "color": "BLUE",
+    "rarity": "EPIC",
+    "stats": {},
+    "ability": {
+        "name": "Blizzard",
+        "effect_type": AbilityEffect.APPLY_BUFF,
+        "effect_data": {
+            "status_name": "ICY_PULSE",
+            "duration": 3.0,
+            "damage_per_value": 1.0,
+        },
+    },
+    "description": "3s debuff pulsing 1×value ice damage each second.",
+}
+
+ITEM_DEFINITIONS["Azure Detonation Disk"] = {
+    "item_type": "DISK",
+    "type": "DISK",
+    "color": "BLUE",
+    "rarity": "EPIC",
+    "stats": {},
+    "ability": {
+        "name": "Detonate",
+        "effect_type": AbilityEffect.DEAL_DAMAGE,
+        "effect_data": {
+            "damage_type": DamageType.MAGIC,
+            "hp_percent_of_max": 0.5,
+            "scale_factor_percent": 1.0,
+            "splash_ratio": 1.0,
+            "splash_radius": 80,
+        },
+    },
+    "description": "Explodes target for value% of 50% max HP to nearby foes.",
 }
 ITEM_RECIPES: Dict[Tuple[str, str], str] = {}
 THEMES: list[str] = ["MECHANICAL", "FROST", "ARCANE", "DESERT"]
