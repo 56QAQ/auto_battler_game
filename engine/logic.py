@@ -926,15 +926,14 @@ def execute_ability(
     state: "GameState",
 ):
     # FIX: Check required keys in ability dict
-    if (
-        not targets
-        or not ability
-        or "effect_type" not in ability
-        or "effect_data" not in ability
-    ):
+    if not ability or "effect_type" not in ability or "effect_data" not in ability:
+        return
+    data = ability["effect_data"]
+    if data.get("apply_to_source"):
+        targets = [source]
+    if not targets:
         return
     effect_type = ability["effect_type"]
-    data = ability["effect_data"]
     current_time = state.combat_timer
     if source.is_alive and source.anim_state != AnimationState.DYING:
         source.anim_state = AnimationState.CASTING

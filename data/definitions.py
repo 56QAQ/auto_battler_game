@@ -1515,6 +1515,7 @@ ITEM_DEFINITIONS["Crimson Frenzy Disk"] = {
             "value": 8,
             "is_percent": True,
             "duration": None,
+            "apply_to_source": True,
         },
     },
     "description": "Grants +8% attack speed per trigger indefinitely.",
