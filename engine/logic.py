@@ -1431,8 +1431,10 @@ def resolve_trigger(
             tgt.add_status(effect)
     if unit.passive and unit.passive.get("extra_negative_stack_on_trigger"):
         from engine.enums import StackRule, StatusCategory
+        from engine.status_effects import StatModifierEffect
 
         for tgt in targets:
+            recalculated = False
             for bucket in tgt.statuses.values():
                 for st in bucket:
                     if st.category in (
@@ -1444,6 +1446,10 @@ def resolve_trigger(
                         StackRule.REFRESH_DURATION,
                     ):
                         st.stacks += 1
+                        if isinstance(st, StatModifierEffect):
+                            recalculated = True
+            if recalculated:
+                tgt._recalculate_stats(0)
     if unit.passive and unit.passive.get("regen_on_trigger"):
         hot_info = unit.passive.get("regen_on_trigger", {})
         duration = hot_info.get("duration", 0)
