@@ -440,7 +440,6 @@ class Unit:
                 existing.params["percent"] = 0.0
             self._recalculate_stats(0)
             return
-
         params = {
             "stat": stat,
             "flat": 0.0 if is_percent else value,
@@ -652,7 +651,9 @@ class Unit:
                 else:
                     temp_stats[stat] *= 1 + percent / 100.0
         temp_stats["as"] = max(0.1, temp_stats.get("as", 0.1))  # Cap AS slow
+        print(temp_stats["as"])
         self.current_stats = temp_stats
+        print(self.current_stats["as"])
         # FIX: Recalculate current HP based on new max HP
         new_max_hp = self.current_stats.get("hp", 0)
         self.current_hp = new_max_hp * hp_ratio
@@ -1595,6 +1596,7 @@ class Unit:
         if dist <= effective_range:
             self.attack_timer += state.delta_time_combat
             # FIX: use .get
+#            print(self.current_stats.get("as",9999))
             attack_interval = 1.0 / max(0.1, self.current_stats.get("as", 0.5))
             # FIX: Allow multiple attacks if timer accumulates a lot (e.g. lag)
             while self.attack_timer >= attack_interval:

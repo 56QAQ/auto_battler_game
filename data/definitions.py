@@ -123,7 +123,7 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
             "ap": 20,
             "armor": 20,
             "mr": 20,
-            "range": 130,
+            "range": 1300,
         },
         "passive": {"end_of_battle_ap_gain": 1},
         "trigger": {

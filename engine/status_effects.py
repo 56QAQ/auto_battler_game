@@ -569,6 +569,9 @@ class ChillDebuff(StatusEffect):
     category = StatusCategory.DEBUFF
     tick_interval = None
 
+    def __init__(self, host: "Unit", source_id: str, duration: float = 3.0):
+        super().__init__(host, source_id, duration)
+
     def on_apply(self) -> None:
         self.host.add_stat_modifier("as", -30, None, self.name, True)
         self.host.add_stat_modifier("move_speed", -30, None, self.name, True)
