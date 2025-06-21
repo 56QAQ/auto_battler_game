@@ -1,12 +1,14 @@
-import os
-os.environ.setdefault('SDL_VIDEODRIVER', 'dummy')
-import pygame
-pygame.display.init()
-
 import math
+import os
+
+import pygame
+
+from data.enums import StatSource, TriggerTarget, TriggerTiming
 from engine import utils
 from engine.classes import Item
-from data.enums import TriggerTiming, TriggerTarget, StatSource, AbilityEffect, DamageType
+
+os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+pygame.display.init()
 
 
 def test_lerp():
@@ -47,3 +49,19 @@ def test_format_trigger_description():
     assert "On Hit:" in desc
     assert "Self ->" in desc
     assert "Deal" in desc
+
+
+def test_determine_outcome():
+    # Force deterministic outcome using monkeypatching
+    def fake_random():
+        return 0.05  # falls into fail region with default probs
+
+    orig = utils.random.random
+    utils.random.random = fake_random
+    try:
+        assert (
+            utils.determine_outcome({"fail": 0.1, "success": 0.8, "great": 0.1})
+            == "fail"
+        )
+    finally:
+        utils.random.random = orig

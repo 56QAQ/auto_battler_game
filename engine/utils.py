@@ -1,4 +1,5 @@
 # engine/utils.py
+import random
 from typing import Dict, Optional, Tuple
 
 # FIX-UI: Import enums for formatting
@@ -135,3 +136,18 @@ def format_trigger_description(trigger: Optional[Dict], items) -> str:
         full_desc = f"{timing_str} {target_str} Deal {base_value_desc} (Base)"
 
     return full_desc
+
+
+def determine_outcome(probs: Optional[Dict[str, float]]) -> str:
+    """Return 'fail', 'success' or 'great' based on given probabilities."""
+    if not probs:
+        return "success"
+    fail = probs.get("fail", 0.0)
+    great = probs.get("great", 0.0)
+    success = probs.get("success", 1.0 - fail - great)
+    r = random.random()
+    if r < fail:
+        return "fail"
+    if r < fail + success:
+        return "success"
+    return "great"

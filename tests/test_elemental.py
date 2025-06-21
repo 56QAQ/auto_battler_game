@@ -54,9 +54,22 @@ def test_azure_disk_definitions():
     assert scorch["ability"]["effect_data"]["element"] == Element.FIRE
 
     assert bastion["ability"]["effect_data"]["status_name"] == "DECAY_SHIELD"
-    assert surge["ability"]["effect_data"]["auto_crit_if_status"] == ["SHOCK", "SUPERCONDUCT"]
+    assert surge["ability"]["effect_data"]["auto_crit_if_status"] == [
+        "SHOCK",
+        "SUPERCONDUCT",
+    ]
 
     assert blizzard["rarity"] == "EPIC"
     assert blizzard["ability"]["effect_data"]["status_name"] == "ICY_PULSE"
 
     assert detonation["ability"]["effect_data"]["hp_percent_of_max"] == 0.5
+
+
+def test_verdant_disk_definitions():
+    renew = ITEM_DEFINITIONS["Verdant Renewal Disk"]
+    vigor = ITEM_DEFINITIONS["Verdant Vigor Disk"]
+    focus = ITEM_DEFINITIONS["Verdant Focus Disk"]
+
+    assert renew["color"] == "GREEN"
+    assert vigor["rarity"] == "UNCOMMON"
+    assert focus["ability"]["effect_data"]["stat"] == "critical_chance"
