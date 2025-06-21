@@ -965,7 +965,7 @@ def execute_ability(
             if random.random() < crit / 100.0:
                 damage *= source._xs("critical_damage", 150.0) / 100.0
                 source._last_outgoing_was_crit = True
-        if damage <= 0.1:
+        if damage <= 0.1 and not "hp_percent_of_max" in data and not "dot_damage" in data:
             return
         dtype = data.get("damage_type", DamageType.TRUE)  # FIX: default dtype
         color_map = {
@@ -1133,13 +1133,16 @@ def execute_ability(
                     if isinstance(st, DamageOverTime) and st.source_id == source.id
                 ]
                 if len(same_source) < data.get("dot_max_stacks", len(bucket) + 1):
+                    dotdamage = data.get("dot_damage")
+                    if data.get("dot_damage_by_value"):
+                        dotdamage *= base_value
                     dot = DamageOverTime(
                         host=target,
                         source_id=source.id,
                         duration=data.get("dot_duration"),
                         stack_rule=StackRule.UNLIMITED,
                         params={
-                            "damage": data.get("dot_damage"),
+                            "damage": dotdamage,
                             "dtype": dtype,
                             "element": data.get("element"),
                         },

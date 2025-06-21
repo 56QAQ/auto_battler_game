@@ -391,8 +391,8 @@ class DecayingShieldEffect(ShieldEffect):
                     for unit in pool:
                         if not unit.is_alive:
                             continue
-                        dx = unit.x - caster.x
-                        dy = unit.y - caster.y
+                        dx = unit.x - self.host.x
+                        dy = unit.y - self.host.y
                         if dx * dx + dy * dy <= radius_sq:
                             out = caster.compute_outgoing_damage(
                                 damage,
@@ -601,7 +601,7 @@ class ShockDebuff(StatusEffect):
     category = StatusCategory.DEBUFF
     tick_interval = None
 
-    def __init__(self, host: "Unit", source_id: str, duration: float = 3.0):
+    def __init__(self, host: "Unit", source_id: str, duration: float = 30.0):
         super().__init__(host, source_id, duration)
 
     def on_apply(self) -> None:

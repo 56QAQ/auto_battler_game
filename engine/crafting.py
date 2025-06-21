@@ -97,9 +97,6 @@ __all__ = ["craft", "dismantle", "can_craft", "DiskAbilityRegistry"]
 
 def _infer_color(r: int, g: int, b: int) -> Color:
     comps = [c for c, n in zip([Color.RED, Color.GREEN, Color.BLUE], [r, g, b]) if n]
-    print(r)
-    print(g)
-    print(b)
     if len(comps) == 1:
         return comps[0]
     if len(comps) == 2:
