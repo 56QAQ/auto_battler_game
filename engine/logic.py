@@ -936,19 +936,6 @@ def execute_ability(
     if not ability or "effect_type" not in ability or "effect_data" not in ability:
         return
     data = ability["effect_data"]
-    # Determine fail/success/great outcome if configured
-    outcome_probs = ability.get("outcome_probs")
-    if outcome_probs is not None:
-        from engine import utils as engine_utils
-
-        outcome = engine_utils.determine_outcome(outcome_probs)
-        if outcome == "fail":
-            return
-        if outcome == "great":
-            base_value *= ability.get("great_success_multiplier", 2.0)
-            extra = ability.get("great_success_extra")
-            if extra:
-                execute_ability(extra, source, targets, base_value, state)
     if data.get("apply_to_source"):
         targets = [source]
     if not targets:
@@ -978,11 +965,7 @@ def execute_ability(
             if random.random() < crit / 100.0:
                 damage *= source._xs("critical_damage", 150.0) / 100.0
                 source._last_outgoing_was_crit = True
-        if (
-            damage <= 0.1
-            and "hp_percent_of_max" not in data
-            and "dot_damage" not in data
-        ):
+        if damage <= 0.1 and not "hp_percent_of_max" in data and not "dot_damage" in data:
             return
         dtype = data.get("damage_type", DamageType.TRUE)  # FIX: default dtype
         color_map = {
