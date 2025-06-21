@@ -1,7 +1,7 @@
 # data/definitions.py
 from typing import Any, Dict, List, Tuple
 
-from data.constants import RARITY_ORDER
+from data.constants import DISK_OUTCOME_DEFAULT_PROBS, RARITY_ORDER
 from data.enums import (
     AbilityEffect,
     Color,
@@ -1518,6 +1518,73 @@ ITEM_DEFINITIONS["Crimson Frenzy Disk"] = {
         },
     },
     "description": "Grants +8% attack speed per trigger indefinitely.",
+}
+
+ITEM_DEFINITIONS["Verdant Renewal Disk"] = {
+    "item_type": "DISK",
+    "type": "DISK",
+    "color": "GREEN",
+    "rarity": "UNCOMMON",
+    "stats": {},
+    "ability": {
+        "name": "Renewal",
+        "effect_type": AbilityEffect.HEAL,
+        "effect_data": {"scale_factor": 2.0, "flat_value": 0},
+        "outcome_probs": DISK_OUTCOME_DEFAULT_PROBS,
+        "great_success_multiplier": 2.0,
+    },
+    "description": "Heals 2×value with FS/GS outcome.",
+}
+
+ITEM_DEFINITIONS["Verdant Vigor Disk"] = {
+    "item_type": "DISK",
+    "type": "DISK",
+    "color": "GREEN",
+    "rarity": "UNCOMMON",
+    "stats": {},
+    "ability": {
+        "name": "Vigor",
+        "effect_type": AbilityEffect.APPLY_BUFF,
+        "effect_data": {
+            "stat": "percentage_damage_bonus",
+            "duration": 5.0,
+            "is_percent": True,
+            "scale_factor": 1.0,
+        },
+        "outcome_probs": DISK_OUTCOME_DEFAULT_PROBS,
+        "great_success_multiplier": 2.0,
+    },
+    "description": "+1%×value damage for 5s; doubled on great success.",
+}
+
+ITEM_DEFINITIONS["Verdant Focus Disk"] = {
+    "item_type": "DISK",
+    "type": "DISK",
+    "color": "GREEN",
+    "rarity": "UNCOMMON",
+    "stats": {},
+    "ability": {
+        "name": "Focus",
+        "effect_type": AbilityEffect.APPLY_BUFF,
+        "effect_data": {
+            "stat": "critical_chance",
+            "duration": 5.0,
+            "is_percent": True,
+            "scale_factor": 1.0,
+        },
+        "outcome_probs": DISK_OUTCOME_DEFAULT_PROBS,
+        "great_success_extra": {
+            "name": "Focus Bonus",
+            "effect_type": AbilityEffect.APPLY_BUFF,
+            "effect_data": {
+                "stat": "critical_damage",
+                "duration": 5.0,
+                "is_percent": True,
+                "scale_factor": 2.0,
+            },
+        },
+    },
+    "description": "+1%×value crit chance; GS also grants 2×value crit damage.",
 }
 
 ITEM_DEFINITIONS["Azure Flame Disk"] = {

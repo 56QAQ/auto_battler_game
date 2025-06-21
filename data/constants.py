@@ -18,7 +18,13 @@ XP_BUY_COST = 4
 XP_BUY_AMOUNT = 4
 PASSIVE_XP = 2
 REFRESH_COST = 2
-MAX_UNITS_ON_BOARD = lambda level: level  # Function defines a rule
+
+
+def MAX_UNITS_ON_BOARD(level: int) -> int:
+    """Return max units allowed on board for the given level."""
+    return level
+
+
 DEFAULT_MOVE_SPEED = 100
 UNIT_POOL_SIZE_MULTIPLIER: Dict[str, int] = {
     "COMMON": 29,
@@ -49,6 +55,12 @@ RARITY_ORDER: List[str] = ["COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY"]
 
 MAX_ITEMS_EQUIPPED = 3
 MAX_COMBINED_ITEMS = 1
+
+# Default probabilities for disk ability resolution outcomes
+# These control the chance of a disk ability failing, succeeding or
+# achieving a great success when the ability specifies outcome based
+# resolution mechanics.
+DISK_OUTCOME_DEFAULT_PROBS = {"fail": 0.1, "success": 0.8, "great": 0.1}
 
 # Combat timing / balance
 MAX_COMBAT_DURATION = 30  # seconds
