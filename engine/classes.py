@@ -43,12 +43,14 @@ from data.constants import (
 
 # Data imports
 from data.definitions import ARTIFACT_DEFINITIONS, ITEM_DEFINITIONS, UNIT_DEFINITIONS
+
 # 新增 DamageSource
 from data.enums import (
     AbilityEffect,
     Color,
     DamageSource,
     DamageType,
+    Element,
     ItemType,
     TriggerTarget,
     TriggerTiming,
@@ -56,7 +58,17 @@ from data.enums import (
 
 # Engine imports
 from engine.enums import AnimationState, EffectType, RemoveReason
-from engine.status_effects import StackRule, StatModifierEffect, StatusEffect
+from engine.status_effects import (
+    ChillDebuff,
+    ElementalAura,
+    IgniteDebuff,
+    ShockDebuff,
+    StackRule,
+    StatModifierEffect,
+    StatusEffect,
+    SuperconductDebuff,
+)
+
 # from engine.utils import clamp, lerp, normalize_vector
 # UI Constants used for positioning/size - ideally pass these in, but for now:
 from ui.constants import (
@@ -297,6 +309,9 @@ class Unit:
             "percentage_damage_bonus": 100.0,
             "flat_damage_bonus": 0.0,
             "percentage_damage_reduction": 100.0,
+            "percentage_magic_damage_reduction": 100.0,
+            "percentage_physical_damage_reduction": 100.0,
+            "percentage_true_damage_reduction": 100.0,
             "flat_damage_reduction": 0.0,
             "flat_basic_attack_damage_reduction": 0.0,
             "outgoing_healing_bonus": 100.0,
@@ -482,6 +497,7 @@ class Unit:
             self.current_hp = self.current_stats.get("hp", 1)  # Use .get for safety
         # 清空新状态体系（可被战斗结束调用）
         self.clear_statuses(RemoveReason.BATTLE_END)
+
     def remove_buffs_from_source(self, source_id: str) -> None:
         """Remove all status effects originating from the given source."""
         for name in list(self.statuses.keys()):
@@ -489,6 +505,7 @@ class Unit:
                 if st.source_id == source_id:
                     self._queue_status_removal(st, RemoveReason.DISPEL)
         self.process_statuses(0.0)
+
     # ======== Status‑Effect System API ========
     def add_status(self, status: StatusEffect) -> None:
         """将已实例化的 StatusEffect 附加到宿主。"""
@@ -549,6 +566,7 @@ class Unit:
                             event_target=self,
                             data=data,
                         )
+
     def _queue_status_removal(self, status: StatusEffect, reason: RemoveReason):
         self._pending_status_removals.append((status, reason))
 
@@ -809,6 +827,7 @@ class Unit:
         base_damage += self._xs("flat_damage_bonus", 0.0)
 
         return max(0.0, base_damage)
+
     def _perform_line_attack(
         self,
         state: "GameState",
@@ -854,6 +873,7 @@ class Unit:
                 self,
                 source_action=DamageSource.BASIC_ATTACK,
                 is_aoe=True,
+                element=None,
             )
             self.apply_lifesteal(dmg, DamageType.PHYSICAL)
             damage_total += dmg
@@ -900,7 +920,9 @@ class Unit:
                             size=self.radius,
                         )
                     )
+            self.apply_crit_heal(dmg, state)
         return damage_total, hits
+
     def _perform_cone_attack(
         self,
         state: "GameState",
@@ -948,6 +970,7 @@ class Unit:
                 self,
                 source_action=DamageSource.BASIC_ATTACK,
                 is_aoe=True,
+                element=None,
             )
             self.apply_lifesteal(dmg, DamageType.PHYSICAL)
             damage_total += dmg
@@ -994,6 +1017,7 @@ class Unit:
                             size=self.radius,
                         )
                     )
+            self.apply_crit_heal(dmg, state)
         return damage_total, hits
 
     def _perform_circle_attack(
@@ -1028,6 +1052,7 @@ class Unit:
                 self,
                 source_action=DamageSource.BASIC_ATTACK,
                 is_aoe=True,
+                element=None,
             )
             self.apply_lifesteal(dmg, DamageType.PHYSICAL)
             damage_total += dmg
@@ -1046,7 +1071,37 @@ class Unit:
                     state.damage_floaters.append(
                         DamageFloater(target.x, target.y, "MISS", "BLACK")
                     )
+            noble_proc = False
+            for _bucket in self.statuses.values():
+                for _st in _bucket:
+                    if (
+                        isinstance(_st, StatModifierEffect)
+                        and _st.source_id == "SYNERGY_NOBLE"
+                        and _st.params.get("stat") == "heal_on_hit"
+                    ):
+                        noble_proc = True
+                        break
+                if noble_proc:
+                    break
+            if noble_proc:
+                healed = self.heal(10, state, self, DamageSource.ITEM_ABILITY)
+                if healed > 0.1:
+                    state.damage_floaters.append(
+                        DamageFloater(self.x, self.y, f"+{healed:.0f}", "HEAL_COLOR")
+                    )
+                    state.visual_effects.append(
+                        VisualEffect(
+                            EffectType.HEAL_AURA,
+                            self.x,
+                            self.y,
+                            HEAL_ANIM_DURATION,
+                            "HEAL_COLOR",
+                            size=self.radius,
+                        )
+                    )
+            self.apply_crit_heal(dmg, state)
         return damage_total, hits
+
     def take_damage(
         self,
         damage: float,
@@ -1057,6 +1112,8 @@ class Unit:
         is_aoe: bool = False,
         extra_flat_penetration: float = 0.0,
         extra_percent_penetration: float = 0.0,
+        *,
+        element: Element | None = None,
     ) -> float:
 
         if not self.is_alive or self.anim_state == AnimationState.DYING:
@@ -1066,14 +1123,78 @@ class Unit:
                 self.on_dodge(source, state)
             return 0.0
 
+        # ---- Elemental Aura & Reactions ----
+        if element is not None:
+            existing = None
+            for st in self.statuses.get(ElementalAura.name, []):
+                if isinstance(st, ElementalAura):
+                    existing = st
+                    break
+            reaction_multiplier = 1.0
+            if existing is None:
+                aura = ElementalAura(self, self.id, element)
+                self.add_status(aura)
+            else:
+                prev_elem: Element = existing.params.get("element")
+                self._queue_status_removal(existing, RemoveReason.CUSTOM_TRIGGER)
+                self.process_statuses(0.0)
+                pair = {prev_elem, element}
+                if prev_elem == element == Element.ICE:
+                    if not self.statuses.get(ChillDebuff.name):
+                        self.add_status(ChillDebuff(self, self.id))
+                elif prev_elem == element == Element.FIRE:
+                    if not self.statuses.get(IgniteDebuff.name):
+                        self.add_status(IgniteDebuff(self, self.id))
+                elif prev_elem == element == Element.LIGHTNING:
+                    if not self.statuses.get(ShockDebuff.name):
+                        self.add_status(ShockDebuff(self, self.id))
+                elif pair == {Element.LIGHTNING, Element.FIRE}:
+                    if state:
+                        aoe = self.current_stats.get("hp", 0) * 0.1
+                        units = state.player_combat_team + state.enemy_combat_team
+                        radius_sq = (COMBAT_UNIT_RADIUS * 2) ** 2
+                        for u in units:
+                            if not u.is_alive:
+                                continue
+                            dx = u.x - self.x
+                            dy = u.y - self.y
+                            if dx * dx + dy * dy <= radius_sq:
+                                u.take_damage(
+                                    aoe,
+                                    DamageType.MAGIC,
+                                    state,
+                                    source,
+                                    source_action=DamageSource.ITEM_ABILITY,
+                                    is_aoe=True,
+                                    element=None,
+                                )
+                elif pair == {Element.ICE, Element.FIRE}:
+                    reaction_multiplier = 2.0
+                elif pair == {Element.ICE, Element.LIGHTNING}:
+                    if not self.statuses.get(SuperconductDebuff.name):
+                        self.add_status(SuperconductDebuff(self, self.id))
+                damage *= reaction_multiplier
+
         # 先让可拦截的状态（护盾等）修改伤害
         for _bucket in self.statuses.values():
             for _st in _bucket:
-                damage = _st.intercept_incoming_damage(damage)
+                damage = _st.intercept_incoming_damage(damage, damage_type)
                 if damage <= 0:
                     return 0.0
 
         damage *= self._xs("percentage_damage_reduction", 100.0) / 100.0
+        if damage_type == DamageType.MAGIC:
+            pct = self._xs("percentage_magic_damage_reduction", 100.0)
+        elif damage_type == DamageType.PHYSICAL:
+            pct = self._xs("percentage_physical_damage_reduction", 100.0)
+        else:
+            pct = self._xs("percentage_true_damage_reduction", 100.0)
+        if pct < 0:
+            healed = -damage * pct / 100.0
+            if healed > 0 and state:
+                self.heal(healed, state, source or self, DamageSource.ITEM_ABILITY)
+            return 0.0
+        damage *= pct / 100.0
 
         resistance = 0.0
         if damage_type == DamageType.PHYSICAL:
@@ -1128,7 +1249,7 @@ class Unit:
                 )
         if state and self.passive and self.passive.get("bleed_storage_percent"):
             ratio = self.passive.get("bleed_storage_percent", 50) / 100.0
-            effective_damage *= (1-ratio)
+            effective_damage *= 1 - ratio
         self.current_hp -= effective_damage
         died = self.current_hp <= 0
 
@@ -1439,6 +1560,28 @@ class Unit:
         heal_amount *= self._xs("outgoing_healing_bonus", 100.0) / 100.0
         heal_amount *= self._xs("incoming_healing_bonus", 100.0) / 100.0
         self.heal(heal_amount, state, self, DamageSource.BASIC_ATTACK)
+
+    def apply_crit_heal(self, dealt: float, state: "GameState") -> None:
+        ratio = self._xs("crit_heal_percent", 0.0)
+        if not self._last_outgoing_was_crit or ratio <= 0 or dealt <= 0:
+            return
+        heal_amount = dealt * ratio / 100.0
+        healed = self.heal(heal_amount, state, self, DamageSource.ITEM_ABILITY)
+        if healed > 0.1 and state:
+            state.damage_floaters.append(
+                DamageFloater(self.x, self.y, f"+{healed:.0f}", "HEAL_COLOR")
+            )
+            state.visual_effects.append(
+                VisualEffect(
+                    EffectType.HEAL_AURA,
+                    self.x,
+                    self.y,
+                    HEAL_ANIM_DURATION,
+                    "HEAL_COLOR",
+                    size=self.radius,
+                )
+            )
+
     def on_deal_magic_damage(self, target: "Unit", state: "GameState") -> None:
         for item in self.equipped_items:
             if item and getattr(item, "special", None) == "poison_on_magic":
@@ -1461,6 +1604,7 @@ class Unit:
                 self.attack_target(state)
                 self.target = saved
                 break
+
     def find_nearest_target(self, potential_targets: List["Unit"]):
         nearest_target = None
         min_dist_sq = float("inf")
@@ -1617,6 +1761,7 @@ class Unit:
                             self,
                             source_action=DamageSource.BASIC_ATTACK,
                             is_aoe=False,
+                            element=None,
                         )
                         self.apply_lifesteal(current_attack_damage, DamageType.PHYSICAL)
                         damage_dealt += current_attack_damage
@@ -1652,6 +1797,7 @@ class Unit:
                             self,
                             source_action=DamageSource.BASIC_ATTACK,
                             is_aoe=False,
+                            element=None,
                         )
                         self.apply_lifesteal(dmg, DamageType.PHYSICAL)
                         damage_dealt += dmg
@@ -1730,6 +1876,7 @@ class Unit:
                                     size=self.radius,
                                 )
                             )
+                self.apply_crit_heal(current_attack_damage, state)
                 # FIX: Call resolve_trigger_func with keyword argument
                 data = {}
                 if self.trigger and self.trigger["timing_type"] == TriggerTiming.ON_HIT:
@@ -1918,6 +2065,7 @@ class Unit:
         state.delta_time_combat = dt
         self.behavior.update(potential_targets, state)
         state.delta_time_combat = saved_dt
+
     def update_animation(self, dt: float):
         from engine.utils import clamp
 

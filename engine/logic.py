@@ -35,6 +35,7 @@ from data.constants import (
     SLOT_MARGIN,
     SLOT_SIZE,
 )
+
 # Data imports
 from data.definitions import (
     ITEM_DEFINITIONS,
@@ -42,14 +43,15 @@ from data.definitions import (
     SYNERGY_DEFINITIONS,
     UNIT_DEFINITIONS,
 )
+
 # 新增 DamageSource
 from data.enums import (
     AbilityEffect,
     Color,
     DamageSource,
     DamageType,
-    StatSource,
     ItemType,
+    StatSource,
     TriggerTarget,
     TriggerTiming,
 )
@@ -62,6 +64,7 @@ from engine.classes import (
     Unit,
     VisualEffect,
 )
+
 # Engine imports
 from engine.enums import AnimationState, EffectType, RemoveReason
 from engine.utils import clamp, normalize_vector
@@ -105,6 +108,27 @@ if TYPE_CHECKING:
 
 # IMPORTANT: Assign the function to the class attribute to resolve circular dependency
 # FIX: Assign the actual function AFTER it is defined, not a lambda. Move import.
+# ---- Quality system ----
+DEFAULT_QUALITY_CHANCES = {"fail": 0.1, "great": 0.1}
+
+
+def determine_quality(ability: Dict, base_value: float = 0.0) -> str:
+    chances = ability.get("quality_chances", DEFAULT_QUALITY_CHANCES).copy()
+    shift = chances.pop("per_100_shift", 0.0)
+    if shift:
+        steps = int(base_value // 100)
+        chances["fail"] = max(0.0, chances.get("fail", 0.0) - shift * steps)
+        chances["great"] = min(1.0, chances.get("great", 0.0) + shift * steps)
+    fail = chances.get("fail", 0.0)
+    great = chances.get("great", 0.0)
+    roll = random.random()
+    if roll < fail:
+        return "fail"
+    if roll > 1.0 - great:
+        return "great"
+    return "success"
+
+
 # import engine.classes
 # engine.classes.resolve_trigger_func = lambda u, t, s, e: resolve_trigger(u,t,s,e)
 
@@ -156,6 +180,7 @@ def _apply_knockback(target: Unit, source: Unit, distance: float) -> None:
     target.x = clamp(target.x, ARENA_MIN_X, ARENA_MAX_X)
     target.y = clamp(target.y, ARENA_MIN_Y, ARENA_MAX_Y)
 
+
 def update_player_synergies(player: Player):
     player.active_synergies = calculate_active_synergies(player)
 
@@ -163,6 +188,7 @@ def update_player_synergies(player: Player):
 def add_item_to_inventory(player: Player, item: Item) -> bool:
     player.item_inventory.append(item)
     return True
+
 
 # Needs local import or state must be passed
 # from states.enums import UnitLocation
@@ -174,6 +200,7 @@ def attempt_equip_item(
 
 def attempt_unequip_item(player: Player, item_info: SelectedItemInfo) -> bool:
     return _attempt_unequip_item(player, item_info)
+
 
 def _attempt_equip_item(
     player: Player, item_info: SelectedItemInfo, target_unit_info: SelectedUnitInfo
@@ -466,7 +493,6 @@ def apply_synergy_buffs(
                     unit.add_status(hot)
 
 
-
 def apply_artifact_buffs(
     team: List[Unit], artifacts: List[Artifact], current_time: float
 ):
@@ -480,6 +506,7 @@ def apply_artifact_buffs(
         for unit in team:
             for buff in global_buffs:
                 unit.apply_synergy_artifact_buff(buff, current_time)
+
 
 def apply_ranged_evasion_auras(all_units: List[Unit], state: GameState) -> None:
     """Apply evasion auras from units that grant them."""
@@ -540,6 +567,7 @@ def apply_bond_links(all_units: List[Unit], state: GameState) -> None:
                 params={"ratio": ratio, "target_id": provider.id},
             )
         )
+
 
 def remove_synergy_buffs(team: List[Unit]):
     for unit in team:
@@ -929,6 +957,12 @@ def execute_ability(
     if not ability or "effect_type" not in ability or "effect_data" not in ability:
         return
     data = ability["effect_data"]
+    quality = determine_quality(ability, base_value)
+    if quality == "fail":
+        return
+    multiplier = 1.0
+    if quality == "great":
+        multiplier = data.get("great_multiplier", 2.0)
     if data.get("apply_to_source"):
         targets = [source]
     if not targets:
@@ -951,6 +985,7 @@ def execute_ability(
         )
     if effect_type == AbilityEffect.DEAL_DAMAGE:
         damage = base_value * data.get("scale_factor", 0) + data.get("flat_value", 0)
+        damage *= multiplier
         if data.get("can_crit"):
             crit = source._xs("critical_chance", 5.0) + data.get(
                 "extra_crit_chance", 0.0
@@ -982,9 +1017,19 @@ def execute_ability(
                 )
             )
             adj_damage = damage
+            if "hp_percent_of_max" in data:
+                adj_damage = (
+                    target.current_stats.get("hp", 0)
+                    * data.get("hp_percent_of_max", 0.0)
+                    * (base_value * data.get("scale_factor_percent", 0.0) / 100.0)
+                )
             factor = data.get("hp_compare_factor")
             if factor and target.current_hp > source.current_hp * factor:
                 adj_damage *= data.get("hp_compare_multiplier", 1.0)
+            crit_status = data.get("auto_crit_if_status")
+            if crit_status and any(name in target.statuses for name in crit_status):
+                adj_damage *= source._xs("critical_damage", 150.0) / 100.0
+                source._last_outgoing_was_crit = True
             outgoing = source.compute_outgoing_damage(
                 adj_damage,
                 dtype,
@@ -999,16 +1044,72 @@ def execute_ability(
                 source,
                 source_action=DamageSource.ITEM_ABILITY,
                 is_aoe=data.get("is_aoe", False),
-                extra_flat_penetration=data.get("flat_physical_penetration", 0.0),
-                extra_percent_penetration=data.get(
-                    "percentage_physical_penetration", 0.0
+                extra_flat_penetration=(
+                    data.get("flat_magic_penetration", 0.0)
+                    if dtype == DamageType.MAGIC
+                    else data.get("flat_physical_penetration", 0.0)
                 ),
+                extra_percent_penetration=(
+                    data.get("percentage_magic_penetration", 0.0)
+                    if dtype == DamageType.MAGIC
+                    else data.get("percentage_physical_penetration", 0.0)
+                ),
+                element=data.get("element"),
             )
             if dmg_dealt > 0.1:
                 state.damage_floaters.append(
                     DamageFloater(target.x, target.y, f"{dmg_dealt:.0f}", color_key)
                 )
             source.apply_lifesteal(dmg_dealt, dtype, state)
+            if data.get("bounces"):
+                last = target
+                hits = {target}
+                for _ in range(data.get("bounces", 0)):
+                    pool = (
+                        state.enemy_combat_team
+                        if last.is_enemy
+                        else state.player_combat_team
+                    )
+                    candidates = [u for u in pool if u.is_alive and u not in hits]
+                    if not candidates:
+                        break
+                    next_t = min(
+                        candidates,
+                        key=lambda u: (u.x - last.x) ** 2 + (u.y - last.y) ** 2,
+                    )
+                    out = source.compute_outgoing_damage(
+                        adj_damage,
+                        dtype,
+                        DamageSource.ITEM_ABILITY,
+                        False,
+                        next_t,
+                    )
+                    dealt = next_t.take_damage(
+                        out,
+                        dtype,
+                        state,
+                        source,
+                        source_action=DamageSource.ITEM_ABILITY,
+                        is_aoe=False,
+                        extra_flat_penetration=(
+                            data.get("flat_magic_penetration", 0.0)
+                            if dtype == DamageType.MAGIC
+                            else data.get("flat_physical_penetration", 0.0)
+                        ),
+                        extra_percent_penetration=(
+                            data.get("percentage_magic_penetration", 0.0)
+                            if dtype == DamageType.MAGIC
+                            else data.get("percentage_physical_penetration", 0.0)
+                        ),
+                        element=data.get("element"),
+                    )
+                    if dealt > 0.1:
+                        state.damage_floaters.append(
+                            DamageFloater(next_t.x, next_t.y, f"{dealt:.0f}", color_key)
+                        )
+                    source.apply_lifesteal(dealt, dtype, state)
+                    hits.add(next_t)
+                    last = next_t
             if data.get("splash_radius"):
                 radius = data["splash_radius"]
                 ratio = data.get("splash_ratio", 0.5)
@@ -1037,6 +1138,7 @@ def execute_ability(
                             source,
                             source_action=DamageSource.ITEM_ABILITY,
                             is_aoe=True,
+                            element=None,
                         )
                         if dealt > 0.1:
                             state.damage_floaters.append(
@@ -1064,7 +1166,11 @@ def execute_ability(
                         source_id=source.id,
                         duration=data.get("dot_duration"),
                         stack_rule=StackRule.UNLIMITED,
-                        params={"damage": data.get("dot_damage"), "dtype": dtype},
+                        params={
+                            "damage": data.get("dot_damage"),
+                            "dtype": dtype,
+                            "element": data.get("element"),
+                        },
                     )
                     target.add_status(dot)
             if dtype == DamageType.MAGIC and dmg_dealt > 0.1:
@@ -1125,7 +1231,12 @@ def execute_ability(
                         target._queue_status_removal(st, RemoveReason.CUSTOM_TRIGGER)
                     dmg = target.current_hp * pct
                     dealt = target.take_damage(
-                        dmg, DamageType.TRUE, state, source, DamageSource.ITEM_ABILITY
+                        dmg,
+                        DamageType.TRUE,
+                        state,
+                        source,
+                        DamageSource.ITEM_ABILITY,
+                        element=None,
                     )
                     if dealt > 0.1:
                         state.damage_floaters.append(
@@ -1139,6 +1250,209 @@ def execute_ability(
                         target, source.id, None, 1, False, StackRule.UNLIMITED, {}
                     )
                     target.add_status(mark)
+        elif data.get("status_name") == "DECAY_SHIELD":
+            from engine.status_effects import DecayingShieldEffect
+
+            duration = data.get("duration", 5.0)
+            hp = base_value * data.get("hp_per_value", 0.0)
+            dmg = base_value * data.get("break_damage_per_value", 0.0)
+            for target in targets:
+                effect = DecayingShieldEffect(
+                    host=target,
+                    source_id=source.id,
+                    duration=duration,
+                    hp=hp,
+                    damage=dmg,
+                )
+                target.add_status(effect)
+        elif data.get("status_name") == "HOT":
+            from engine.status_effects import HealOverTime
+
+            duration = data.get("duration", 5.0)
+            heal = base_value * data.get("heal_per_value", 0.0) * multiplier
+            for target in targets:
+                hot = HealOverTime(
+                    host=target,
+                    source_id=source.id,
+                    duration=duration,
+                    params={"heal": heal},
+                )
+                target.add_status(hot)
+        elif data.get("status_name") == "CRIT_HEAL":
+            from engine.status_effects import CritHealBuff
+
+            duration = data.get("duration", 5.0)
+            chance = base_value * data.get("crit_chance_per_value", 0.0)
+            dmg_bonus = 0.0
+            if quality == "great":
+                dmg_bonus = chance * data.get("crit_damage_per_value", 0.0)
+            for target in targets:
+                buff = CritHealBuff(
+                    host=target,
+                    source_id=source.id,
+                    duration=duration,
+                    crit_chance=chance,
+                    crit_damage=dmg_bonus,
+                )
+                target.add_status(buff)
+        elif data.get("status_name") == "ICY_PULSE":
+            from engine.status_effects import IcyPulseDebuff
+
+            duration = data.get("duration", 3.0)
+            dmg = base_value * data.get("damage_per_value", 0.0)
+            for target in targets:
+                debuff = IcyPulseDebuff(
+                    host=target,
+                    source_id=source.id,
+                    duration=duration,
+                    damage=dmg,
+                )
+                target.add_status(debuff)
+        elif data.get("status_name") == "LEECH_DOT":
+            from engine.enums import StackRule
+            from engine.status_effects import LeechingDOT
+
+            duration = data.get("duration", 5.0)
+            dmg = base_value * data.get("damage_per_value", 0.0)
+            dtype = DamageType.MAGIC
+            if quality == "great":
+                dtype = DamageType.TRUE
+                dmg *= 2.0
+            heal_ratio = data.get("heal_ratio", 2.0)
+            targets_to_afflict = targets
+            caster = source
+            if quality == "fail":
+                targets_to_afflict = [source]
+                caster = targets[0] if targets else source
+            for target in targets_to_afflict:
+                dot = LeechingDOT(
+                    host=target,
+                    source_id=caster.id,
+                    duration=duration,
+                    stack_rule=StackRule.UNIQUE,
+                    params={
+                        "damage": dmg,
+                        "dtype": dtype,
+                        "element": data.get("element"),
+                        "heal_ratio": heal_ratio,
+                    },
+                )
+                target.add_status(dot)
+        elif data.get("status_name") == "SPEED_SHIELD":
+            from engine.status_effects import SpeedShieldEffect
+
+            duration = data.get("duration", 5.0)
+            hp = base_value * data.get("hp_per_value", 0.0)
+            decay = quality != "great"
+            speed = 50.0 if quality != "fail" else -50.0
+            for target in targets:
+                shield = SpeedShieldEffect(
+                    host=target,
+                    source_id=source.id,
+                    duration=duration,
+                    hp=hp,
+                    speed_mod=speed,
+                    decay=decay,
+                )
+                target.add_status(shield)
+        elif data.get("status_name") == "PURIFY":
+            from engine.enums import StatusCategory
+
+            for target in targets:
+                debuffs = [
+                    st
+                    for bucket in target.statuses.values()
+                    for st in bucket
+                    if st.category == StatusCategory.DEBUFF
+                ]
+                if quality == "fail":
+                    for st in debuffs:
+                        if st.duration is not None:
+                            st.duration += 10
+                            st.remaining += 10
+                    continue
+                if not debuffs:
+                    remaining = 3.0
+                    removed = []
+                elif quality == "great":
+                    removed = debuffs[:]
+                    remaining = sum(
+                        getattr(st, "remaining", 3.0) or 3.0 for st in removed
+                    )
+                else:
+                    removed = [debuffs[-1]]
+                    remaining = getattr(removed[0], "remaining", 3.0) or 3.0
+                for st in removed:
+                    target._queue_status_removal(st, RemoveReason.DISPEL)
+                target.process_statuses(0.0)
+                heal_amt = remaining * base_value
+                healed = target.heal(
+                    heal_amt,
+                    state,
+                    source,
+                    source_action=DamageSource.ITEM_ABILITY,
+                )
+                if healed > 0.1:
+                    state.damage_floaters.append(
+                        DamageFloater(
+                            target.x, target.y, f"+{healed:.0f}", "HEAL_COLOR"
+                        )
+                    )
+                    state.visual_effects.append(
+                        VisualEffect(
+                            EffectType.HEAL_AURA,
+                            target.x,
+                            target.y,
+                            HEAL_ANIM_DURATION,
+                            "HEAL_COLOR",
+                            size=target.radius,
+                        )
+                    )
+        elif data.get("status_name") == "MAGIC_WARD":
+            from engine.status_effects import AllWardBuff, MagicWardBuff
+
+            reduction = base_value * data.get("reduction_per_value", 0.0)
+            for target in targets:
+                existing = None
+                for st in target.statuses.get(MagicWardBuff.name, []):
+                    if isinstance(st, MagicWardBuff):
+                        existing = st
+                        break
+                total = reduction
+                if quality == "fail":
+                    if existing:
+                        target._queue_status_removal(existing, RemoveReason.DISPEL)
+                        target.process_statuses(0.0)
+                    continue
+                if existing:
+                    total += existing.params.get("reduction", 0.0)
+                    target._queue_status_removal(existing, RemoveReason.DISPEL)
+                    target.process_statuses(0.0)
+                buff = MagicWardBuff(target, source.id, None, reduction=total)
+                target.add_status(buff)
+                if quality == "great":
+                    ward = AllWardBuff(target, source.id, 5.0, reduction=total)
+                    target.add_status(ward)
+        elif data.get("status_name") == "VITALITY":
+            from engine.enums import StackRule
+            from engine.status_effects import StatModifierEffect
+
+            if quality == "great":
+                pct = 200.0
+            elif quality == "fail":
+                pct = -50.0
+            else:
+                pct = 100.0
+            for target in targets:
+                effect = StatModifierEffect(
+                    host=target,
+                    source_id=f"{source.id}_VITALITY_{random.random()}",
+                    duration=None,
+                    stacks=1,
+                    stack_rule=StackRule.UNLIMITED,
+                    params={"stat": "hp", "flat": 0.0, "percent": pct},
+                )
+                target.add_status(effect)
         elif data.get("stack_buff_stat"):
             from engine.enums import StackRule
             from engine.status_effects import StatModifierEffect
@@ -1166,6 +1480,7 @@ def execute_ability(
         heal_amount = base_value * data.get("scale_factor", 0) + data.get(
             "flat_value", 0
         )
+        heal_amount *= multiplier
         heal_amount *= source._xs("outgoing_healing_bonus", 100.0) / 100.0
         if hasattr(source, "double_heal_stacks") and source.passive:
             max_first = source.passive.get("double_heal_first", 0)
@@ -1360,6 +1675,7 @@ def resolve_trigger(
             if count >= threshold:
                 tgt.clear_statuses(RemoveReason.DISPEL)
                 unit.purge_counts[tgt.id] = 0
+
 
 def resolve_passive(
     unit: Unit,
@@ -1658,7 +1974,9 @@ def run_combat_tick(state: "GameState", delta_time: float):
             print(f"DEBUG: OVERTIME DAMAGE TICK: {damage_percent*100:.1f}% Max HP")
             for unit in all_units_processing:
                 ot_damage = unit.current_stats.get("hp", 0) * damage_percent  # FIX .get
-                dmg_dealt = unit.take_damage(ot_damage, DamageType.TRUE, state, None)
+                dmg_dealt = unit.take_damage(
+                    ot_damage, DamageType.TRUE, state, None, element=None
+                )
                 if dmg_dealt > 0.1:
                     state.damage_floaters.append(
                         DamageFloater(

@@ -22,7 +22,8 @@ class TriggerTiming(Enum):
     ON_TEAM_DAMAGE_DOUBLED = auto()
     STATUS_OVERLOAD = auto()
     BLEED_THRESHOLD = auto()
-    
+
+
 class TriggerTarget(Enum):
     ATTACK_TARGET = auto()  # Requires event_target
     NEAREST_ENEMY = auto()
@@ -40,6 +41,7 @@ class TriggerTarget(Enum):
     ALL_ALLIES = auto()
     ALL_ENEMIES = auto()
 
+
 class StatSource(Enum):
     AD = "ad"
     AP = "ap"
@@ -51,12 +53,14 @@ class StatSource(Enum):
     FLAT = "flat"
     EVENT = "event"
     RESIST_SUM = "resist_sum"
-    
+
+
 class AbilityEffect(Enum):
     DEAL_DAMAGE = auto()
     APPLY_BUFF = auto()  # or debuff
     HEAL = auto()
     APPLY_DOT = auto()
+
 
 class DamageType(Enum):
     PHYSICAL = "physical"
@@ -70,6 +74,12 @@ class DamageSource(Enum):
     SYNERGY = auto()
     ARTIFACT = auto()
     MAP_EFFECT = auto()
+
+
+class Element(Enum):
+    ICE = "ice"
+    FIRE = "fire"
+    LIGHTNING = "lightning"
 
 
 class Color(Enum):

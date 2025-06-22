@@ -1,10 +1,13 @@
 # engine/status_effects.py
 # 状态效果系统 —— 核心实现
 from __future__ import annotations
+
 from abc import ABC
 from typing import TYPE_CHECKING, Any, Dict, Optional
-from data.enums import DamageSource
+
+from data.enums import DamageSource, DamageType, Element
 from engine.enums import RemoveReason, StackRule, StatusCategory
+
 if TYPE_CHECKING:
     from engine.classes import Unit
 
@@ -51,7 +54,7 @@ class StatusEffect(ABC):
         """每经过 `tick_interval` 调用；默认空实现"""
 
     # ---- 宿主钩子（可选覆写） ----
-    def intercept_incoming_damage(self, dmg: float) -> float:
+    def intercept_incoming_damage(self, dmg: float, damage_type: DamageType) -> float:
         """可以修改或吸收即将受到的伤害；返回修改后数值"""
         return dmg
 
@@ -82,31 +85,36 @@ class StatusEffect(ABC):
 #                    ---- 具体效果示例子类 ----                          #
 # --------------------------------------------------------------------- #
 
+
 class DamageOverTime(StatusEffect):
     name = "DOT"
     category = StatusCategory.DOT
 
     def on_tick(self, dt: float) -> None:
         from engine.game_state import get_game_state
+
         dmg_per_tick = self.params.get("damage", 0) * self.stacks
         if dmg_per_tick > 0 and self.host.is_alive:
             # TRUE 伤害避免重复计算抗性
             state = get_game_state()
-            source_unit = next(
-                (
-                    u
-                    for u in state.player_combat_team + state.enemy_combat_team
-                    if u.id == self.source_id
-                ),
-                None,
-            )
-            self.host.take_damage(
-                dmg_per_tick,
-                self.params.get("dtype"),
-                state,
-                source_unit,
-                source_action=DamageSource.ITEM_ABILITY,
-            )
+        source_unit = next(
+            (
+                u
+                for u in state.player_combat_team + state.enemy_combat_team
+                if u.id == self.source_id
+            ),
+            None,
+        )
+        self.host.take_damage(
+            dmg_per_tick,
+            self.params.get("dtype"),
+            state,
+            source_unit,
+            source_action=DamageSource.ITEM_ABILITY,
+            element=self.params.get("element"),
+        )
+
+
 class BurningDOT(DamageOverTime):
     """Damage over time that also triggers the source unit."""
 
@@ -137,12 +145,14 @@ class BurningDOT(DamageOverTime):
                 data={"damage": self.params.get("damage", 0) * self.stacks},
             )
 
+
 class HealOverTime(StatusEffect):
     name = "HOT"
     category = StatusCategory.HOT
 
     def on_tick(self, dt: float) -> None:
         from engine.game_state import get_game_state
+
         heal = self.params.get("heal", 0) * self.stacks
         if heal > 0 and self.host.is_alive:
             state = get_game_state()
@@ -160,6 +170,8 @@ class HealOverTime(StatusEffect):
                 source_unit,
                 source_action=DamageSource.ITEM_ABILITY,
             )
+
+
 class BleedingEffect(DamageOverTime):
     """Accumulated damage over time applied to the host."""
 
@@ -186,6 +198,7 @@ class BleedingEffect(DamageOverTime):
             state,
             source_unit,
             source_action=DamageSource.ITEM_ABILITY,
+            element=self.params.get("element"),
         )
         self.host.bleed_damage_progress += dealt
         from data.enums import TriggerTiming
@@ -280,6 +293,7 @@ class ShieldEffect(StatusEffect):
 
     name = "SHIELD"
     category = StatusCategory.SHIELD
+
     def __init__(
         self,
         host: "Unit",
@@ -295,8 +309,8 @@ class ShieldEffect(StatusEffect):
         )
         self.params.setdefault("hp", 0.0)
         self.params.setdefault("accumulated", self.params["hp"])
-        
-    def intercept_incoming_damage(self, dmg: float) -> float:
+
+    def intercept_incoming_damage(self, dmg: float, damage_type: DamageType) -> float:
         capacity = self.params.setdefault("hp", 0)
         if capacity <= 0:
             return dmg  # 已被耗尽
@@ -323,12 +337,92 @@ class ShieldEffect(StatusEffect):
                     data={"shield": self.params.get("accumulated", 0.0)},
                 )
         super().on_remove(reason)
+
+
+class DecayingShieldEffect(ShieldEffect):
+    """Shield that decays each second and explodes when removed."""
+
+    name = "DECAY_SHIELD"
+    tick_interval = 1.0
+
+    def __init__(
+        self,
+        host: "Unit",
+        source_id: str,
+        duration: float,
+        *,
+        hp: float,
+        damage: float,
+    ) -> None:
+        super().__init__(
+            host, source_id, duration, stack_rule=StackRule.UNIQUE, params={"hp": hp}
+        )
+        self.params["initial"] = hp
+        self.params["damage"] = damage
+
+    def on_tick(self, dt: float) -> None:
+        decay = self.params.get("initial", 0.0) * 0.2
+        self.params["hp"] = max(0.0, self.params.get("hp", 0.0) - decay)
+        if self.params["hp"] <= 0:
+            self.host._queue_status_removal(self, RemoveReason.CUSTOM_TRIGGER)
+
+    def on_remove(self, reason: RemoveReason) -> None:
+        from data.enums import DamageType, Element
+        from engine.game_state import get_game_state
+        from ui.constants import COMBAT_UNIT_RADIUS
+
+        if reason == RemoveReason.CUSTOM_TRIGGER:
+            state = get_game_state()
+            if state:
+                caster = next(
+                    (
+                        u
+                        for u in state.player_combat_team + state.enemy_combat_team
+                        if u.id == self.source_id
+                    ),
+                    None,
+                )
+                if caster:
+                    damage = self.params.get("damage", 0.0)
+                    pool = (
+                        state.enemy_combat_team
+                        if caster in state.player_combat_team
+                        else state.player_combat_team
+                    )
+                    radius_sq = (COMBAT_UNIT_RADIUS * 2) ** 2
+                    for unit in pool:
+                        if not unit.is_alive:
+                            continue
+                        dx = unit.x - caster.x
+                        dy = unit.y - caster.y
+                        if dx * dx + dy * dy <= radius_sq:
+                            out = caster.compute_outgoing_damage(
+                                damage,
+                                DamageType.MAGIC,
+                                DamageSource.ITEM_ABILITY,
+                                True,
+                                unit,
+                            )
+                            unit.take_damage(
+                                out,
+                                DamageType.MAGIC,
+                                state,
+                                caster,
+                                source_action=DamageSource.ITEM_ABILITY,
+                                is_aoe=True,
+                                element=Element.ICE,
+                            )
+        super().on_remove(reason)
+
+
 class DoomBrand(StatusEffect):
     """Mark that explodes at a stack threshold."""
 
     name = "DOOM_BRAND"
     category = StatusCategory.DEBUFF
     tick_interval = None
+
+
 class DamageRedirectEffect(StatusEffect):
     """Redirect a portion of incoming damage to another unit."""
 
@@ -336,7 +430,7 @@ class DamageRedirectEffect(StatusEffect):
     category = StatusCategory.BUFF
     tick_interval = None
 
-    def intercept_incoming_damage(self, dmg: float) -> float:
+    def intercept_incoming_damage(self, dmg: float, damage_type: DamageType) -> float:
         ratio = self.params.get("ratio", 0.0)
         target_id = self.params.get("target_id")
         if dmg <= 0 or not target_id or ratio <= 0:
@@ -362,7 +456,7 @@ class DamageRedirectEffect(StatusEffect):
             self.params.get("redirected_total", 0.0) + redirected
         )
         target.bond_redirected_total += redirected
-        target.take_damage(redirected, DamageType.TRUE, state, self.host)
+        target.take_damage(redirected, DamageType.TRUE, state, self.host, element=None)
         return dmg - redirected
 
     def on_remove(self, reason: RemoveReason) -> None:
@@ -393,3 +487,343 @@ class DamageRedirectEffect(StatusEffect):
                     target.bond_target_id = None
                     target.bond_redirected_total = 0.0
         super().on_remove(reason)
+
+
+class CritHealBuff(StatusEffect):
+    """Critical hits heal the host for damage dealt."""
+
+    name = "CRIT_HEAL"
+    category = StatusCategory.BUFF
+    tick_interval = None
+
+    def __init__(
+        self,
+        host: "Unit",
+        source_id: str,
+        duration: float,
+        *,
+        crit_chance: float,
+        crit_damage: float = 0.0,
+    ) -> None:
+        super().__init__(host, source_id, duration, stack_rule=StackRule.UNIQUE)
+        self.params["crit_chance"] = crit_chance
+        self.params["crit_damage"] = crit_damage
+
+    def on_apply(self) -> None:
+        self.host.add_stat_modifier(
+            "critical_chance",
+            self.params.get("crit_chance", 0.0),
+            self.duration,
+            self.name,
+            True,
+        )
+        if self.params.get("crit_damage", 0.0):
+            self.host.add_stat_modifier(
+                "critical_damage",
+                self.params.get("crit_damage", 0.0),
+                self.duration,
+                self.name,
+                True,
+            )
+        self.host.add_stat_modifier(
+            "crit_heal_percent",
+            100.0,
+            self.duration,
+            self.name,
+            False,
+        )
+
+    def on_remove(self, reason: RemoveReason) -> None:
+        self.host.remove_buffs_from_source(self.name)
+
+
+class IcyPulseDebuff(StatusEffect):
+    """Applies periodic ice damage to the host and nearby enemies."""
+
+    name = "ICY_PULSE"
+    category = StatusCategory.DEBUFF
+    tick_interval = 1.0
+
+    def __init__(
+        self, host: "Unit", source_id: str, duration: float, *, damage: float
+    ) -> None:
+        super().__init__(host, source_id, duration, stack_rule=StackRule.UNIQUE)
+        self.params["damage"] = damage
+
+    def on_tick(self, dt: float) -> None:
+        from data.enums import DamageType, Element
+        from engine.game_state import get_game_state
+        from ui.constants import COMBAT_UNIT_RADIUS
+
+        state = get_game_state()
+        if not state or not self.host.is_alive:
+            return
+        caster = next(
+            (
+                u
+                for u in state.player_combat_team + state.enemy_combat_team
+                if u.id == self.source_id
+            ),
+            None,
+        )
+        if not caster:
+            caster = self.host
+        dmg = self.params.get("damage", 0.0)
+        pool = (
+            state.enemy_combat_team
+            if caster in state.player_combat_team
+            else state.player_combat_team
+        )
+        radius_sq = (COMBAT_UNIT_RADIUS * 4) ** 2
+        targets = [self.host] + [
+            u
+            for u in pool
+            if (u.x - self.host.x) ** 2 + (u.y - self.host.y) ** 2 <= radius_sq
+        ]
+        for tgt in targets:
+            if not tgt.is_alive:
+                continue
+            outgoing = caster.compute_outgoing_damage(
+                dmg,
+                DamageType.MAGIC,
+                DamageSource.ITEM_ABILITY,
+                True,
+                tgt,
+            )
+            tgt.take_damage(
+                outgoing,
+                DamageType.MAGIC,
+                state,
+                caster,
+                source_action=DamageSource.ITEM_ABILITY,
+                is_aoe=True,
+                element=Element.ICE,
+            )
+
+
+class ElementalAura(StatusEffect):
+    """Base aura applied by elemental damage. Holds the element in params."""
+
+    name = "ELEMENTAL_AURA"
+    category = StatusCategory.BUFF
+    tick_interval = None
+
+    def __init__(self, host: "Unit", source_id: str, element: Element):
+        super().__init__(
+            host,
+            source_id,
+            duration=None,
+            stack_rule=StackRule.UNIQUE,
+            params={"element": element},
+        )
+
+
+class ChillDebuff(StatusEffect):
+    name = "CHILL"
+    category = StatusCategory.DEBUFF
+    tick_interval = None
+
+    def on_apply(self) -> None:
+        self.host.add_stat_modifier("as", -30, None, self.name, True)
+        self.host.add_stat_modifier("move_speed", -30, None, self.name, True)
+
+    def on_remove(self, reason: RemoveReason) -> None:
+        self.host.remove_buffs_from_source(self.name)
+
+
+class IgniteDebuff(StatusEffect):
+    name = "IGNITE"
+    category = StatusCategory.DEBUFF
+    tick_interval = None
+
+    def __init__(self, host: "Unit", source_id: str, duration: float = 3.0):
+        super().__init__(host, source_id, duration)
+
+    def on_apply(self) -> None:
+        self.host.add_stat_modifier("mr", -30, self.duration, self.name, True)
+        self.host.add_stat_modifier("armor", -30, self.duration, self.name, True)
+
+    def on_remove(self, reason: RemoveReason) -> None:
+        self.host.remove_buffs_from_source(self.name)
+
+
+class ShockDebuff(StatusEffect):
+    name = "SHOCK"
+    category = StatusCategory.DEBUFF
+    tick_interval = None
+
+    def __init__(self, host: "Unit", source_id: str, duration: float = 3.0):
+        super().__init__(host, source_id, duration)
+
+    def on_apply(self) -> None:
+        self.host.add_stat_modifier("accuracy", -30, self.duration, self.name, True)
+        self.host.add_stat_modifier("dodge_chance", -30, self.duration, self.name, True)
+
+    def on_remove(self, reason: RemoveReason) -> None:
+        self.host.remove_buffs_from_source(self.name)
+
+
+class SuperconductDebuff(StatusEffect):
+    name = "SUPERCONDUCT"
+    category = StatusCategory.DEBUFF
+    tick_interval = None
+
+    def __init__(self, host: "Unit", source_id: str, duration: float = 8.0):
+        super().__init__(host, source_id, duration)
+
+    def on_apply(self) -> None:
+        self.host.add_stat_modifier(
+            "percentage_damage_reduction", -30, self.duration, self.name, False
+        )
+
+    def on_remove(self, reason: RemoveReason) -> None:
+        self.host.remove_buffs_from_source(self.name)
+
+
+class LeechingDOT(DamageOverTime):
+    """DOT that heals the caster based on damage dealt."""
+
+    name = "LEECH_DOT"
+    tick_interval = 1.0
+
+    def on_tick(self, dt: float) -> None:
+        from engine.game_state import get_game_state
+
+        dmg_per_tick = self.params.get("damage", 0) * self.stacks
+        if dmg_per_tick <= 0 or not self.host.is_alive:
+            return
+        state = get_game_state()
+        source_unit = next(
+            (
+                u
+                for u in state.player_combat_team + state.enemy_combat_team
+                if u.id == self.source_id
+            ),
+            None,
+        )
+        dealt = self.host.take_damage(
+            dmg_per_tick,
+            self.params.get("dtype", DamageType.MAGIC),
+            state,
+            source_unit,
+            source_action=DamageSource.ITEM_ABILITY,
+            element=self.params.get("element"),
+        )
+        if source_unit and dealt > 0:
+            source_unit.heal(
+                dealt * self.params.get("heal_ratio", 2.0),
+                state,
+                source_unit,
+                source_action=DamageSource.ITEM_ABILITY,
+            )
+
+
+class SpeedShieldEffect(ShieldEffect):
+    """Shield that modifies speed while active and optionally decays."""
+
+    name = "SPEED_SHIELD"
+    tick_interval = 1.0
+
+    def __init__(
+        self,
+        host: "Unit",
+        source_id: str,
+        duration: float,
+        *,
+        hp: float,
+        speed_mod: float,
+        decay: bool = True,
+    ) -> None:
+        super().__init__(
+            host, source_id, duration, stack_rule=StackRule.UNIQUE, params={"hp": hp}
+        )
+        self.params["initial"] = hp
+        self.params["speed_mod"] = speed_mod
+        self.params["decay"] = decay
+
+    def on_apply(self) -> None:
+        mod = self.params.get("speed_mod", 0.0)
+        self.host.add_stat_modifier("as", mod, None, self.name, True)
+        self.host.add_stat_modifier("move_speed", mod, None, self.name, True)
+
+    def on_tick(self, dt: float) -> None:
+        if not self.params.get("decay", True):
+            return
+        decay = self.params.get("initial", 0.0) * 0.2
+        self.params["hp"] = max(0.0, self.params.get("hp", 0.0) - decay)
+        if self.params["hp"] <= 0:
+            self.host._queue_status_removal(self, RemoveReason.CUSTOM_TRIGGER)
+
+    def on_remove(self, reason: RemoveReason) -> None:
+        self.host.remove_buffs_from_source(self.name)
+        super().on_remove(reason)
+
+
+class DamageWardBuff(StatusEffect):
+    """Reduces incoming damage of specified types."""
+
+    name = "DAMAGE_WARD"
+    category = StatusCategory.BUFF
+    tick_interval = None
+
+    def __init__(
+        self,
+        host: "Unit",
+        source_id: str,
+        duration: Optional[float],
+        *,
+        reduction: float,
+        types: list[DamageType],
+    ) -> None:
+        super().__init__(host, source_id, duration, stack_rule=StackRule.UNIQUE)
+        self.params["reduction"] = reduction
+        self.params["types"] = types
+
+    def intercept_incoming_damage(self, dmg: float, damage_type: DamageType) -> float:
+        if damage_type not in self.params.get("types", []):
+            return dmg
+        reduction = self.params.get("reduction", 0.0)
+        if reduction >= 100:
+            from engine.game_state import get_game_state
+
+            state = get_game_state()
+            if state and dmg > 0:
+                self.host.heal(
+                    dmg * (reduction - 100) / 100.0,
+                    state,
+                    self.host,
+                    source_action=DamageSource.ITEM_ABILITY,
+                )
+            return 0.0
+        return dmg * (1.0 - reduction / 100.0)
+
+
+class MagicWardBuff(DamageWardBuff):
+    name = "MAGIC_WARD"
+
+    def __init__(
+        self,
+        host: "Unit",
+        source_id: str,
+        duration: Optional[float],
+        *,
+        reduction: float,
+    ) -> None:
+        super().__init__(
+            host, source_id, duration, reduction=reduction, types=[DamageType.MAGIC]
+        )
+
+
+class AllWardBuff(DamageWardBuff):
+    name = "ALL_WARD"
+
+    def __init__(
+        self, host: "Unit", source_id: str, duration: float, *, reduction: float
+    ) -> None:
+        super().__init__(
+            host,
+            source_id,
+            duration,
+            reduction=reduction,
+            types=[DamageType.MAGIC, DamageType.PHYSICAL, DamageType.TRUE],
+        )
