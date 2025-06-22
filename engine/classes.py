@@ -309,6 +309,9 @@ class Unit:
             "percentage_damage_bonus": 100.0,
             "flat_damage_bonus": 0.0,
             "percentage_damage_reduction": 100.0,
+            "percentage_magic_damage_reduction": 100.0,
+            "percentage_physical_damage_reduction": 100.0,
+            "percentage_true_damage_reduction": 100.0,
             "flat_damage_reduction": 0.0,
             "flat_basic_attack_damage_reduction": 0.0,
             "outgoing_healing_bonus": 100.0,
@@ -916,6 +919,7 @@ class Unit:
                             size=self.radius,
                         )
                     )
+            self.apply_crit_heal(dmg, state)
         return damage_total, hits
 
     def _perform_cone_attack(
@@ -1012,6 +1016,7 @@ class Unit:
                             size=self.radius,
                         )
                     )
+            self.apply_crit_heal(dmg, state)
         return damage_total, hits
 
     def _perform_circle_attack(
@@ -1065,6 +1070,35 @@ class Unit:
                     state.damage_floaters.append(
                         DamageFloater(target.x, target.y, "MISS", "BLACK")
                     )
+            noble_proc = False
+            for _bucket in self.statuses.values():
+                for _st in _bucket:
+                    if (
+                        isinstance(_st, StatModifierEffect)
+                        and _st.source_id == "SYNERGY_NOBLE"
+                        and _st.params.get("stat") == "heal_on_hit"
+                    ):
+                        noble_proc = True
+                        break
+                if noble_proc:
+                    break
+            if noble_proc:
+                healed = self.heal(10, state, self, DamageSource.ITEM_ABILITY)
+                if healed > 0.1:
+                    state.damage_floaters.append(
+                        DamageFloater(self.x, self.y, f"+{healed:.0f}", "HEAL_COLOR")
+                    )
+                    state.visual_effects.append(
+                        VisualEffect(
+                            EffectType.HEAL_AURA,
+                            self.x,
+                            self.y,
+                            HEAL_ANIM_DURATION,
+                            "HEAL_COLOR",
+                            size=self.radius,
+                        )
+                    )
+            self.apply_crit_heal(dmg, state)
         return damage_total, hits
 
     def take_damage(
@@ -1143,11 +1177,23 @@ class Unit:
         # 先让可拦截的状态（护盾等）修改伤害
         for _bucket in self.statuses.values():
             for _st in _bucket:
-                damage = _st.intercept_incoming_damage(damage)
+                damage = _st.intercept_incoming_damage(damage, damage_type)
                 if damage <= 0:
                     return 0.0
 
         damage *= self._xs("percentage_damage_reduction", 100.0) / 100.0
+        if damage_type == DamageType.MAGIC:
+            pct = self._xs("percentage_magic_damage_reduction", 100.0)
+        elif damage_type == DamageType.PHYSICAL:
+            pct = self._xs("percentage_physical_damage_reduction", 100.0)
+        else:
+            pct = self._xs("percentage_true_damage_reduction", 100.0)
+        if pct < 0:
+            healed = -damage * pct / 100.0
+            if healed > 0 and state:
+                self.heal(healed, state, source or self, DamageSource.ITEM_ABILITY)
+            return 0.0
+        damage *= pct / 100.0
 
         resistance = 0.0
         if damage_type == DamageType.PHYSICAL:
@@ -1514,6 +1560,29 @@ class Unit:
         heal_amount *= self._xs("incoming_healing_bonus", 100.0) / 100.0
         self.heal(heal_amount, state, self, DamageSource.BASIC_ATTACK)
 
+
+    def apply_crit_heal(self, dealt: float, state: "GameState") -> None:
+        ratio = self._xs("crit_heal_percent", 0.0)
+        if not self._last_outgoing_was_crit or ratio <= 0 or dealt <= 0:
+            return
+        heal_amount = dealt * ratio / 100.0
+        healed = self.heal(heal_amount, state, self, DamageSource.ITEM_ABILITY)
+        if healed > 0.1 and state:
+            state.damage_floaters.append(
+                DamageFloater(self.x, self.y, f"+{healed:.0f}", "HEAL_COLOR")
+            )
+            state.visual_effects.append(
+                VisualEffect(
+                    EffectType.HEAL_AURA,
+                    self.x,
+                    self.y,
+                    HEAL_ANIM_DURATION,
+                    "HEAL_COLOR",
+                    size=self.radius,
+                )
+            )
+
+
     def on_deal_magic_damage(self, target: "Unit", state: "GameState") -> None:
         for item in self.equipped_items:
             if item and getattr(item, "special", None) == "poison_on_magic":
@@ -1808,6 +1877,7 @@ class Unit:
                                     size=self.radius,
                                 )
                             )
+                self.apply_crit_heal(current_attack_damage, state)
                 # FIX: Call resolve_trigger_func with keyword argument
                 data = {}
                 if self.trigger and self.trigger["timing_type"] == TriggerTiming.ON_HIT:

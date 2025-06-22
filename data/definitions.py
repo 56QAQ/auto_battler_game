@@ -1592,6 +1592,7 @@ ITEM_DEFINITIONS["Azure Scorch Disk"] = {
             "damage_type": DamageType.MAGIC,
             "scale_factor": 0.0,
             "flat_value": 0,
+
             "dot_damage_by_value": True,
             "dot_damage": 0.8,
             "dot_duration": 20.0,
@@ -1600,6 +1601,7 @@ ITEM_DEFINITIONS["Azure Scorch Disk"] = {
         },
     },
     "description": "Applies a 20s fire DoT dealing 0.8×value per second.",
+
 }
 
 ITEM_DEFINITIONS["Azure Bastion Disk"] = {
@@ -1615,7 +1617,9 @@ ITEM_DEFINITIONS["Azure Bastion Disk"] = {
             "status_name": "DECAY_SHIELD",
             "hp_per_value": 5.0,
             "break_damage_per_value": 2.0,
+
             "duration": 20.0,
+
         },
     },
     "description": "Shield worth 5×value that decays and explodes on break.",
@@ -1673,11 +1677,164 @@ ITEM_DEFINITIONS["Azure Detonation Disk"] = {
             "hp_percent_of_max": 0.5,
             "scale_factor_percent": 1.0,
             "splash_ratio": 1.0,
+
             "splash_radius": 800,
+
         },
     },
     "description": "Explodes target for value% of 50% max HP to nearby foes.",
 }
+
+
+ITEM_DEFINITIONS["Verdant Mend Disk"] = {
+    "item_type": "DISK",
+    "type": "DISK",
+    "color": "GREEN",
+    "rarity": "UNCOMMON",
+    "stats": {},
+    "ability": {
+        "name": "Mend",
+        "quality_chances": {"fail": 0.1, "great": 0.1},
+        "effect_type": AbilityEffect.HEAL,
+        "effect_data": {
+            "scale_factor": 2.0,
+            "flat_value": 0,
+            "great_multiplier": 2.0,
+        },
+    },
+    "description": "Heal 2×value HP; great success doubles healing.",
+}
+
+ITEM_DEFINITIONS["Verdant Renewal Disk"] = {
+    "item_type": "DISK",
+    "type": "DISK",
+    "color": "GREEN",
+    "rarity": "UNCOMMON",
+    "stats": {},
+    "ability": {
+        "name": "Renewal",
+        "quality_chances": {"fail": 0.1, "great": 0.1},
+        "effect_type": AbilityEffect.APPLY_BUFF,
+        "effect_data": {
+            "status_name": "HOT",
+            "duration": 5.0,
+            "heal_per_value": 0.01,
+            "great_multiplier": 2.0,
+        },
+    },
+    "description": "Regen 1%×value per sec for 5s; great success doubles regen.",
+}
+
+ITEM_DEFINITIONS["Verdant Precision Disk"] = {
+    "item_type": "DISK",
+    "type": "DISK",
+    "color": "GREEN",
+    "rarity": "UNCOMMON",
+    "stats": {},
+    "ability": {
+        "name": "Keen Edge",
+        "quality_chances": {"fail": 0.1, "great": 0.1},
+        "effect_type": AbilityEffect.APPLY_BUFF,
+        "effect_data": {
+            "status_name": "CRIT_HEAL",
+            "duration": 5.0,
+            "crit_chance_per_value": 1.0,
+            "crit_damage_per_value": 2.0,
+        },
+    },
+    "description": "Crit chance buff; crits heal self. Great success adds crit damage.",
+}
+
+ITEM_DEFINITIONS["Verdant Drain Disk"] = {
+    "item_type": "DISK",
+    "type": "DISK",
+    "color": "GREEN",
+    "rarity": "RARE",
+    "stats": {},
+    "ability": {
+        "name": "Drain",
+        "quality_chances": {"fail": 0.1, "great": 0.1},
+        "effect_type": AbilityEffect.APPLY_BUFF,
+        "effect_data": {
+            "status_name": "LEECH_DOT",
+            "duration": 5.0,
+            "damage_per_value": 1.0,
+            "element": Element.FIRE,
+            "heal_ratio": 2.0,
+        },
+    },
+    "description": "5s fire DoT equal to value; heals caster double.",
+}
+
+ITEM_DEFINITIONS["Verdant Aegis Disk"] = {
+    "item_type": "DISK",
+    "type": "DISK",
+    "color": "GREEN",
+    "rarity": "RARE",
+    "stats": {},
+    "ability": {
+        "name": "Aegis",
+        "quality_chances": {"fail": 0.1, "great": 0.1},
+        "effect_type": AbilityEffect.APPLY_BUFF,
+        "effect_data": {
+            "status_name": "SPEED_SHIELD",
+            "duration": 5.0,
+            "hp_per_value": 5.0,
+        },
+    },
+    "description": "Speedy shield that decays 20% each second.",
+}
+
+ITEM_DEFINITIONS["Verdant Purity Disk"] = {
+    "item_type": "DISK",
+    "type": "DISK",
+    "color": "GREEN",
+    "rarity": "RARE",
+    "stats": {},
+    "ability": {
+        "name": "Purity",
+        "quality_chances": {"fail": 0.1, "great": 0.1},
+        "effect_type": AbilityEffect.APPLY_BUFF,
+        "effect_data": {
+            "status_name": "PURIFY",
+        },
+    },
+    "description": "Cleanse recent debuff and heal based on its time.",
+}
+
+ITEM_DEFINITIONS["Verdant Ward Disk"] = {
+    "item_type": "DISK",
+    "type": "DISK",
+    "color": "GREEN",
+    "rarity": "EPIC",
+    "stats": {},
+    "ability": {
+        "name": "Ward",
+        "quality_chances": {"fail": 0.1, "great": 0.1},
+        "effect_type": AbilityEffect.APPLY_BUFF,
+        "effect_data": {
+            "status_name": "MAGIC_WARD",
+            "reduction_per_value": 0.2,
+        },
+    },
+    "description": "Gain stacking magic damage reduction.",
+}
+
+ITEM_DEFINITIONS["Verdant Vitality Disk"] = {
+    "item_type": "DISK",
+    "type": "DISK",
+    "color": "GREEN",
+    "rarity": "EPIC",
+    "stats": {},
+    "ability": {
+        "name": "Vitality",
+        "quality_chances": {"fail": 0.1, "great": 0.1, "per_100_shift": 0.01},
+        "effect_type": AbilityEffect.APPLY_BUFF,
+        "effect_data": {"status_name": "VITALITY"},
+    },
+    "description": "Alter max HP based on quality.",
+}
+
 ITEM_RECIPES: Dict[Tuple[str, str], str] = {}
 THEMES: list[str] = ["MECHANICAL", "FROST", "ARCANE", "DESERT"]
 # FIX-UI: Add used_in_run flag to definition

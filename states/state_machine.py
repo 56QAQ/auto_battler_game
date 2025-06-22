@@ -61,6 +61,7 @@ def start_new_run(state: GameState, difficulty_level: str | None = None):
         "Crimson Splash Disk",
         "Crimson Doom Disk",
         "Crimson Frenzy Disk",
+
         "Azure Flame Disk",
         "Azure Frost Disk",
         "Azure Storm Disk",
@@ -69,7 +70,16 @@ def start_new_run(state: GameState, difficulty_level: str | None = None):
         "Azure Surge Disk",
         "Azure Blizzard Disk",
         "Azure Detonation Disk",
+        "Verdant Mend Disk",
+        "Verdant Renewal Disk",
+        "Verdant Precision Disk",
+        "Verdant Drain Disk",
+        "Verdant Aegis Disk",
+        "Verdant Purity Disk",
+        "Verdant Ward Disk",
+        "Verdant Vitality Disk",
     ]
+
     for name in disk_names:
         add_item_to_inventory(new_state.player, Item(name))
     return new_state

@@ -54,9 +54,52 @@ def test_azure_disk_definitions():
     assert scorch["ability"]["effect_data"]["element"] == Element.FIRE
 
     assert bastion["ability"]["effect_data"]["status_name"] == "DECAY_SHIELD"
-    assert surge["ability"]["effect_data"]["auto_crit_if_status"] == ["SHOCK", "SUPERCONDUCT"]
+
+    assert surge["ability"]["effect_data"]["auto_crit_if_status"] == [
+        "SHOCK",
+        "SUPERCONDUCT",
+    ]
+
 
     assert blizzard["rarity"] == "EPIC"
     assert blizzard["ability"]["effect_data"]["status_name"] == "ICY_PULSE"
 
     assert detonation["ability"]["effect_data"]["hp_percent_of_max"] == 0.5
+
+
+def test_verdant_disk_definitions():
+    mend = ITEM_DEFINITIONS["Verdant Mend Disk"]
+    renewal = ITEM_DEFINITIONS["Verdant Renewal Disk"]
+    precision = ITEM_DEFINITIONS["Verdant Precision Disk"]
+
+    assert mend["color"] == "GREEN"
+    assert mend["ability"]["quality_chances"]["fail"] == 0.1
+    assert mend["ability"]["effect_data"]["great_multiplier"] == 2.0
+
+    assert renewal["ability"]["effect_data"]["status_name"] == "HOT"
+    assert precision["ability"]["effect_data"]["status_name"] == "CRIT_HEAL"
+
+
+def test_verdant_new_disks():
+    drain = ITEM_DEFINITIONS["Verdant Drain Disk"]
+    aegis = ITEM_DEFINITIONS["Verdant Aegis Disk"]
+    purity = ITEM_DEFINITIONS["Verdant Purity Disk"]
+    ward = ITEM_DEFINITIONS["Verdant Ward Disk"]
+    vitality = ITEM_DEFINITIONS["Verdant Vitality Disk"]
+
+    assert drain["rarity"] == "RARE"
+    assert drain["ability"]["effect_data"]["status_name"] == "LEECH_DOT"
+    assert aegis["ability"]["effect_data"]["status_name"] == "SPEED_SHIELD"
+    assert purity["ability"]["effect_data"]["status_name"] == "PURIFY"
+    assert ward["rarity"] == "EPIC"
+    assert ward["ability"]["effect_data"]["status_name"] == "MAGIC_WARD"
+    assert vitality["ability"]["quality_chances"]["per_100_shift"] == 0.01
+
+
+def test_determine_quality_fail():
+    from engine.logic import determine_quality
+
+    ability = {"quality_chances": {"fail": 1.0, "great": 0.0}}
+    random_value = determine_quality(ability)
+    assert random_value == "fail"
+
