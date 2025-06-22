@@ -917,6 +917,14 @@ def find_targets(
         return res
     if target_type == TriggerTarget.RANDOM_ENEMY:
         return [random.choice(alive_enemies)]
+    if target_type == TriggerTarget.FARTHEST_ENEMY:
+        if not alive_enemies:
+            return []
+        farthest = max(
+            alive_enemies,
+            key=lambda u: (u.x - source_unit.x) ** 2 + (u.y - source_unit.y) ** 2,
+        )
+        return [farthest]
     if target_type == TriggerTarget.LOWEST_HP_ENEMY:
         # FIX: Avoid division by zero, handle units with 0 max hp
         valid_enemies = [u for u in alive_enemies if u.current_stats.get("hp", 0) > 0]
@@ -993,7 +1001,11 @@ def execute_ability(
             if random.random() < crit / 100.0:
                 damage *= source._xs("critical_damage", 150.0) / 100.0
                 source._last_outgoing_was_crit = True
-        if damage <= 0.1 and not "hp_percent_of_max" in data and not "dot_damage" in data:
+        if (
+            damage <= 0.1
+            and "hp_percent_of_max" not in data
+            and "dot_damage" not in data
+        ):
             return
         dtype = data.get("damage_type", DamageType.TRUE)  # FIX: default dtype
         color_map = {
@@ -1170,9 +1182,7 @@ def execute_ability(
                         duration=data.get("dot_duration"),
                         stack_rule=StackRule.UNLIMITED,
                         params={
-
                             "damage": dotdamage,
-
                             "dtype": dtype,
                             "element": data.get("element"),
                         },
@@ -1270,6 +1280,40 @@ def execute_ability(
                     damage=dmg,
                 )
                 target.add_status(effect)
+
+        elif data.get("status_name") == "STUN":
+            from engine.status_effects import ActionDenialEffect
+
+            duration = data.get("duration", 1.0)
+            for target in targets:
+                debuff = ActionDenialEffect(target, source.id, duration)
+                target.add_status(debuff)
+        elif data.get("status_name") == "BASIC_BLOCK":
+            from engine.status_effects import BasicAttackBlockEffect
+
+            reduction = data.get("reduction", 0.0)
+            cooldown = data.get("cooldown", 1.0)
+            for target in targets:
+                buff = BasicAttackBlockEffect(
+                    target,
+                    source.id,
+                    reduction=reduction,
+                    cooldown=cooldown,
+                )
+                target.add_status(buff)
+        elif data.get("status_name") == "DASH_TAUNT":
+            from engine.status_effects import DashTauntEffect
+
+            dist = data.get("distance", 0.0)
+            for target in targets:
+                eff = DashTauntEffect(target, source.id, distance=dist)
+                target.add_status(eff)
+        elif data.get("status_name") == "MELEE_BLAST":
+            from engine.status_effects import MeleeBlastEffect
+
+            for target in targets:
+                eff = MeleeBlastEffect(target, source.id)
+                target.add_status(eff)
 
         elif data.get("status_name") == "HOT":
             from engine.status_effects import HealOverTime
@@ -1555,6 +1599,8 @@ def resolve_trigger(
     if not ability_sources:
         return
     base_value = calculate_base_value(unit, unit.trigger, event_data)
+    if unit.trigger.get("require_melee") and not event_data.get("is_melee"):
+        return
     if unit.trigger.get("tally_multiplier"):
         base_value *= getattr(unit, "timer_event_tally", 1) / 10.0
     if unit.trigger.get("count_multiplier"):

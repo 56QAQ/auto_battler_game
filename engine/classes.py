@@ -31,6 +31,7 @@ from data.constants import (
     MAX_ITEMS_EQUIPPED,
     MAX_LEVEL,
     MEDIUM_NODES,
+    MELEE_RANGE_THRESHOLD,
     NODE_TYPE_DISTRIBUTION,
     NODES_PER_LAYER,
     PROJECTILE_SPEED,
@@ -1177,7 +1178,9 @@ class Unit:
         # 先让可拦截的状态（护盾等）修改伤害
         for _bucket in self.statuses.values():
             for _st in _bucket:
-                damage = _st.intercept_incoming_damage(damage, damage_type)
+                damage = _st.intercept_incoming_damage(
+                    damage, damage_type, source_action
+                )
                 if damage <= 0:
                     return 0.0
 
@@ -1376,11 +1379,17 @@ class Unit:
             and self.trigger
             and self.trigger["timing_type"] == TriggerTiming.ON_TAKE_DAMAGE
         ):
+            melee = False
+            if source and source_action == DamageSource.BASIC_ATTACK:
+                dx = self.x - source.x
+                dy = self.y - source.y
+                if dx * dx + dy * dy <= MELEE_RANGE_THRESHOLD**2:
+                    melee = True
             state.queue_trigger(
                 self,
                 TriggerTiming.ON_TAKE_DAMAGE,
                 event_target=source,
-                data={"damage": effective_damage},
+                data={"damage": effective_damage, "is_melee": melee},
             )
         if (
             state
@@ -1560,7 +1569,6 @@ class Unit:
         heal_amount *= self._xs("incoming_healing_bonus", 100.0) / 100.0
         self.heal(heal_amount, state, self, DamageSource.BASIC_ATTACK)
 
-
     def apply_crit_heal(self, dealt: float, state: "GameState") -> None:
         ratio = self._xs("crit_heal_percent", 0.0)
         if not self._last_outgoing_was_crit or ratio <= 0 or dealt <= 0:
@@ -1581,7 +1589,6 @@ class Unit:
                     size=self.radius,
                 )
             )
-
 
     def on_deal_magic_damage(self, target: "Unit", state: "GameState") -> None:
         for item in self.equipped_items:
