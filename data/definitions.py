@@ -928,7 +928,8 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
             "mr": 20,
             "range": 600,
         },
-        "trigger": {
+        "trigger": None,
+        "passive": {
             "timing_type": TriggerTiming.TIMED,
             "timing_data": {"interval": 3.0},
             "target_type": TriggerTarget.FARTHEST_ENEMY,
@@ -944,7 +945,6 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
                 },
             },
         },
-        "passive": {},
     },
     "Stone Sentinel": {
         "rarity": "ENEMY",
@@ -959,7 +959,8 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
             "range": 0,
             "move_speed": 0,
         },
-        "trigger": {
+        "trigger": None,
+        "passive": {
             "timing_type": TriggerTiming.ON_TAKE_DAMAGE,
             "target_type": TriggerTarget.EVENT_TARGETS,
             "base_value_source": StatSource.FLAT,
@@ -972,7 +973,6 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
                 "effect_data": {"status_name": "STUN", "duration": 1.0},
             },
         },
-        "passive": {},
     },
     "Warbringer": {
         "rarity": "ELITE",
@@ -1000,23 +1000,21 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
                     "distance": 800,
                 },
             },
-        },
-        "trigger": {
-            "timing_type": TriggerTiming.TIMED,
-            "timing_data": {"interval": 5.0},
-            "target_type": TriggerTarget.SELF,
-            "base_value_source": StatSource.AP,
-            "base_value_multiplier": 1.0,
-            "base_value_flat": 0,
-            "ability": {
-                "name": "Shockwave",
-                "effect_type": AbilityEffect.APPLY_BUFF,
-                "effect_data": {
-                    "status_name": "MELEE_BLAST",
-                    "duration": 0.0,
+            "secondary": {
+                "timing_type": TriggerTiming.TIMED,
+                "timing_data": {"interval": 5.0},
+                "target_type": TriggerTarget.SELF,
+                "base_value_source": StatSource.AP,
+                "base_value_multiplier": 1.0,
+                "base_value_flat": 0,
+                "ability": {
+                    "name": "Shockwave",
+                    "effect_type": AbilityEffect.APPLY_BUFF,
+                    "effect_data": {"status_name": "MELEE_BLAST", "duration": 0.0},
                 },
             },
         },
+        "trigger": None,
     },
 }
 
