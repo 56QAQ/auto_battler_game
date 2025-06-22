@@ -54,10 +54,12 @@ def test_azure_disk_definitions():
     assert scorch["ability"]["effect_data"]["element"] == Element.FIRE
 
     assert bastion["ability"]["effect_data"]["status_name"] == "DECAY_SHIELD"
+
     assert surge["ability"]["effect_data"]["auto_crit_if_status"] == [
         "SHOCK",
         "SUPERCONDUCT",
     ]
+
 
     assert blizzard["rarity"] == "EPIC"
     assert blizzard["ability"]["effect_data"]["status_name"] == "ICY_PULSE"
@@ -100,3 +102,4 @@ def test_determine_quality_fail():
     ability = {"quality_chances": {"fail": 1.0, "great": 0.0}}
     random_value = determine_quality(ability)
     assert random_value == "fail"
+

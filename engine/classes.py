@@ -443,7 +443,6 @@ class Unit:
                 existing.params["percent"] = 0.0
             self._recalculate_stats(0)
             return
-
         params = {
             "stat": stat,
             "flat": 0.0 if is_percent else value,
@@ -454,7 +453,7 @@ class Unit:
             source_id=source_id,
             duration=duration,
             stacks=1,
-            stack_rule=StackRule.UNIQUE,
+            stack_rule=StackRule.UNLIMITED,
             params=params,
         )
         self.add_status(effect)
@@ -1561,6 +1560,7 @@ class Unit:
         heal_amount *= self._xs("incoming_healing_bonus", 100.0) / 100.0
         self.heal(heal_amount, state, self, DamageSource.BASIC_ATTACK)
 
+
     def apply_crit_heal(self, dealt: float, state: "GameState") -> None:
         ratio = self._xs("crit_heal_percent", 0.0)
         if not self._last_outgoing_was_crit or ratio <= 0 or dealt <= 0:
@@ -1581,6 +1581,7 @@ class Unit:
                     size=self.radius,
                 )
             )
+
 
     def on_deal_magic_damage(self, target: "Unit", state: "GameState") -> None:
         for item in self.equipped_items:

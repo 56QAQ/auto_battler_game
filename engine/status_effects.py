@@ -5,7 +5,9 @@ from __future__ import annotations
 from abc import ABC
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
+
 from data.enums import DamageSource, DamageType, Element
+
 from engine.enums import RemoveReason, StackRule, StatusCategory
 
 if TYPE_CHECKING:
@@ -311,6 +313,7 @@ class ShieldEffect(StatusEffect):
         self.params.setdefault("accumulated", self.params["hp"])
 
     def intercept_incoming_damage(self, dmg: float, damage_type: DamageType) -> float:
+
         capacity = self.params.setdefault("hp", 0)
         if capacity <= 0:
             return dmg  # 已被耗尽
@@ -354,9 +357,11 @@ class DecayingShieldEffect(ShieldEffect):
         hp: float,
         damage: float,
     ) -> None:
+
         super().__init__(
             host, source_id, duration, stack_rule=StackRule.UNIQUE, params={"hp": hp}
         )
+
         self.params["initial"] = hp
         self.params["damage"] = damage
 
@@ -393,8 +398,10 @@ class DecayingShieldEffect(ShieldEffect):
                     for unit in pool:
                         if not unit.is_alive:
                             continue
-                        dx = unit.x - caster.x
-                        dy = unit.y - caster.y
+
+                        dx = unit.x - self.host.x
+                        dy = unit.y - self.host.y
+
                         if dx * dx + dy * dy <= radius_sq:
                             out = caster.compute_outgoing_damage(
                                 damage,
@@ -537,6 +544,7 @@ class CritHealBuff(StatusEffect):
         self.host.remove_buffs_from_source(self.name)
 
 
+
 class IcyPulseDebuff(StatusEffect):
     """Applies periodic ice damage to the host and nearby enemies."""
 
@@ -575,11 +583,13 @@ class IcyPulseDebuff(StatusEffect):
             else state.player_combat_team
         )
         radius_sq = (COMBAT_UNIT_RADIUS * 4) ** 2
+
         targets = [self.host] + [
             u
             for u in pool
             if (u.x - self.host.x) ** 2 + (u.y - self.host.y) ** 2 <= radius_sq
         ]
+
         for tgt in targets:
             if not tgt.is_alive:
                 continue
@@ -623,6 +633,10 @@ class ChillDebuff(StatusEffect):
     category = StatusCategory.DEBUFF
     tick_interval = None
 
+
+    def __init__(self, host: "Unit", source_id: str, duration: float = 3.0):
+        super().__init__(host, source_id, duration)
+
     def on_apply(self) -> None:
         self.host.add_stat_modifier("as", -30, None, self.name, True)
         self.host.add_stat_modifier("move_speed", -30, None, self.name, True)
@@ -652,7 +666,9 @@ class ShockDebuff(StatusEffect):
     category = StatusCategory.DEBUFF
     tick_interval = None
 
-    def __init__(self, host: "Unit", source_id: str, duration: float = 3.0):
+
+    def __init__(self, host: "Unit", source_id: str, duration: float = 30.0):
+
         super().__init__(host, source_id, duration)
 
     def on_apply(self) -> None:
@@ -678,6 +694,7 @@ class SuperconductDebuff(StatusEffect):
 
     def on_remove(self, reason: RemoveReason) -> None:
         self.host.remove_buffs_from_source(self.name)
+
 
 
 class LeechingDOT(DamageOverTime):
@@ -827,3 +844,4 @@ class AllWardBuff(DamageWardBuff):
             reduction=reduction,
             types=[DamageType.MAGIC, DamageType.PHYSICAL, DamageType.TRUE],
         )
+

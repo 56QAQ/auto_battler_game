@@ -123,12 +123,12 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
             "ap": 20,
             "armor": 20,
             "mr": 20,
-            "range": 130,
+            "range": 800,
         },
         "passive": {"end_of_battle_ap_gain": 1},
         "trigger": {
             "timing_type": TriggerTiming.TIMED,
-            "timing_data": {"interval": 5.0},
+            "timing_data": {"interval": 6.0},
             "target_type": TriggerTarget.NEAREST_ENEMY,
             "base_value_source": StatSource.AP,
             "base_value_multiplier": 1.0,
@@ -1592,13 +1592,16 @@ ITEM_DEFINITIONS["Azure Scorch Disk"] = {
             "damage_type": DamageType.MAGIC,
             "scale_factor": 0.0,
             "flat_value": 0,
+
+            "dot_damage_by_value": True,
             "dot_damage": 0.8,
-            "dot_duration": 5.0,
-            "dot_max_stacks": 1,
+            "dot_duration": 20.0,
+            "dot_max_stacks": 5,
             "element": Element.FIRE,
         },
     },
-    "description": "Applies a 5s fire DoT dealing 0.8×value per second.",
+    "description": "Applies a 20s fire DoT dealing 0.8×value per second.",
+
 }
 
 ITEM_DEFINITIONS["Azure Bastion Disk"] = {
@@ -1614,7 +1617,9 @@ ITEM_DEFINITIONS["Azure Bastion Disk"] = {
             "status_name": "DECAY_SHIELD",
             "hp_per_value": 5.0,
             "break_damage_per_value": 2.0,
-            "duration": 5.0,
+
+            "duration": 20.0,
+
         },
     },
     "description": "Shield worth 5×value that decays and explodes on break.",
@@ -1672,11 +1677,14 @@ ITEM_DEFINITIONS["Azure Detonation Disk"] = {
             "hp_percent_of_max": 0.5,
             "scale_factor_percent": 1.0,
             "splash_ratio": 1.0,
-            "splash_radius": 80,
+
+            "splash_radius": 800,
+
         },
     },
     "description": "Explodes target for value% of 50% max HP to nearby foes.",
 }
+
 
 ITEM_DEFINITIONS["Verdant Mend Disk"] = {
     "item_type": "DISK",
@@ -1826,6 +1834,7 @@ ITEM_DEFINITIONS["Verdant Vitality Disk"] = {
     },
     "description": "Alter max HP based on quality.",
 }
+
 ITEM_RECIPES: Dict[Tuple[str, str], str] = {}
 THEMES: list[str] = ["MECHANICAL", "FROST", "ARCANE", "DESERT"]
 # FIX-UI: Add used_in_run flag to definition

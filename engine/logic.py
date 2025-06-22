@@ -993,7 +993,7 @@ def execute_ability(
             if random.random() < crit / 100.0:
                 damage *= source._xs("critical_damage", 150.0) / 100.0
                 source._last_outgoing_was_crit = True
-        if damage <= 0.1:
+        if damage <= 0.1 and not "hp_percent_of_max" in data and not "dot_damage" in data:
             return
         dtype = data.get("damage_type", DamageType.TRUE)  # FIX: default dtype
         color_map = {
@@ -1161,13 +1161,18 @@ def execute_ability(
                     if isinstance(st, DamageOverTime) and st.source_id == source.id
                 ]
                 if len(same_source) < data.get("dot_max_stacks", len(bucket) + 1):
+                    dotdamage = data.get("dot_damage")
+                    if data.get("dot_damage_by_value"):
+                        dotdamage *= base_value
                     dot = DamageOverTime(
                         host=target,
                         source_id=source.id,
                         duration=data.get("dot_duration"),
                         stack_rule=StackRule.UNLIMITED,
                         params={
-                            "damage": data.get("dot_damage"),
+
+                            "damage": dotdamage,
+
                             "dtype": dtype,
                             "element": data.get("element"),
                         },
@@ -1265,6 +1270,7 @@ def execute_ability(
                     damage=dmg,
                 )
                 target.add_status(effect)
+
         elif data.get("status_name") == "HOT":
             from engine.status_effects import HealOverTime
 
@@ -1295,6 +1301,7 @@ def execute_ability(
                     crit_damage=dmg_bonus,
                 )
                 target.add_status(buff)
+
         elif data.get("status_name") == "ICY_PULSE":
             from engine.status_effects import IcyPulseDebuff
 
@@ -1453,6 +1460,7 @@ def execute_ability(
                     params={"stat": "hp", "flat": 0.0, "percent": pct},
                 )
                 target.add_status(effect)
+
         elif data.get("stack_buff_stat"):
             from engine.enums import StackRule
             from engine.status_effects import StatModifierEffect
