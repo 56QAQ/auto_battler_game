@@ -885,6 +885,139 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
         },
         "trigger": None,
     },
+    "Iron Shell": {
+        "rarity": "ENEMY",
+        "traits": ["Vermin"],
+        "base_stats": {
+            "hp": 800,
+            "ad": 40,
+            "as": 0.6,
+            "ap": 0,
+            "armor": 30,
+            "mr": 30,
+            "range": 50,
+        },
+        "passive": {
+            "timing_type": TriggerTiming.START_OF_COMBAT,
+            "target_type": TriggerTarget.SELF,
+            "base_value_source": StatSource.FLAT,
+            "base_value_multiplier": 0.0,
+            "base_value_flat": 0,
+            "ability": {
+                "name": "Shell Guard",
+                "effect_type": AbilityEffect.APPLY_BUFF,
+                "effect_data": {
+                    "status_name": "BASIC_BLOCK",
+                    "duration": None,
+                    "reduction": 60,
+                    "cooldown": 1.0,
+                },
+            },
+        },
+        "trigger": None,
+    },
+    "Arcane Spitter": {
+        "rarity": "ENEMY",
+        "traits": ["Automaton"],
+        "base_stats": {
+            "hp": 650,
+            "ad": 30,
+            "as": 0.5,
+            "ap": 80,
+            "armor": 20,
+            "mr": 20,
+            "range": 600,
+        },
+        "trigger": {
+            "timing_type": TriggerTiming.TIMED,
+            "timing_data": {"interval": 3.0},
+            "target_type": TriggerTarget.FARTHEST_ENEMY,
+            "base_value_source": StatSource.AP,
+            "base_value_multiplier": 1.0,
+            "base_value_flat": 0,
+            "ability": {
+                "name": "Arcane Barrage",
+                "effect_type": AbilityEffect.DEAL_DAMAGE,
+                "effect_data": {
+                    "damage_type": DamageType.MAGIC,
+                    "is_aoe": True,
+                },
+            },
+        },
+        "passive": {},
+    },
+    "Stone Sentinel": {
+        "rarity": "ENEMY",
+        "traits": ["Automaton"],
+        "base_stats": {
+            "hp": 1000,
+            "ad": 50,
+            "as": 0.0,
+            "ap": 0,
+            "armor": 50,
+            "mr": 50,
+            "range": 0,
+            "move_speed": 0,
+        },
+        "trigger": {
+            "timing_type": TriggerTiming.ON_TAKE_DAMAGE,
+            "target_type": TriggerTarget.EVENT_TARGETS,
+            "base_value_source": StatSource.FLAT,
+            "base_value_multiplier": 0.0,
+            "base_value_flat": 0,
+            "require_melee": True,
+            "ability": {
+                "name": "Counter Stun",
+                "effect_type": AbilityEffect.APPLY_BUFF,
+                "effect_data": {"status_name": "STUN", "duration": 1.0},
+            },
+        },
+        "passive": {},
+    },
+    "Warbringer": {
+        "rarity": "ELITE",
+        "traits": ["Automaton", "Boss"],
+        "base_stats": {
+            "hp": 3000,
+            "ad": 120,
+            "as": 0.8,
+            "ap": 100,
+            "armor": 80,
+            "mr": 80,
+            "range": 60,
+        },
+        "passive": {
+            "timing_type": TriggerTiming.START_OF_COMBAT,
+            "target_type": TriggerTarget.SELF,
+            "base_value_source": StatSource.FLAT,
+            "base_value_multiplier": 0.0,
+            "base_value_flat": 0,
+            "ability": {
+                "name": "Opening Charge",
+                "effect_type": AbilityEffect.APPLY_BUFF,
+                "effect_data": {
+                    "status_name": "DASH_TAUNT",
+                    "distance": 800,
+                },
+            },
+        },
+        "trigger": {
+            "timing_type": TriggerTiming.TIMED,
+            "timing_data": {"interval": 5.0},
+            "target_type": TriggerTarget.SELF,
+            "base_value_source": StatSource.AP,
+            "base_value_multiplier": 1.0,
+            "base_value_flat": 0,
+            "ability": {
+                "name": "Shockwave",
+                "effect_type": AbilityEffect.APPLY_BUFF,
+                "effect_data": {
+                    "status_name": "MELEE_BLAST",
+                    "duration": 0.0,
+                },
+            },
+        },
+    },
 }
 
 SYNERGY_DEFINITIONS: Dict[str, Dict[str, Any]] = {
@@ -1592,7 +1725,6 @@ ITEM_DEFINITIONS["Azure Scorch Disk"] = {
             "damage_type": DamageType.MAGIC,
             "scale_factor": 0.0,
             "flat_value": 0,
-
             "dot_damage_by_value": True,
             "dot_damage": 0.8,
             "dot_duration": 20.0,
@@ -1601,7 +1733,6 @@ ITEM_DEFINITIONS["Azure Scorch Disk"] = {
         },
     },
     "description": "Applies a 20s fire DoT dealing 0.8×value per second.",
-
 }
 
 ITEM_DEFINITIONS["Azure Bastion Disk"] = {
@@ -1617,9 +1748,7 @@ ITEM_DEFINITIONS["Azure Bastion Disk"] = {
             "status_name": "DECAY_SHIELD",
             "hp_per_value": 5.0,
             "break_damage_per_value": 2.0,
-
             "duration": 20.0,
-
         },
     },
     "description": "Shield worth 5×value that decays and explodes on break.",
@@ -1677,9 +1806,7 @@ ITEM_DEFINITIONS["Azure Detonation Disk"] = {
             "hp_percent_of_max": 0.5,
             "scale_factor_percent": 1.0,
             "splash_ratio": 1.0,
-
             "splash_radius": 800,
-
         },
     },
     "description": "Explodes target for value% of 50% max HP to nearby foes.",
