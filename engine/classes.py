@@ -352,6 +352,7 @@ class Unit:
         self.attack_timer: float = 0.0
         self.trigger_timer: float = 0.0
         self.passive_timer: float = 0.0
+        self.secondary_passive_timer: float = 0.0
         self.magic_damage_progress: float = 0.0
         self.physical_damage_progress: float = 0.0
         self.damage_progress: float = 0.0
@@ -670,6 +671,7 @@ class Unit:
         self.attack_timer = 0.0
         self.trigger_timer = 0.0
         self.passive_timer = 0.0
+        self.secondary_passive_timer = 0.0
         self.double_heal_uses = 0
         self.extra_attack_counters.clear()
         self.item_trigger_counts.clear()
@@ -2033,6 +2035,25 @@ class Unit:
             interval = self.passive.get("timing_data", {}).get("interval", 999.0)
             while self.passive_timer >= interval and interval > 0:
                 self.passive_timer -= interval
+                resolve_passive_func(
+                    self,
+                    TriggerTiming.TIMED,
+                    state,
+                    event_target=None,
+                    event_data={},
+                )
+        if (
+            self.passive
+            and self.passive.get("secondary")
+            and self.passive["secondary"].get("timing_type") == TriggerTiming.TIMED
+            and resolve_passive_func
+        ):
+            self.secondary_passive_timer += dt
+            interval = self.passive["secondary"].get("timing_data", {}).get(
+                "interval", 999.0
+            )
+            while self.secondary_passive_timer >= interval and interval > 0:
+                self.secondary_passive_timer -= interval
                 resolve_passive_func(
                     self,
                     TriggerTiming.TIMED,

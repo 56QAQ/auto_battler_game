@@ -1311,8 +1311,9 @@ def execute_ability(
         elif data.get("status_name") == "MELEE_BLAST":
             from engine.status_effects import MeleeBlastEffect
 
+            interval = data.get("interval")
             for target in targets:
-                eff = MeleeBlastEffect(target, source.id)
+                eff = MeleeBlastEffect(target, source.id, interval=interval)
                 target.add_status(eff)
 
         elif data.get("status_name") == "HOT":
@@ -1591,11 +1592,6 @@ def resolve_trigger(
     for item in unit.equipped_items:
         if item and item.ability:
             ability_sources.append((item, item.ability))
-    if "ability" in unit.trigger:
-        ability_sources.append((None, unit.trigger["ability"]))
-    # FIX: This design means only units with items equipped can use their triggers.
-    # The trigger defines the condition (timing, target, value source), the item defines the effect.
-    # Allow ability defined directly on the trigger as well.
     if not ability_sources:
         return
     base_value = calculate_base_value(unit, unit.trigger, event_data)
@@ -1745,19 +1741,28 @@ def resolve_passive(
     ):
         return
     ability = unit.passive.get("ability")
-    if not ability:
+    secondary = unit.passive.get("secondary")
+    if not ability and not secondary:
         return
     if timing == TriggerTiming.TIMED:
         for u in state.player_combat_team + state.enemy_combat_team:
             if u.is_alive and u.passive.get("tally_timer_activations", False):
                 u.timer_event_tally += 1
     base_value = calculate_base_value(unit, unit.passive, event_data)
+    if unit.passive.get("require_melee") and not event_data.get("is_melee"):
+        return
     if "target_type" not in unit.passive:
         return
     targets = find_targets(unit, unit.passive["target_type"], state, event_target)
     if not targets:
         return
-    execute_ability(ability, unit, targets, base_value, state)
+    if ability:
+        execute_ability(ability, unit, targets, base_value, state)
+    if secondary and secondary.get("timing_type") == timing:
+        sec_value = calculate_base_value(unit, secondary, event_data)
+        sec_targets = find_targets(unit, secondary.get("target_type", TriggerTarget.SELF), state, event_target)
+        if sec_targets:
+            execute_ability(secondary["ability"], unit, sec_targets, sec_value, state)
 
 
 # FIX: Assign the actual function directly to the class attribute AFTER definition

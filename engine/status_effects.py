@@ -865,7 +865,6 @@ class BasicAttackBlockEffect(StatusEffect):
         if current - last >= self.params.get("cooldown", 0.0):
             self.params["last_time"] = current
         return max(0.0, dmg - self.params.get("reduction", 0.0))
-        return dmg
 
 
 class DashTauntEffect(StatusEffect):
@@ -905,7 +904,17 @@ class MeleeBlastEffect(StatusEffect):
     category = StatusCategory.BUFF
     tick_interval = None
 
-    def on_apply(self) -> None:
+    def __init__(
+        self,
+        host: "Unit",
+        source_id: str,
+        interval: float | None = None,
+    ) -> None:
+        super().__init__(host, source_id, None, stack_rule=StackRule.UNIQUE)
+        if interval:
+            self.tick_interval = interval
+
+    def _blast(self) -> None:
         from data.constants import MELEE_RANGE_THRESHOLD
         from engine.game_state import get_game_state
 
@@ -933,6 +942,13 @@ class MeleeBlastEffect(StatusEffect):
                 if dealt > 0:
                     st = ActionDenialEffect(u, self.host.id, 1.0)
                     u.add_status(st)
+
+    def on_apply(self) -> None:
+        self._blast()
+
+    def on_tick(self, dt: float) -> None:
+        if self.tick_interval:
+            self._blast()
 
 
 class MagicWardBuff(DamageWardBuff):
