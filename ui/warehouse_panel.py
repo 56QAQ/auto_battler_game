@@ -1,10 +1,11 @@
-#ui/warehouse_panel.py
+# ui/warehouse_panel.py
 
 import math
 
 import pygame
 
 from engine.game_state import GameState
+from states.enums import UnitLocation
 from ui.constants import (
     ITEM_SLOT_SIZE,
     PANEL_BG,
@@ -45,14 +46,16 @@ class WarehousePanel:
     def handle_event(self, ev: pygame.event.Event) -> bool:
         if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
             start = self.page * self._page_size()
-            end   = start + self._page_size()
+            end = start + self._page_size()
             items = self.state.player.item_inventory[start:end]
             for local_idx, _ in enumerate(items):
                 if self.get_item_rect(local_idx).collidepoint(ev.pos):
                     global_idx = start + local_idx
                     itm = self.state.player.item_inventory[global_idx]
                     self.context.selected_item_info = (
-                        UnitLocation.INVENTORY, global_idx, itm
+                        UnitLocation.INVENTORY,
+                        global_idx,
+                        itm,
                     )
                     return True
             if self.prev_rect.collidepoint(ev.pos):
