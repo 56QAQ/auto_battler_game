@@ -3,7 +3,7 @@
 import math
 
 import pygame
-
+from states.enums import UnitLocation
 from engine.game_state import GameState
 from ui.constants import (
     ITEM_SLOT_SIZE,
@@ -14,7 +14,7 @@ from ui.constants import (
     WAREHOUSE_Y,
     WHITE,
 )
-from ui.drawing import draw_button, draw_item_prep
+from ui.drawing import draw_item_prep
 from ui.ui_context import UIContext
 
 
@@ -22,8 +22,10 @@ class WarehousePanel:
     def __init__(self, state: GameState, context: UIContext) -> None:
         self.state = state
         self.context = context
-        w = WAREHOUSE_COLS * (ITEM_SLOT_SIZE + SLOT_MARGIN) + SLOT_MARGIN
-        h = WAREHOUSE_ROWS * (ITEM_SLOT_SIZE + SLOT_MARGIN) + 50
+        self.cols = int(WAREHOUSE_COLS * 1.5)
+        self.rows = int(WAREHOUSE_ROWS * 2)
+        w = self.cols * (ITEM_SLOT_SIZE + SLOT_MARGIN) + SLOT_MARGIN
+        h = self.rows * (ITEM_SLOT_SIZE + SLOT_MARGIN) + 50
         button_bottom = (
             context.warehouse_button_rect.bottom
             if context.warehouse_button_rect
@@ -31,11 +33,10 @@ class WarehousePanel:
         )
         self.rect = pygame.Rect(context.shop_x_start, button_bottom + 10, w, h)
         self.page = 0
-        self.prev_rect = pygame.Rect(self.rect.x + 10, self.rect.y + 10, 30, 20)
-        self.next_rect = pygame.Rect(self.rect.right - 40, self.rect.y + 10, 30, 20)
+
 
     def _page_size(self) -> int:
-        return WAREHOUSE_COLS * WAREHOUSE_ROWS
+        return self.cols * self.rows
 
     def _total_pages(self) -> int:
         return max(
@@ -55,19 +56,13 @@ class WarehousePanel:
                         UnitLocation.INVENTORY, global_idx, itm
                     )
                     return True
-            if self.prev_rect.collidepoint(ev.pos):
-                self.page = (self.page - 1) % self._total_pages()
-                return True
-            if self.next_rect.collidepoint(ev.pos):
-                self.page = (self.page + 1) % self._total_pages()
-                return True
             if not self.rect.collidepoint(ev.pos):
                 return False
         return False
 
     def get_item_rect(self, index: int) -> pygame.Rect:
-        row = index // WAREHOUSE_COLS
-        col = index % WAREHOUSE_COLS
+        row = index // self.cols
+        col = index % self.cols
         x = self.rect.x + SLOT_MARGIN + col * (ITEM_SLOT_SIZE + SLOT_MARGIN)
         y = self.rect.y + 40 + row * (ITEM_SLOT_SIZE + SLOT_MARGIN)
         return pygame.Rect(x, y, ITEM_SLOT_SIZE, ITEM_SLOT_SIZE)
@@ -77,14 +72,6 @@ class WarehousePanel:
         surf = ctx.screen
         pygame.draw.rect(surf, PANEL_BG, self.rect)
         pygame.draw.rect(surf, WHITE, self.rect, 2)
-        mouse = pygame.mouse.get_pos()
-        draw_button(
-            ctx, self.prev_rect, "<", "default", self.prev_rect.collidepoint(mouse)
-        )
-        draw_button(
-            ctx, self.next_rect, ">", "default", self.next_rect.collidepoint(mouse)
-        )
-
         start = self.page * self._page_size()
         end = start + self._page_size()
         items = self.state.player.item_inventory[start:end]

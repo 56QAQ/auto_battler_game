@@ -1718,7 +1718,7 @@ ITEM_DEFINITIONS["Verdant Renewal Disk"] = {
         "effect_data": {
             "status_name": "HOT",
             "duration": 5.0,
-            "heal_per_value": 0.01,
+            "heal_per_value": 0.4,
             "great_multiplier": 2.0,
         },
     },
@@ -1759,7 +1759,6 @@ ITEM_DEFINITIONS["Verdant Drain Disk"] = {
             "status_name": "LEECH_DOT",
             "duration": 5.0,
             "damage_per_value": 1.0,
-            "element": Element.FIRE,
             "heal_ratio": 2.0,
         },
     },
