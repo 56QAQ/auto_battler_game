@@ -917,6 +917,14 @@ def find_targets(
         return res
     if target_type == TriggerTarget.RANDOM_ENEMY:
         return [random.choice(alive_enemies)]
+    if target_type == TriggerTarget.FARTHEST_ENEMY:
+        if not alive_enemies:
+            return []
+        farthest = max(
+            alive_enemies,
+            key=lambda u: (u.x - source_unit.x) ** 2 + (u.y - source_unit.y) ** 2,
+        )
+        return [farthest]
     if target_type == TriggerTarget.LOWEST_HP_ENEMY:
         # FIX: Avoid division by zero, handle units with 0 max hp
         valid_enemies = [u for u in alive_enemies if u.current_stats.get("hp", 0) > 0]
@@ -993,7 +1001,11 @@ def execute_ability(
             if random.random() < crit / 100.0:
                 damage *= source._xs("critical_damage", 150.0) / 100.0
                 source._last_outgoing_was_crit = True
-        if damage <= 0.1 and not "hp_percent_of_max" in data and not "dot_damage" in data:
+        if (
+            damage <= 0.1
+            and "hp_percent_of_max" not in data
+            and "dot_damage" not in data
+        ):
             return
         dtype = data.get("damage_type", DamageType.TRUE)  # FIX: default dtype
         color_map = {
@@ -1170,9 +1182,7 @@ def execute_ability(
                         duration=data.get("dot_duration"),
                         stack_rule=StackRule.UNLIMITED,
                         params={
-
                             "damage": dotdamage,
-
                             "dtype": dtype,
                             "element": data.get("element"),
                         },
@@ -1270,6 +1280,76 @@ def execute_ability(
                     damage=dmg,
                 )
                 target.add_status(effect)
+
+        elif data.get("status_name") == "STUN":
+            from engine.status_effects import ActionDenialEffect
+
+            duration = data.get("duration", 1.0)
+            for target in targets:
+                debuff = ActionDenialEffect(target, source.id, duration)
+                target.add_status(debuff)
+        elif data.get("status_name") == "BASIC_BLOCK":
+            from engine.status_effects import BasicAttackBlockEffect
+
+            reduction = data.get("reduction", 0.0)
+            cooldown = data.get("cooldown", 1.0)
+            for target in targets:
+                buff = BasicAttackBlockEffect(
+                    target,
+                    source.id,
+                    reduction=reduction,
+                    cooldown=cooldown,
+                )
+                target.add_status(buff)
+        elif data.get("status_name") == "DASH_TAUNT":
+            from engine.status_effects import DashTauntEffect
+
+            dist = data.get("distance", 0.0)
+            for target in targets:
+                eff = DashTauntEffect(target, source.id, distance=dist)
+                target.add_status(eff)
+        elif data.get("status_name") == "MELEE_BLAST":
+            from engine.status_effects import MeleeBlastEffect
+
+            interval = data.get("interval")
+            for target in targets:
+                eff = MeleeBlastEffect(target, source.id, interval=interval)
+                target.add_status(eff)
+        elif data.get("status_name") == "SHIFT_Y":
+            from engine.status_effects import PositionShiftEffect
+
+            y_pos = data.get("y")
+            for target in targets:
+                eff = PositionShiftEffect(target, source.id, y=y_pos)
+                target.add_status(eff)
+        elif data.get("status_name") == "DAMAGE_STORE":
+            from engine.status_effects import DamageStoreBuff
+
+            for target in targets:
+                eff = DamageStoreBuff(target, source.id)
+                target.add_status(eff)
+        elif data.get("status_name") == "ALLY_SHIFT":
+            from engine.status_effects import AllyShiftBuff
+
+            for target in targets:
+                eff = AllyShiftBuff(target, source.id)
+                target.add_status(eff)
+        elif data.get("status_name") == "WEAK_AURA":
+            from engine.status_effects import WeakAuraSource
+
+            for target in targets:
+                eff = WeakAuraSource(target, source.id)
+                target.add_status(eff)
+        elif data.get("status_name") == "SELF_DESTRUCT":
+            from engine.status_effects import SelfDestructEffect
+
+            duration = data.get("duration", 5.0)
+            damage = data.get("damage", 0.0)
+            if data.get("use_base_value"):
+                damage += base_value
+            for target in targets:
+                eff = SelfDestructEffect(target, source.id, duration, damage)
+                target.add_status(eff)
 
         elif data.get("status_name") == "HOT":
             from engine.status_effects import HealOverTime
@@ -1527,6 +1607,29 @@ def execute_ability(
                             target.x, target.y, f"+{healed:.0f}", "HEAL_COLOR"
                         )
                     )
+    elif effect_type == AbilityEffect.SPAWN_UNIT:
+        from engine.classes import Unit
+        from data.definitions import UNIT_DEFINITIONS
+
+        name = data.get("unit_name")
+        count = int(data.get("count", 1))
+        hp_bonus = data.get("hp_bonus", 0.0)
+        if data.get("use_stored_damage"):
+            for st in source.statuses.get("DAMAGE_STORE", []):
+                hp_bonus += st.params.get("stored", 0.0)
+                st.params["stored"] = 0.0
+        if not name or name not in UNIT_DEFINITIONS:
+            return
+        for _ in range(count):
+            unit = Unit(name, UNIT_DEFINITIONS[name], is_enemy=source.is_enemy)
+            unit.reset_combat_state()
+            unit.x = source.x
+            unit.y = source.y
+            unit.current_stats["hp"] += hp_bonus
+            unit.base_stats["hp"] = unit.current_stats["hp"]
+            unit.current_hp = unit.current_stats["hp"]
+            team = state.enemy_combat_team if source.is_enemy else state.player_combat_team
+            team.append(unit)
 
 
 def resolve_trigger(
@@ -1547,14 +1650,11 @@ def resolve_trigger(
     for item in unit.equipped_items:
         if item and item.ability:
             ability_sources.append((item, item.ability))
-    if "ability" in unit.trigger:
-        ability_sources.append((None, unit.trigger["ability"]))
-    # FIX: This design means only units with items equipped can use their triggers.
-    # The trigger defines the condition (timing, target, value source), the item defines the effect.
-    # Allow ability defined directly on the trigger as well.
     if not ability_sources:
         return
     base_value = calculate_base_value(unit, unit.trigger, event_data)
+    if unit.trigger.get("require_melee") and not event_data.get("is_melee"):
+        return
     if unit.trigger.get("tally_multiplier"):
         base_value *= getattr(unit, "timer_event_tally", 1) / 10.0
     if unit.trigger.get("count_multiplier"):
@@ -1699,19 +1799,28 @@ def resolve_passive(
     ):
         return
     ability = unit.passive.get("ability")
-    if not ability:
+    secondary = unit.passive.get("secondary")
+    if not ability and not secondary:
         return
     if timing == TriggerTiming.TIMED:
         for u in state.player_combat_team + state.enemy_combat_team:
             if u.is_alive and u.passive.get("tally_timer_activations", False):
                 u.timer_event_tally += 1
     base_value = calculate_base_value(unit, unit.passive, event_data)
+    if unit.passive.get("require_melee") and not event_data.get("is_melee"):
+        return
     if "target_type" not in unit.passive:
         return
     targets = find_targets(unit, unit.passive["target_type"], state, event_target)
     if not targets:
         return
-    execute_ability(ability, unit, targets, base_value, state)
+    if ability:
+        execute_ability(ability, unit, targets, base_value, state)
+    if secondary and secondary.get("timing_type") == timing:
+        sec_value = calculate_base_value(unit, secondary, event_data)
+        sec_targets = find_targets(unit, secondary.get("target_type", TriggerTarget.SELF), state, event_target)
+        if sec_targets:
+            execute_ability(secondary["ability"], unit, sec_targets, sec_value, state)
 
 
 # FIX: Assign the actual function directly to the class attribute AFTER definition

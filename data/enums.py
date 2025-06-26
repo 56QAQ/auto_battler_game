@@ -34,6 +34,7 @@ class TriggerTarget(Enum):
     LOWEST_HP_ALLY_ADJACENT = auto()
     RANDOM_NEGATIVE_ALLY = auto()
     RANDOM_ENEMY = auto()
+    FARTHEST_ENEMY = auto()
     EVENT_TARGETS = auto()
     ALL_NEGATIVE_ENEMIES = auto()
     FARTHEST_ENEMY_ADJACENT = auto()
@@ -60,6 +61,7 @@ class AbilityEffect(Enum):
     APPLY_BUFF = auto()  # or debuff
     HEAL = auto()
     APPLY_DOT = auto()
+    SPAWN_UNIT = auto()
 
 
 class DamageType(Enum):

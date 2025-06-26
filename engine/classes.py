@@ -31,6 +31,7 @@ from data.constants import (
     MAX_ITEMS_EQUIPPED,
     MAX_LEVEL,
     MEDIUM_NODES,
+    MELEE_RANGE_THRESHOLD,
     NODE_TYPE_DISTRIBUTION,
     NODES_PER_LAYER,
     PROJECTILE_SPEED,
@@ -328,6 +329,7 @@ class Unit:
             "dodge_chance": 5.0,
             "accuracy": 0.0,
             "move_speed": DEFAULT_MOVE_SPEED,
+            "threat_weight": 1.0,
         }
         for _k, _v in _extended_defaults.items():
             self.base_stats.setdefault(_k, _v)
@@ -351,6 +353,7 @@ class Unit:
         self.attack_timer: float = 0.0
         self.trigger_timer: float = 0.0
         self.passive_timer: float = 0.0
+        self.secondary_passive_timer: float = 0.0
         self.magic_damage_progress: float = 0.0
         self.physical_damage_progress: float = 0.0
         self.damage_progress: float = 0.0
@@ -669,6 +672,7 @@ class Unit:
         self.attack_timer = 0.0
         self.trigger_timer = 0.0
         self.passive_timer = 0.0
+        self.secondary_passive_timer = 0.0
         self.double_heal_uses = 0
         self.extra_attack_counters.clear()
         self.item_trigger_counts.clear()
@@ -1177,7 +1181,9 @@ class Unit:
         # 先让可拦截的状态（护盾等）修改伤害
         for _bucket in self.statuses.values():
             for _st in _bucket:
-                damage = _st.intercept_incoming_damage(damage, damage_type)
+                damage = _st.intercept_incoming_damage(
+                    damage, damage_type, source_action
+                )
                 if damage <= 0:
                     return 0.0
 
@@ -1376,11 +1382,17 @@ class Unit:
             and self.trigger
             and self.trigger["timing_type"] == TriggerTiming.ON_TAKE_DAMAGE
         ):
+            melee = False
+            if source and source_action == DamageSource.BASIC_ATTACK:
+                dx = self.x - source.x
+                dy = self.y - source.y
+                if dx * dx + dy * dy <= MELEE_RANGE_THRESHOLD**2:
+                    melee = True
             state.queue_trigger(
                 self,
                 TriggerTiming.ON_TAKE_DAMAGE,
                 event_target=source,
-                data={"damage": effective_damage},
+                data={"damage": effective_damage, "is_melee": melee},
             )
         if (
             state
@@ -1560,7 +1572,6 @@ class Unit:
         heal_amount *= self._xs("incoming_healing_bonus", 100.0) / 100.0
         self.heal(heal_amount, state, self, DamageSource.BASIC_ATTACK)
 
-
     def apply_crit_heal(self, dealt: float, state: "GameState") -> None:
         ratio = self._xs("crit_heal_percent", 0.0)
         if not self._last_outgoing_was_crit or ratio <= 0 or dealt <= 0:
@@ -1581,7 +1592,6 @@ class Unit:
                     size=self.radius,
                 )
             )
-
 
     def on_deal_magic_damage(self, target: "Unit", state: "GameState") -> None:
         for item in self.equipped_items:
@@ -2026,6 +2036,25 @@ class Unit:
             interval = self.passive.get("timing_data", {}).get("interval", 999.0)
             while self.passive_timer >= interval and interval > 0:
                 self.passive_timer -= interval
+                resolve_passive_func(
+                    self,
+                    TriggerTiming.TIMED,
+                    state,
+                    event_target=None,
+                    event_data={},
+                )
+        if (
+            self.passive
+            and self.passive.get("secondary")
+            and self.passive["secondary"].get("timing_type") == TriggerTiming.TIMED
+            and resolve_passive_func
+        ):
+            self.secondary_passive_timer += dt
+            interval = self.passive["secondary"].get("timing_data", {}).get(
+                "interval", 999.0
+            )
+            while self.secondary_passive_timer >= interval and interval > 0:
+                self.secondary_passive_timer -= interval
                 resolve_passive_func(
                     self,
                     TriggerTiming.TIMED,

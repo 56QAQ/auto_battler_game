@@ -22,8 +22,10 @@ def _threat(unit: "Unit", enemy: "Unit") -> float:
     reach = unit.current_stats.get("range", 50)
     if reach == 0:
         distance_factor = 0.1
-    else: distance_factor = max(0.1, distance / reach)
-    return (1.0 - hp_ratio) * 2.0 + 1.0 / distance_factor
+    else:
+        distance_factor = max(0.1, distance / reach)
+    weight = enemy.current_stats.get("threat_weight", 1.0)
+    return ((1.0 - hp_ratio) * 2.0 + 1.0 / distance_factor) * weight
 
 
 def acquire_target_if_needed(unit: "Unit", enemies: List["Unit"], dt: float) -> None:

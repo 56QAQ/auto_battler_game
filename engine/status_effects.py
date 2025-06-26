@@ -5,9 +5,7 @@ from __future__ import annotations
 from abc import ABC
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
-
 from data.enums import DamageSource, DamageType, Element
-
 from engine.enums import RemoveReason, StackRule, StatusCategory
 
 if TYPE_CHECKING:
@@ -56,7 +54,12 @@ class StatusEffect(ABC):
         """每经过 `tick_interval` 调用；默认空实现"""
 
     # ---- 宿主钩子（可选覆写） ----
-    def intercept_incoming_damage(self, dmg: float, damage_type: DamageType) -> float:
+    def intercept_incoming_damage(
+        self,
+        dmg: float,
+        damage_type: DamageType,
+        source_action: DamageSource = DamageSource.ITEM_ABILITY,
+    ) -> float:
         """可以修改或吸收即将受到的伤害；返回修改后数值"""
         return dmg
 
@@ -312,7 +315,12 @@ class ShieldEffect(StatusEffect):
         self.params.setdefault("hp", 0.0)
         self.params.setdefault("accumulated", self.params["hp"])
 
-    def intercept_incoming_damage(self, dmg: float, damage_type: DamageType) -> float:
+    def intercept_incoming_damage(
+        self,
+        dmg: float,
+        damage_type: DamageType,
+        source_action: DamageSource = DamageSource.ITEM_ABILITY,
+    ) -> float:
 
         capacity = self.params.setdefault("hp", 0)
         if capacity <= 0:
@@ -437,7 +445,12 @@ class DamageRedirectEffect(StatusEffect):
     category = StatusCategory.BUFF
     tick_interval = None
 
-    def intercept_incoming_damage(self, dmg: float, damage_type: DamageType) -> float:
+    def intercept_incoming_damage(
+        self,
+        dmg: float,
+        damage_type: DamageType,
+        source_action: DamageSource = DamageSource.ITEM_ABILITY,
+    ) -> float:
         ratio = self.params.get("ratio", 0.0)
         target_id = self.params.get("target_id")
         if dmg <= 0 or not target_id or ratio <= 0:
@@ -544,7 +557,6 @@ class CritHealBuff(StatusEffect):
         self.host.remove_buffs_from_source(self.name)
 
 
-
 class IcyPulseDebuff(StatusEffect):
     """Applies periodic ice damage to the host and nearby enemies."""
 
@@ -633,7 +645,6 @@ class ChillDebuff(StatusEffect):
     category = StatusCategory.DEBUFF
     tick_interval = None
 
-
     def __init__(self, host: "Unit", source_id: str, duration: float = 3.0):
         super().__init__(host, source_id, duration)
 
@@ -666,7 +677,6 @@ class ShockDebuff(StatusEffect):
     category = StatusCategory.DEBUFF
     tick_interval = None
 
-
     def __init__(self, host: "Unit", source_id: str, duration: float = 30.0):
 
         super().__init__(host, source_id, duration)
@@ -694,7 +704,6 @@ class SuperconductDebuff(StatusEffect):
 
     def on_remove(self, reason: RemoveReason) -> None:
         self.host.remove_buffs_from_source(self.name)
-
 
 
 class LeechingDOT(DamageOverTime):
@@ -796,7 +805,12 @@ class DamageWardBuff(StatusEffect):
         self.params["reduction"] = reduction
         self.params["types"] = types
 
-    def intercept_incoming_damage(self, dmg: float, damage_type: DamageType) -> float:
+    def intercept_incoming_damage(
+        self,
+        dmg: float,
+        damage_type: DamageType,
+        source_action: DamageSource = DamageSource.ITEM_ABILITY,
+    ) -> float:
         if damage_type not in self.params.get("types", []):
             return dmg
         reduction = self.params.get("reduction", 0.0)
@@ -813,6 +827,128 @@ class DamageWardBuff(StatusEffect):
                 )
             return 0.0
         return dmg * (1.0 - reduction / 100.0)
+
+
+class BasicAttackBlockEffect(StatusEffect):
+    """Reduce damage from basic attacks with an internal cooldown."""
+
+    name = "BASIC_BLOCK"
+    category = StatusCategory.BUFF
+    tick_interval = None
+
+    def __init__(
+        self,
+        host: "Unit",
+        source_id: str,
+        *,
+        reduction: float,
+        cooldown: float,
+    ) -> None:
+        super().__init__(host, source_id, None, stack_rule=StackRule.UNIQUE)
+        self.params["reduction"] = reduction
+        self.params["cooldown"] = cooldown
+        self.params["last_time"] = -cooldown
+
+    def intercept_incoming_damage(
+        self,
+        dmg: float,
+        damage_type: DamageType,
+        source_action: DamageSource = DamageSource.ITEM_ABILITY,
+    ) -> float:
+        if source_action != DamageSource.BASIC_ATTACK:
+            return dmg
+        from engine.game_state import get_game_state
+
+        state = get_game_state()
+        current = state.combat_timer if state else 0.0
+        last = self.params.get("last_time", -self.params.get("cooldown", 0.0))
+        if current - last >= self.params.get("cooldown", 0.0):
+            self.params["last_time"] = current
+        return max(0.0, dmg - self.params.get("reduction", 0.0))
+
+
+class DashTauntEffect(StatusEffect):
+    """Dash forward and taunt enemies when applied."""
+
+    name = "DASH_TAUNT"
+    category = StatusCategory.BUFF
+    tick_interval = None
+
+    def __init__(self, host: "Unit", source_id: str, *, distance: float) -> None:
+        super().__init__(host, source_id, None, stack_rule=StackRule.UNIQUE)
+        self.params["distance"] = distance
+
+    def on_apply(self) -> None:
+        from engine.game_state import get_game_state
+
+        dist = self.params.get("distance", 0.0)
+        if self.host.is_enemy:
+            self.host.y += 0.0
+        self.host.x += dist if not self.host.is_enemy else -dist
+        state = get_game_state()
+        if state:
+            pool = (
+                state.player_combat_team
+                if self.host.is_enemy
+                else state.enemy_combat_team
+            )
+            for u in pool:
+                if u.is_alive:
+                    u.target = self.host
+
+
+class MeleeBlastEffect(StatusEffect):
+    """Damage and stun melee attackers targeting the host."""
+
+    name = "MELEE_BLAST"
+    category = StatusCategory.BUFF
+    tick_interval = None
+
+    def __init__(
+        self,
+        host: "Unit",
+        source_id: str,
+        interval: float | None = None,
+    ) -> None:
+        super().__init__(host, source_id, None, stack_rule=StackRule.UNIQUE)
+        if interval:
+            self.tick_interval = interval
+
+    def _blast(self) -> None:
+        from data.constants import MELEE_RANGE_THRESHOLD
+        from engine.game_state import get_game_state
+
+        state = get_game_state()
+        if not state:
+            return
+        pool = (
+            state.player_combat_team if self.host.is_enemy else state.enemy_combat_team
+        )
+        for u in pool:
+            if (
+                u.is_alive
+                and u.target is self.host
+                and u.current_stats.get("range", 50) <= MELEE_RANGE_THRESHOLD
+            ):
+                dmg = self.host.current_stats.get("ap", 0)
+                dealt = u.take_damage(
+                    dmg,
+                    DamageType.PHYSICAL,
+                    state,
+                    self.host,
+                    source_action=DamageSource.ITEM_ABILITY,
+                    is_aoe=False,
+                )
+                if dealt > 0:
+                    st = ActionDenialEffect(u, self.host.id, 1.0)
+                    u.add_status(st)
+
+    def on_apply(self) -> None:
+        self._blast()
+
+    def on_tick(self, dt: float) -> None:
+        if self.tick_interval:
+            self._blast()
 
 
 class MagicWardBuff(DamageWardBuff):
@@ -845,3 +981,173 @@ class AllWardBuff(DamageWardBuff):
             types=[DamageType.MAGIC, DamageType.PHYSICAL, DamageType.TRUE],
         )
 
+
+class EvasiveWeaknessBuff(StatusEffect):
+    """Increase dodge chance but take more physical damage."""
+
+    name = "EVASIVE_WEAK"
+    category = StatusCategory.BUFF
+    tick_interval = None
+
+    def on_apply(self) -> None:
+        self.host.add_stat_modifier("dodge_chance", 35, None, self.name, True)
+        self.host.add_stat_modifier(
+            "percentage_physical_damage_reduction", 25, None, self.name, False
+        )
+
+    def on_remove(self, reason: RemoveReason) -> None:
+        self.host.remove_buffs_from_source(self.name)
+
+
+class PositionShiftEffect(StatusEffect):
+    """Move the host to a fixed Y position when applied."""
+
+    name = "SHIFT_Y"
+    category = StatusCategory.BUFF
+    tick_interval = None
+
+    def __init__(self, host: "Unit", source_id: str, *, y: float) -> None:
+        super().__init__(host, source_id, None, stack_rule=StackRule.UNIQUE)
+        self.params["y"] = y
+
+    def on_apply(self) -> None:
+        self.host.y = self.params.get("y", self.host.y)
+
+
+class SelfDestructEffect(StatusEffect):
+    """Explodes when duration expires, damaging all units."""
+
+    name = "SELF_DESTRUCT"
+    category = StatusCategory.DEBUFF
+    tick_interval = None
+
+    def __init__(self, host: "Unit", source_id: str, duration: float, damage: float) -> None:
+        super().__init__(host, source_id, duration, stack_rule=StackRule.UNIQUE)
+        self.params["damage"] = damage
+
+    def on_remove(self, reason: RemoveReason) -> None:
+        if reason == RemoveReason.EXPIRED and self.host.is_alive:
+            from data.enums import DamageType
+            from engine.game_state import get_game_state
+
+            state = get_game_state()
+            dmg = self.params.get("damage", 0.0)
+            if state:
+                for u in state.player_combat_team + state.enemy_combat_team:
+                    if u.is_alive:
+                        u.take_damage(
+                            dmg,
+                            DamageType.MAGIC,
+                            state,
+                            self.host,
+                            source_action=DamageSource.ITEM_ABILITY,
+                            is_aoe=True,
+                        )
+                self.host.take_damage(
+                    self.host.current_hp,
+                    DamageType.TRUE,
+                    state,
+                    self.host,
+                    source_action=DamageSource.ITEM_ABILITY,
+                    is_aoe=False,
+                )
+        self.host.remove_buffs_from_source(self.name)
+        super().on_remove(reason)
+
+
+class DamageStoreBuff(StatusEffect):
+    """Reduce damage taken and store the prevented amount."""
+
+    name = "DAMAGE_STORE"
+    category = StatusCategory.BUFF
+    tick_interval = None
+
+    def __init__(self, host: "Unit", source_id: str) -> None:
+        super().__init__(host, source_id, None, stack_rule=StackRule.UNIQUE)
+        self.params["stored"] = 0.0
+
+    def on_apply(self) -> None:
+        self.host.add_status(AllyShiftBuff(self.host, self.source_id))
+        self.host.add_status(WeakAuraSource(self.host, self.source_id))
+
+    def intercept_incoming_damage(
+        self,
+        dmg: float,
+        damage_type: DamageType,
+        source_action: DamageSource = DamageSource.ITEM_ABILITY,
+    ) -> float:
+        prevented = dmg * 0.25
+        self.params["stored"] += prevented
+        return dmg * 0.75
+
+    def on_remove(self, reason: RemoveReason) -> None:
+        self.host.remove_buffs_from_source(AllyShiftBuff.name)
+        self.host.remove_buffs_from_source(WeakAuraSource.name)
+        super().on_remove(reason)
+
+
+class AllyShiftBuff(StatusEffect):
+    """Adjust stats based on number of living allies."""
+
+    name = "ALLY_SHIFT"
+    category = StatusCategory.BUFF
+    tick_interval = 0.5
+
+    def on_apply(self) -> None:
+        self._apply()
+
+    def on_tick(self, dt: float) -> None:
+        self._apply()
+
+    def _apply(self) -> None:
+        from engine.game_state import get_game_state
+
+        state = get_game_state()
+        if not state:
+            return
+        team = state.enemy_combat_team if self.host.is_enemy else state.player_combat_team
+        count = sum(1 for u in team if u.is_alive and u is not self.host)
+        if count == self.params.get("count"):
+            return
+        self.host.remove_buffs_from_source(self.name)
+        self.host.add_stat_modifier("ad", -10 * count, None, self.name, False)
+        self.host.add_stat_modifier("ap", -10 * count, None, self.name, False)
+        self.host.add_stat_modifier("armor", 10 * count, None, self.name, False)
+        self.host.add_stat_modifier("mr", 10 * count, None, self.name, False)
+        self.params["count"] = count
+
+    def on_remove(self, reason: RemoveReason) -> None:
+        self.host.remove_buffs_from_source(self.name)
+
+
+class WeakAuraSource(StatusEffect):
+    """Apply a global attack/AP debuff while host is alive."""
+
+    name = "WEAK_AURA"
+    category = StatusCategory.BUFF
+    tick_interval = None
+
+    def on_apply(self) -> None:
+        from engine.game_state import get_game_state
+
+        state = get_game_state()
+        if not state:
+            return
+        affected: list[str] = []
+        for u in state.player_combat_team + state.enemy_combat_team:
+            if u is self.host:
+                continue
+            u.add_stat_modifier("ad", -25, None, self.name, True)
+            u.add_stat_modifier("ap", -25, None, self.name, True)
+            affected.append(u.id)
+        self.params["affected"] = affected
+
+    def on_remove(self, reason: RemoveReason) -> None:
+        from engine.game_state import get_game_state
+
+        state = get_game_state()
+        if state:
+            for u in state.player_combat_team + state.enemy_combat_team:
+                if u.id in self.params.get("affected", []):
+                    u.remove_buffs_from_source(self.name)
+        super().on_remove(reason)
