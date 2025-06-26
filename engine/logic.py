@@ -1308,6 +1308,7 @@ def execute_ability(
             for target in targets:
                 eff = DashTauntEffect(target, source.id, distance=dist)
                 target.add_status(eff)
+
         elif data.get("status_name") == "MELEE_BLAST":
             from engine.status_effects import MeleeBlastEffect
 
@@ -1350,6 +1351,7 @@ def execute_ability(
             for target in targets:
                 eff = SelfDestructEffect(target, source.id, duration, damage)
                 target.add_status(eff)
+
 
         elif data.get("status_name") == "HOT":
             from engine.status_effects import HealOverTime
@@ -1646,10 +1648,12 @@ def resolve_trigger(
         or unit.trigger["timing_type"] != timing
     ):
         return
+
     ability_sources: List[Tuple[Optional[Item], Dict]] = []
     for item in unit.equipped_items:
         if item and item.ability:
             ability_sources.append((item, item.ability))
+
     if not ability_sources:
         return
     base_value = calculate_base_value(unit, unit.trigger, event_data)
@@ -1792,20 +1796,30 @@ def resolve_passive(
     event_target: Optional[Unit],
     event_data: Optional[dict[str, Any]] = None,
 ):
+    notprimary = False
     if (
         not unit.passive
         or "timing_type" not in unit.passive
-        or unit.passive["timing_type"] != timing
+        or (unit.passive["timing_type"] != timing)
     ):
-        return
+
+        notprimary = True
+        if unit.passive.get("secondary") == None:
+            return
+        if "timing_type" not in unit.passive.get("secondary"):
+            return
+        if unit.passive.get("secondary")["timing_type"] != timing:
+            return
     ability = unit.passive.get("ability")
     secondary = unit.passive.get("secondary")
     if not ability and not secondary:
         return
+
     if timing == TriggerTiming.TIMED:
         for u in state.player_combat_team + state.enemy_combat_team:
             if u.is_alive and u.passive.get("tally_timer_activations", False):
                 u.timer_event_tally += 1
+
     base_value = calculate_base_value(unit, unit.passive, event_data)
     if unit.passive.get("require_melee") and not event_data.get("is_melee"):
         return
