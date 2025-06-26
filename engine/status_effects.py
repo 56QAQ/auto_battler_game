@@ -883,8 +883,8 @@ class DashTauntEffect(StatusEffect):
 
         dist = self.params.get("distance", 0.0)
         if self.host.is_enemy:
-            self.host.y += 0.0
-        self.host.x += dist if not self.host.is_enemy else -dist
+            self.host.x += 0.0
+        self.host.y += dist if not self.host.is_enemy else -dist
         state = get_game_state()
         if state:
             pool = (

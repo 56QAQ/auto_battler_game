@@ -1734,12 +1734,19 @@ def resolve_passive(
     event_target: Optional[Unit],
     event_data: Optional[dict[str, Any]] = None,
 ):
+    notprimary = False
     if (
         not unit.passive
         or "timing_type" not in unit.passive
-        or unit.passive["timing_type"] != timing
+        or (unit.passive["timing_type"] != timing)
     ):
-        return
+        notprimary = True
+        if unit.passive.get("secondary") == None:
+            return
+        if "timing_type" not in unit.passive.get("secondary"):
+            return
+        if unit.passive.get("secondary")["timing_type"] != timing:
+            return
     ability = unit.passive.get("ability")
     secondary = unit.passive.get("secondary")
     if not ability and not secondary:
@@ -1749,14 +1756,12 @@ def resolve_passive(
             if u.is_alive and u.passive.get("tally_timer_activations", False):
                 u.timer_event_tally += 1
     base_value = calculate_base_value(unit, unit.passive, event_data)
-    if unit.passive.get("require_melee") and not event_data.get("is_melee"):
-        return
     if "target_type" not in unit.passive:
         return
     targets = find_targets(unit, unit.passive["target_type"], state, event_target)
     if not targets:
         return
-    if ability:
+    if ability and not notprimary:
         execute_ability(ability, unit, targets, base_value, state)
     if secondary and secondary.get("timing_type") == timing:
         sec_value = calculate_base_value(unit, secondary, event_data)

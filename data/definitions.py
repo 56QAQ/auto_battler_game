@@ -966,11 +966,11 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
             "base_value_source": StatSource.FLAT,
             "base_value_multiplier": 0.0,
             "base_value_flat": 0,
-            "require_melee": True,
+#            "require_melee": True,
             "ability": {
                 "name": "Counter Stun",
                 "effect_type": AbilityEffect.APPLY_BUFF,
-                "effect_data": {"status_name": "STUN", "duration": 1.0},
+                "effect_data": {"status_name": "STUN", "duration": 10.0},
             },
         },
     },
@@ -997,7 +997,7 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
                 "effect_type": AbilityEffect.APPLY_BUFF,
                 "effect_data": {
                     "status_name": "DASH_TAUNT",
-                    "distance": 800,
+                    "distance": 600,
                 },
             },
             "secondary": {
@@ -1181,11 +1181,11 @@ SYNERGY_DEFINITIONS: Dict[str, Dict[str, Any]] = {
 }
 
 ENEMY_TEAM_DEFINITIONS: Dict[str, List[Dict[str, Any]]] = {
-    "EASY_1": [{"name": "Rust Bug", "level": 1}, {"name": "Rust Bug", "level": 1}],
+    "EASY_1": [{"name": "Warbringer", "level": 1}, {"name": "Stone Sentinel", "level": 1}],
     "EASY_2": [
-        {"name": "Rust Bug", "level": 1},
-        {"name": "Gremlin", "level": 1},
-        {"name": "Rust Bug", "level": 1},
+        {"name": "Warbringer", "level": 1},
+        {"name": "Stone Sentinel", "level": 1},
+        {"name": "Stone Sentinel", "level": 1},
     ],
     "MEDIUM_1": [
         {"name": "Rust Bug", "level": 2},
