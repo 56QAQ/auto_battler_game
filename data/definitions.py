@@ -928,6 +928,7 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
             "mr": 20,
             "range": 600,
         },
+
         "trigger": None,
         "passive": {
             "timing_type": TriggerTiming.TIMED,
@@ -949,6 +950,7 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
     "Stone Sentinel": {
         "rarity": "ENEMY",
         "traits": ["Automaton"],
+
         "base_stats": {
             "hp": 1000,
             "ad": 50,
@@ -966,15 +968,159 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
             "base_value_source": StatSource.FLAT,
             "base_value_multiplier": 0.0,
             "base_value_flat": 0,
-#            "require_melee": True,
+            "require_melee": True,
             "ability": {
                 "name": "Counter Stun",
                 "effect_type": AbilityEffect.APPLY_BUFF,
-                "effect_data": {"status_name": "STUN", "duration": 10.0},
+                "effect_data": {"status_name": "STUN", "duration": 1.0},
+            },
+        },
+    },
+    "Monster 1": {
+        "rarity": "ENEMY",
+        "traits": ["Vermin"],
+        "base_stats": {
+            "hp": 700,
+            "ad": 50,
+            "as": 0.6,
+            "ap": 0,
+            "armor": 20,
+            "mr": 10,
+            "range": 50,
+            "dodge_chance": 40,
+            "percentage_physical_damage_reduction": 125,
+        },
+        "trigger": None,
+        "passive": None,
+    },
+    "Monster 2": {
+        "rarity": "ENEMY",
+        "traits": ["Automaton"],
+        "base_stats": {
+            "hp": 550,
+            "ad": 40,
+            "as": 0.5,
+            "ap": 60,
+            "armor": 15,
+            "mr": 15,
+            "range": 600,
+            "threat_weight": 0.2,
+        },
+        "passive": {
+            "timing_type": TriggerTiming.START_OF_COMBAT,
+            "target_type": TriggerTarget.SELF,
+            "base_value_source": StatSource.FLAT,
+            "base_value_multiplier": 0.0,
+            "base_value_flat": 0,
+            "ability": {
+                "name": "Relocate",
+                "effect_type": AbilityEffect.APPLY_BUFF,
+                "effect_data": {"status_name": "SHIFT_Y", "y": 250},
+            },
+        },
+        "trigger": None,
+    },
+    "Elite Monster 1": {
+        "rarity": "ELITE",
+        "traits": ["Vermin", "Boss"],
+        "base_stats": {
+            "hp": 2500,
+            "ad": 100,
+            "as": 0.8,
+            "ap": 80,
+            "armor": 60,
+            "mr": 60,
+            "range": 60,
+        },
+        "passive": {
+            "timing_type": TriggerTiming.START_OF_COMBAT,
+            "target_type": TriggerTarget.SELF,
+            "base_value_source": StatSource.FLAT,
+            "base_value_multiplier": 0.0,
+            "base_value_flat": 0,
+            "ability": {
+                "name": "Fortify",
+                "effect_type": AbilityEffect.APPLY_BUFF,
+                "effect_data": {"status_name": "DAMAGE_STORE"},
+            },
+            "secondary": {
+                "timing_type": TriggerTiming.TIMED,
+                "timing_data": {"interval": 10.0},
+                "target_type": TriggerTarget.SELF,
+                "base_value_source": StatSource.FLAT,
+                "base_value_multiplier": 0.0,
+                "base_value_flat": 0,
+                "ability": {
+                    "name": "Summon Bomb",
+                    "effect_type": AbilityEffect.SPAWN_UNIT,
+                    "effect_data": {
+                        "unit_name": "Monster 3",
+                        "count": 1,
+                        "use_stored_damage": True,
+                    },
+                },
+            },
+        },
+        "trigger": None,
+    },
+    "Monster 3": {
+        "rarity": "ENEMY",
+        "traits": ["Vermin"],
+        "base_stats": {
+            "hp": 400,
+            "ad": 0,
+            "as": 0.0,
+            "ap": 0,
+            "armor": 10,
+            "mr": 10,
+            "range": 0,
+        },
+        "passive": {
+            "timing_type": TriggerTiming.START_OF_COMBAT,
+            "target_type": TriggerTarget.SELF,
+            "base_value_source": StatSource.MAX_HP,
+            "base_value_multiplier": 1.0,
+            "base_value_flat": 0,
+            "ability": {
+                "name": "Countdown",
+                "effect_type": AbilityEffect.APPLY_BUFF,
+                "effect_data": {
+                    "status_name": "SELF_DESTRUCT",
+                    "duration": 5.0,
+                    "use_base_value": True,
+                },
+            },
+        },
+        "trigger": None,
+    },
+    "Monster 4": {
+        "rarity": "ENEMY",
+        "traits": ["Vermin"],
+        "base_stats": {
+            "hp": 800,
+            "ad": 40,
+            "as": 0.6,
+            "ap": 0,
+            "armor": 20,
+            "mr": 20,
+            "range": 50,
+        },
+        "passive": None,
+        "trigger": {
+            "timing_type": TriggerTiming.ON_DEATH,
+            "target_type": TriggerTarget.SELF,
+            "base_value_source": StatSource.FLAT,
+            "base_value_multiplier": 0.0,
+            "base_value_flat": 0,
+            "ability": {
+                "name": "Spawn Bomb",
+                "effect_type": AbilityEffect.SPAWN_UNIT,
+                "effect_data": {"unit_name": "Monster 3", "count": 1},
             },
         },
     },
     "Warbringer": {
+
         "rarity": "ELITE",
         "traits": ["Automaton", "Boss"],
         "base_stats": {
@@ -986,6 +1132,7 @@ UNIT_DEFINITIONS: Dict[str, Dict[str, Any]] = {
             "mr": 80,
             "range": 60,
         },
+
         "passive": {
             "timing_type": TriggerTiming.START_OF_COMBAT,
             "target_type": TriggerTarget.SELF,

@@ -61,6 +61,7 @@ class AbilityEffect(Enum):
     APPLY_BUFF = auto()  # or debuff
     HEAL = auto()
     APPLY_DOT = auto()
+    SPAWN_UNIT = auto()
 
 
 class DamageType(Enum):

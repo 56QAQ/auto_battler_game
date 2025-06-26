@@ -1308,6 +1308,7 @@ def execute_ability(
             for target in targets:
                 eff = DashTauntEffect(target, source.id, distance=dist)
                 target.add_status(eff)
+
         elif data.get("status_name") == "MELEE_BLAST":
             from engine.status_effects import MeleeBlastEffect
 
@@ -1315,6 +1316,42 @@ def execute_ability(
             for target in targets:
                 eff = MeleeBlastEffect(target, source.id, interval=interval)
                 target.add_status(eff)
+        elif data.get("status_name") == "SHIFT_Y":
+            from engine.status_effects import PositionShiftEffect
+
+            y_pos = data.get("y")
+            for target in targets:
+                eff = PositionShiftEffect(target, source.id, y=y_pos)
+                target.add_status(eff)
+        elif data.get("status_name") == "DAMAGE_STORE":
+            from engine.status_effects import DamageStoreBuff
+
+            for target in targets:
+                eff = DamageStoreBuff(target, source.id)
+                target.add_status(eff)
+        elif data.get("status_name") == "ALLY_SHIFT":
+            from engine.status_effects import AllyShiftBuff
+
+            for target in targets:
+                eff = AllyShiftBuff(target, source.id)
+                target.add_status(eff)
+        elif data.get("status_name") == "WEAK_AURA":
+            from engine.status_effects import WeakAuraSource
+
+            for target in targets:
+                eff = WeakAuraSource(target, source.id)
+                target.add_status(eff)
+        elif data.get("status_name") == "SELF_DESTRUCT":
+            from engine.status_effects import SelfDestructEffect
+
+            duration = data.get("duration", 5.0)
+            damage = data.get("damage", 0.0)
+            if data.get("use_base_value"):
+                damage += base_value
+            for target in targets:
+                eff = SelfDestructEffect(target, source.id, duration, damage)
+                target.add_status(eff)
+
 
         elif data.get("status_name") == "HOT":
             from engine.status_effects import HealOverTime
@@ -1572,6 +1609,29 @@ def execute_ability(
                             target.x, target.y, f"+{healed:.0f}", "HEAL_COLOR"
                         )
                     )
+    elif effect_type == AbilityEffect.SPAWN_UNIT:
+        from engine.classes import Unit
+        from data.definitions import UNIT_DEFINITIONS
+
+        name = data.get("unit_name")
+        count = int(data.get("count", 1))
+        hp_bonus = data.get("hp_bonus", 0.0)
+        if data.get("use_stored_damage"):
+            for st in source.statuses.get("DAMAGE_STORE", []):
+                hp_bonus += st.params.get("stored", 0.0)
+                st.params["stored"] = 0.0
+        if not name or name not in UNIT_DEFINITIONS:
+            return
+        for _ in range(count):
+            unit = Unit(name, UNIT_DEFINITIONS[name], is_enemy=source.is_enemy)
+            unit.reset_combat_state()
+            unit.x = source.x
+            unit.y = source.y
+            unit.current_stats["hp"] += hp_bonus
+            unit.base_stats["hp"] = unit.current_stats["hp"]
+            unit.current_hp = unit.current_stats["hp"]
+            team = state.enemy_combat_team if source.is_enemy else state.player_combat_team
+            team.append(unit)
 
 
 def resolve_trigger(
@@ -1588,10 +1648,12 @@ def resolve_trigger(
         or unit.trigger["timing_type"] != timing
     ):
         return
+
     ability_sources: List[Tuple[Optional[Item], Dict]] = []
     for item in unit.equipped_items:
         if item and item.ability:
             ability_sources.append((item, item.ability))
+
     if not ability_sources:
         return
     base_value = calculate_base_value(unit, unit.trigger, event_data)
@@ -1740,6 +1802,7 @@ def resolve_passive(
         or "timing_type" not in unit.passive
         or (unit.passive["timing_type"] != timing)
     ):
+
         notprimary = True
         if unit.passive.get("secondary") == None:
             return
@@ -1751,17 +1814,21 @@ def resolve_passive(
     secondary = unit.passive.get("secondary")
     if not ability and not secondary:
         return
+
     if timing == TriggerTiming.TIMED:
         for u in state.player_combat_team + state.enemy_combat_team:
             if u.is_alive and u.passive.get("tally_timer_activations", False):
                 u.timer_event_tally += 1
+
     base_value = calculate_base_value(unit, unit.passive, event_data)
+    if unit.passive.get("require_melee") and not event_data.get("is_melee"):
+        return
     if "target_type" not in unit.passive:
         return
     targets = find_targets(unit, unit.passive["target_type"], state, event_target)
     if not targets:
         return
-    if ability and not notprimary:
+    if ability:
         execute_ability(ability, unit, targets, base_value, state)
     if secondary and secondary.get("timing_type") == timing:
         sec_value = calculate_base_value(unit, secondary, event_data)

@@ -329,6 +329,7 @@ class Unit:
             "dodge_chance": 5.0,
             "accuracy": 0.0,
             "move_speed": DEFAULT_MOVE_SPEED,
+            "threat_weight": 1.0,
         }
         for _k, _v in _extended_defaults.items():
             self.base_stats.setdefault(_k, _v)
