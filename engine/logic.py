@@ -1506,6 +1506,14 @@ def execute_ability(
                 )
                 target.add_status(effect)
 
+        elif data.get("status_name") == "WEAKEN":
+            from engine.status_effects import WeakenEffect
+
+            amount = data.get("amount", 0.0)
+            for target in targets:
+                debuff = WeakenEffect(target, source.id, None, amount=amount)
+                target.add_status(debuff)
+
         elif data.get("stack_buff_stat"):
             from engine.enums import StackRule
             from engine.status_effects import StatModifierEffect
@@ -1572,6 +1580,34 @@ def execute_ability(
                             target.x, target.y, f"+{healed:.0f}", "HEAL_COLOR"
                         )
                     )
+    elif effect_type == AbilityEffect.SPAWN_UNIT:
+        unit_name = data.get("unit_name")
+        if unit_name and unit_name in UNIT_DEFINITIONS:
+            count = int(data.get("count", 1))
+            level = int(data.get("level", 1))
+            hp_bonus = 0.0
+            if data.get("hp_bonus_from_storage"):
+                hp_bonus = getattr(source, "stored_damage", 0.0)
+                source.stored_damage = 0.0
+            for _ in range(count):
+                new_unit = Unit(
+                    unit_name,
+                    UNIT_DEFINITIONS[unit_name],
+                    level=level,
+                    is_enemy=source.is_enemy,
+                )
+                new_unit.reset_combat_state()
+                new_unit.x = source.x
+                new_unit.y = source.y
+                if hp_bonus:
+                    new_unit.current_stats["hp"] += hp_bonus
+                    new_unit.current_hp = new_unit.current_stats["hp"]
+                team = (
+                    state.enemy_combat_team
+                    if source.is_enemy
+                    else state.player_combat_team
+                )
+                team.append(new_unit)
 
 
 def resolve_trigger(
@@ -1765,7 +1801,9 @@ def resolve_passive(
         execute_ability(ability, unit, targets, base_value, state)
     if secondary and secondary.get("timing_type") == timing:
         sec_value = calculate_base_value(unit, secondary, event_data)
-        sec_targets = find_targets(unit, secondary.get("target_type", TriggerTarget.SELF), state, event_target)
+        sec_targets = find_targets(
+            unit, secondary.get("target_type", TriggerTarget.SELF), state, event_target
+        )
         if sec_targets:
             execute_ability(secondary["ability"], unit, sec_targets, sec_value, state)
 
