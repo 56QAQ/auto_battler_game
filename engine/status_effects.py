@@ -980,3 +980,26 @@ class AllWardBuff(DamageWardBuff):
             reduction=reduction,
             types=[DamageType.MAGIC, DamageType.PHYSICAL, DamageType.TRUE],
         )
+
+
+class WeakenEffect(StatusEffect):
+    """Reduces AD and AP while active."""
+
+    name = "WEAKEN"
+    category = StatusCategory.DEBUFF
+    tick_interval = None
+
+    def __init__(
+        self, host: "Unit", source_id: str, duration: Optional[float], *, amount: float
+    ) -> None:
+        super().__init__(host, source_id, duration, stack_rule=StackRule.UNIQUE)
+        self.params["amount"] = amount
+
+    def on_apply(self) -> None:
+        amt = self.params.get("amount", 0.0)
+        self.host.add_stat_modifier("ad", -amt, self.duration, self.name, True)
+        self.host.add_stat_modifier("ap", -amt, self.duration, self.name, True)
+
+    def on_remove(self, reason: RemoveReason) -> None:
+        self.host.remove_buffs_from_source(self.name)
+        super().on_remove(reason)

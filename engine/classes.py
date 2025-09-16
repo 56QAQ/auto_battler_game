@@ -388,6 +388,7 @@ class Unit:
         self.bond_redirected_total: float = 0.0
         self.bleed_damage_progress: float = 0.0
         self.revive_used: bool = False
+        self.stored_damage: float = 0.0
         # Last pos for stuck detection handled by BehaviorContext
 
     def __repr__(self):
@@ -1125,6 +1126,8 @@ class Unit:
                 self.on_dodge(source, state)
             return 0.0
 
+        initial_damage = damage
+
         # ---- Elemental Aura & Reactions ----
         if element is not None:
             existing = None
@@ -1254,6 +1257,8 @@ class Unit:
         if state and self.passive and self.passive.get("bleed_storage_percent"):
             ratio = self.passive.get("bleed_storage_percent", 50) / 100.0
             effective_damage *= 1 - ratio
+        prevented = max(0.0, initial_damage - effective_damage)
+        self.stored_damage += prevented
         self.current_hp -= effective_damage
         died = self.current_hp <= 0
 
@@ -2049,8 +2054,8 @@ class Unit:
             and resolve_passive_func
         ):
             self.secondary_passive_timer += dt
-            interval = self.passive["secondary"].get("timing_data", {}).get(
-                "interval", 999.0
+            interval = (
+                self.passive["secondary"].get("timing_data", {}).get("interval", 999.0)
             )
             while self.secondary_passive_timer >= interval and interval > 0:
                 self.secondary_passive_timer -= interval
