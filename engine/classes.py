@@ -1500,23 +1500,23 @@ class Unit:
                 ]
                 target_unit = source if source and source.is_alive else None
                 for u in living:
+                    trigger_count = u.trigger_counts[TriggerTiming.ON_ANY_DEATH]
                     if (
                         u.trigger
                         and u.trigger.get("timing_type") == TriggerTiming.ON_ANY_DEATH
                     ):
-                        count = u.trigger_counts[TriggerTiming.ON_ANY_DEATH]
                         state.queue_trigger(
                             u,
                             TriggerTiming.ON_ANY_DEATH,
                             event_target=target_unit,
                             data={
-                                "value": 100 * count,
+                                "value": 100 * trigger_count,
                                 "dead_unit_ad": self.current_stats.get("ad", 0),
                                 "dead_unit_hp": self.current_stats.get("hp", 0),
                                 "source_unit": source,
                             },
                         )
-                        u.trigger_counts[TriggerTiming.ON_ANY_DEATH] += 1
+                        u.trigger_counts[TriggerTiming.ON_ANY_DEATH] = trigger_count + 1
                     if (
                         u.passive
                         and u.passive.get("timing_type") == TriggerTiming.ON_ANY_DEATH
@@ -1528,7 +1528,7 @@ class Unit:
                             state,
                             event_target=target_unit,
                             event_data={
-                                "value": 100 * count,
+                                "value": 100 * trigger_count,
                                 "dead_unit_ad": self.current_stats.get("ad", 0),
                                 "dead_unit_hp": self.current_stats.get("hp", 0),
                                 "source_unit": source,
