@@ -1232,6 +1232,23 @@ def execute_ability(
                             target.x, target.y - 10, f"{stat} {val_str}", "BUFF_COLOR"
                         )
                     )
+        elif data.get("status_name") == "OVERHEAT":
+            from engine.status_effects import OverheatEffect
+
+            base_damage = data.get("base_damage", 0.0)
+            radius = data.get("radius", 0.0)
+            stack_mult = data.get("stack_multiplier", 0.0)
+            max_stacks = int(data.get("max_stacks", 1))
+            for target in targets:
+                effect = OverheatEffect(
+                    host=target,
+                    source_id=source.id,
+                    base_damage=base_damage,
+                    radius=radius,
+                    stack_multiplier=stack_mult,
+                    max_stacks=max_stacks,
+                )
+                target.add_status(effect)
         elif data.get("status_name") == "DOOM_BRAND":
             from engine.enums import StackRule
             from engine.status_effects import DoomBrand
@@ -1288,6 +1305,19 @@ def execute_ability(
             for target in targets:
                 debuff = ActionDenialEffect(target, source.id, duration)
                 target.add_status(debuff)
+        elif data.get("status_name") == "VULNERABLE":
+            from engine.status_effects import VulnerableDebuff
+
+            duration = data.get("duration", 3.0)
+            bonus = data.get("bonus_ratio", 0.0)
+            for target in targets:
+                debuff = VulnerableDebuff(
+                    host=target,
+                    source_id=source.id,
+                    duration=duration,
+                    bonus_ratio=bonus,
+                )
+                target.add_status(debuff)
         elif data.get("status_name") == "BASIC_BLOCK":
             from engine.status_effects import BasicAttackBlockEffect
 
@@ -1316,6 +1346,23 @@ def execute_ability(
             for target in targets:
                 eff = MeleeBlastEffect(target, source.id, interval=interval)
                 target.add_status(eff)
+        elif data.get("status_name") == "RUBBERIZED_SHOT":
+            from engine.status_effects import RubberizedShotStatus
+
+            dmg = data.get("damage", 0.0)
+            line_range = data.get("range", 0.0)
+            width = data.get("width", 0.0)
+            knockback = data.get("knockback", 0.0)
+            for target in targets:
+                status = RubberizedShotStatus(
+                    host=target,
+                    source_id=source.id,
+                    damage=dmg,
+                    line_range=line_range,
+                    width=width,
+                    knockback=knockback,
+                )
+                target.add_status(status)
         elif data.get("status_name") == "SHIFT_Y":
             from engine.status_effects import PositionShiftEffect
 
@@ -1341,6 +1388,22 @@ def execute_ability(
             for target in targets:
                 eff = WeakAuraSource(target, source.id)
                 target.add_status(eff)
+        elif data.get("status_name") == "STEAM_CLOUD_FIELD":
+            from engine.environment_effects import SteamCloudArea
+
+            radius = data.get("radius", 0.0)
+            duration = data.get("duration", 0.0)
+            penalty = data.get("accuracy_penalty", 0.0)
+            if radius > 0 and duration > 0:
+                state.environment_effects.append(
+                    SteamCloudArea(
+                        source.x,
+                        source.y,
+                        radius,
+                        duration,
+                        penalty,
+                    )
+                )
         elif data.get("status_name") == "SELF_DESTRUCT":
             from engine.status_effects import SelfDestructEffect
 
@@ -1397,6 +1460,27 @@ def execute_ability(
                     damage=dmg,
                 )
                 target.add_status(debuff)
+        elif data.get("status_name") == "BURNING_DOT":
+            from engine.enums import StackRule
+            from engine.status_effects import BurningDOT
+
+            duration = data.get("duration", 3.0)
+            dps = data.get("damage_per_second", 0.0)
+            tick = data.get("tick_interval", 0.1)
+            damage_per_tick = dps * tick if tick else dps
+            dtype = data.get("damage_type", DamageType.MAGIC)
+            for target in targets:
+                dot = BurningDOT(
+                    host=target,
+                    source_id=source.id,
+                    duration=duration,
+                    stack_rule=StackRule.UNLIMITED,
+                    params={
+                        "damage": damage_per_tick,
+                        "dtype": dtype,
+                    },
+                )
+                target.add_status(dot)
         elif data.get("status_name") == "LEECH_DOT":
             from engine.enums import StackRule
             from engine.status_effects import LeechingDOT
@@ -1815,6 +1899,9 @@ def resolve_passive(
     if not ability and not secondary:
         return
 
+    if notprimary:
+        ability = None
+
     if timing == TriggerTiming.TIMED:
         for u in state.player_combat_team + state.enemy_combat_team:
             if u.is_alive and u.passive.get("tally_timer_activations", False):
@@ -1826,8 +1913,10 @@ def resolve_passive(
     if "target_type" not in unit.passive:
         return
     targets = find_targets(unit, unit.passive["target_type"], state, event_target)
-    if not targets:
+    if not targets and not notprimary:
         return
+    if notprimary:
+        targets = []
     if ability:
         execute_ability(ability, unit, targets, base_value, state)
     if secondary and secondary.get("timing_type") == timing:
@@ -2038,6 +2127,16 @@ def run_combat_tick(state: "GameState", delta_time: float):
     for effect in state.visual_effects:
         effect.update(delta_time)
     state.visual_effects = [e for e in state.visual_effects if not e.is_expired()]
+
+    if state.environment_effects:
+        remaining_effects = []
+        for env_effect in state.environment_effects:
+            env_effect.update(state, delta_time)
+            if env_effect.is_expired():
+                env_effect.cleanup(state)
+            else:
+                remaining_effects.append(env_effect)
+        state.environment_effects = remaining_effects
 
     # FIX: Keep units in list while dying animation plays
     state.player_combat_team = [

@@ -94,6 +94,7 @@ def start_combat(state: GameState, enemy_team_data: List[Dict]):
     state.overtime_damage_timer = 0
     state.damage_floaters = []
     state.visual_effects = []
+    state.environment_effects = []
     enemy_units = create_enemy_units(enemy_team_data, state)
     state.player_combat_team = setup_combat_team(state.player, is_enemy=False)
     state.enemy_combat_team = setup_enemy_combat_team(enemy_units)

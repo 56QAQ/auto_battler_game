@@ -79,6 +79,7 @@ class GameState:
         self.enemy_combat_team: List[Unit] = []
         self.damage_floaters: List[DamageFloater] = []
         self.visual_effects: List[VisualEffect] = []
+        self.environment_effects: List[object] = []
         self.current_node_id: int = self.game_map.start_node_id
         self.allow_combat_start: bool = False
         self.current_node_type: str = ""
