@@ -1,5 +1,5 @@
 import engine.classes as engine_classes
-from data.enums import Color, DamageType, TriggerTarget, TriggerTiming
+from data.enums import Color, DamageType, StatSource, TriggerTarget, TriggerTiming
 from engine.classes import Unit
 from engine.game_state import GameState
 
@@ -70,4 +70,54 @@ def test_on_any_death_passive_without_trigger_calls_resolver():
     assert called["timing"] is TriggerTiming.ON_ANY_DEATH
     assert called["event_target"] is passive_unit
     assert called["event_data"]["value"] == 0
+
+
+def test_secondary_on_death_passive_calls_resolver():
+    passive_definition = {
+        "timing_type": TriggerTiming.START_OF_COMBAT,
+        "target_type": TriggerTarget.SELF,
+        "base_value_source": StatSource.FLAT,
+        "base_value_multiplier": 0.0,
+        "base_value_flat": 0,
+        "secondary": {
+            "timing_type": TriggerTiming.ON_DEATH,
+            "target_type": TriggerTarget.SELF,
+            "base_value_source": StatSource.FLAT,
+            "base_value_multiplier": 0.0,
+            "base_value_flat": 0,
+        },
+    }
+    passive_unit = Unit(
+        "Secondary Death", make_definition(passive=passive_definition), level=1
+    )
+    enemy_unit = Unit(
+        "Enemy", make_definition(passive={}), level=1, is_enemy=True
+    )
+
+    state = GameState()
+    state.player_combat_team = [passive_unit]
+    state.enemy_combat_team = [enemy_unit]
+
+    called = {}
+
+    def fake_resolve_passive(unit, timing, game_state, event_target, event_data):
+        called["unit"] = unit
+        called["timing"] = timing
+        called["event_target"] = event_target
+        called["event_data"] = event_data
+
+    original_resolve_passive = engine_classes.resolve_passive_func
+    engine_classes.resolve_passive_func = fake_resolve_passive
+    try:
+        lethal_damage = passive_unit.current_hp + 5
+        passive_unit.take_damage(
+            lethal_damage, DamageType.TRUE, state, enemy_unit
+        )
+    finally:
+        engine_classes.resolve_passive_func = original_resolve_passive
+
+    assert called
+    assert called["unit"] is passive_unit
+    assert called["timing"] is TriggerTiming.ON_DEATH
+    assert called["event_target"] is enemy_unit
 

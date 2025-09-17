@@ -410,6 +410,21 @@ class Unit:
     def get_sell_price(self) -> int:
         return max(0, self.get_cost())
 
+    def passive_triggers_on(
+        self, timing: TriggerTiming, *, include_secondary: bool = True
+    ) -> bool:
+        """Return True if this unit's passive should resolve at the given timing."""
+        if not self.passive:
+            return False
+        if self.passive.get("timing_type") == timing:
+            return True
+        if not include_secondary:
+            return False
+        secondary = self.passive.get("secondary")
+        if secondary and secondary.get("timing_type") == timing:
+            return True
+        return False
+
     def apply_synergy_artifact_buff(self, buff: Dict, current_time: float = 0):
         for stat, val in buff.items():
             if stat.endswith("_percent"):
@@ -1442,9 +1457,8 @@ class Unit:
             )
         if (
             state
-            and self.passive
-            and self.passive["timing_type"] == TriggerTiming.ON_TAKE_DAMAGE
             and resolve_passive_func
+            and self.passive_triggers_on(TriggerTiming.ON_TAKE_DAMAGE)
         ):
             resolve_passive_func(
                 self,
@@ -1482,9 +1496,8 @@ class Unit:
                         data={"damage": effective_damage},
                     )
                 if (
-                    self.passive
-                    and self.passive["timing_type"] == TriggerTiming.ON_DEATH
-                    and resolve_passive_func
+                    resolve_passive_func
+                    and self.passive_triggers_on(TriggerTiming.ON_DEATH)
                 ):
                     resolve_passive_func(
                         self,
@@ -1518,9 +1531,8 @@ class Unit:
                         )
                         u.trigger_counts[TriggerTiming.ON_ANY_DEATH] = trigger_count + 1
                     if (
-                        u.passive
-                        and u.passive.get("timing_type") == TriggerTiming.ON_ANY_DEATH
-                        and resolve_passive_func
+                        resolve_passive_func
+                        and u.passive_triggers_on(TriggerTiming.ON_ANY_DEATH)
                     ):
                         resolve_passive_func(
                             u,
@@ -1927,9 +1939,8 @@ class Unit:
                         data=data,
                     )
                 if (
-                    self.passive
-                    and self.passive["timing_type"] == TriggerTiming.ON_HIT
-                    and resolve_passive_func
+                    resolve_passive_func
+                    and self.passive_triggers_on(TriggerTiming.ON_HIT)
                 ):
                     resolve_passive_func(
                         self,
