@@ -1404,6 +1404,20 @@ def execute_ability(
                         penalty,
                     )
                 )
+                spread = radius * 0.35
+                for _ in range(3):
+                    offset_x = source.x + random.uniform(-spread, spread)
+                    offset_y = source.y + random.uniform(-spread, spread)
+                    state.visual_effects.append(
+                        VisualEffect(
+                            EffectType.BUFF_AURA,
+                            offset_x,
+                            offset_y,
+                            random.uniform(0.6, 0.9),
+                            "STEAM_COLOR",
+                            size=radius * random.uniform(0.4, 0.6),
+                        )
+                    )
         elif data.get("status_name") == "SELF_DESTRUCT":
             from engine.status_effects import SelfDestructEffect
 
