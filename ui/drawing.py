@@ -8,6 +8,7 @@ from data.enums import Color
 from data.constants import REFRESH_CRYSTAL_COST, XP_BUY_CRYSTAL_COST
 from data.definitions import SYNERGY_DEFINITIONS
 from engine.classes import DamageFloater, Item, Unit, VisualEffect
+from engine.environment_effects import SteamCloudArea
 from engine.enums import AnimationState, EffectType, StatusCategory
 from engine.game_state import GameState
 from engine.logic import _material_cost_bundle as _mat_cost_bundle
@@ -769,6 +770,7 @@ def draw_combat_phase(state: GameState, context: UIContext):
     for unit in all_units:
         if unit:
             draw_unit_combat(context, unit)
+    draw_environment_effects(state, context)
     if state.visual_effects:
         for effect in state.visual_effects:
             if effect:
@@ -922,6 +924,51 @@ def draw_unit_combat(context: UIContext, unit: Unit):
                             WHITE,
                             align="center",
                         )
+
+
+def draw_environment_effects(state: GameState, context: UIContext) -> None:
+    if not state.environment_effects:
+        return
+    for effect in state.environment_effects:
+        if isinstance(effect, SteamCloudArea):
+            _draw_steam_cloud(context, effect)
+
+
+def _draw_steam_cloud(context: UIContext, cloud: SteamCloudArea) -> None:
+    radius = int(cloud.radius)
+    if radius <= 0:
+        return
+    fade = clamp(cloud.remaining / max(0.01, cloud.duration), 0.0, 1.0)
+    base_alpha = int(160 * fade)
+    if base_alpha <= 0:
+        return
+    color = context.map_color("STEAM_COLOR")
+    elapsed = getattr(cloud, "elapsed", 0.0)
+    pulse = math.sin(elapsed * 2.2) * 0.08
+    surface = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
+    center = radius
+    offsets = getattr(cloud, "puff_offsets", [(0.0, 0.0)])
+    for idx, (ox, oy) in enumerate(offsets):
+        scale = clamp(0.55 + idx * 0.18 + pulse, 0.3, 1.0)
+        puff_radius = max(6, int(radius * scale))
+        offset_x = center + int(ox * radius * 0.6)
+        offset_y = center + int(oy * radius * 0.6)
+        puff_alpha = max(15, int(base_alpha * (0.85 - idx * 0.15)))
+        pygame.draw.circle(
+            surface,
+            (color[0], color[1], color[2], puff_alpha),
+            (offset_x, offset_y),
+            min(puff_radius, radius),
+        )
+    ring_alpha = max(8, base_alpha // 3)
+    pygame.draw.circle(
+        surface,
+        (color[0], color[1], color[2], ring_alpha),
+        (center, center),
+        radius,
+        3,
+    )
+    context.screen.blit(surface, (int(cloud.x) - radius, int(cloud.y) - radius))
 
 
 def draw_visual_effect(context: UIContext, effect: VisualEffect):

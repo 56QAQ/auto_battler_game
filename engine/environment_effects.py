@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 import uuid
 from typing import TYPE_CHECKING, Set
 
@@ -23,12 +24,24 @@ class SteamCloudArea:
         self.radius = radius
         self.duration = duration
         self.remaining = duration
+        self.elapsed = 0.0
         self.accuracy_penalty = accuracy_penalty
         self._affected: Set[str] = set()
         self._source_id = f"STEAM_CLOUD_{uuid.uuid4()}"
+        self.puff_offsets = [
+            (0.0, 0.0),
+            *[
+                (
+                    random.uniform(-0.45, 0.45),
+                    random.uniform(-0.45, 0.45),
+                )
+                for _ in range(3)
+            ],
+        ]
 
     def update(self, state: "GameState", dt: float) -> None:
         self.remaining -= dt
+        self.elapsed += dt
         radius_sq = self.radius * self.radius
         units = state.player_combat_team + state.enemy_combat_team
         current: Set[str] = set()
