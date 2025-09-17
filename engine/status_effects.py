@@ -2,11 +2,14 @@
 # 状态效果系统 —— 核心实现
 from __future__ import annotations
 
+import math
 from abc import ABC
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
+from data.constants import ARENA_MAX_X, ARENA_MAX_Y, ARENA_MIN_X, ARENA_MIN_Y
 from data.enums import DamageSource, DamageType, Element
 from engine.enums import RemoveReason, StackRule, StatusCategory
+from engine.utils import clamp
 
 if TYPE_CHECKING:
     from engine.classes import Unit
@@ -689,6 +692,33 @@ class ShockDebuff(StatusEffect):
         self.host.remove_buffs_from_source(self.name)
 
 
+class VulnerableDebuff(StatusEffect):
+    name = "VULNERABLE"
+    category = StatusCategory.DEBUFF
+    tick_interval = None
+
+    def __init__(
+        self,
+        host: "Unit",
+        source_id: str,
+        duration: float,
+        *,
+        bonus_ratio: float,
+    ) -> None:
+        super().__init__(host, source_id, duration, stack_rule=StackRule.UNIQUE)
+        self.params["bonus_ratio"] = bonus_ratio
+
+    def intercept_incoming_damage(
+        self,
+        dmg: float,
+        damage_type: DamageType,
+        source_action: DamageSource = DamageSource.ITEM_ABILITY,
+    ) -> float:
+        if damage_type == DamageType.PHYSICAL:
+            return dmg * (1.0 + self.params.get("bonus_ratio", 0.0))
+        return dmg
+
+
 class SuperconductDebuff(StatusEffect):
     name = "SUPERCONDUCT"
     category = StatusCategory.DEBUFF
@@ -1056,6 +1086,198 @@ class SelfDestructEffect(StatusEffect):
                 )
         self.host.remove_buffs_from_source(self.name)
         super().on_remove(reason)
+
+
+class OverheatEffect(StatusEffect):
+    """Stacks up heat and detonates once the threshold is reached."""
+
+    name = "OVERHEAT"
+    category = StatusCategory.DEBUFF
+    tick_interval = 1.0
+
+    def __init__(
+        self,
+        host: "Unit",
+        source_id: str,
+        *,
+        base_damage: float,
+        radius: float,
+        stack_multiplier: float,
+        max_stacks: int,
+    ) -> None:
+        super().__init__(host, source_id, None, stack_rule=StackRule.UNIQUE)
+        self.params.update(
+            {
+                "base_damage": base_damage,
+                "radius": radius,
+                "stack_multiplier": stack_multiplier,
+                "max_stacks": max(1, max_stacks),
+                "stacks": 0,
+            }
+        )
+
+    def on_tick(self, dt: float) -> None:
+        if not self.host.is_alive:
+            return
+        stacks = self.params.get("stacks", 0) + 1
+        self.params["stacks"] = stacks
+        if stacks >= self.params.get("max_stacks", 6):
+            self._detonate()
+
+    def _detonate(self) -> None:
+        if not self.host.is_alive:
+            return
+        from engine.game_state import get_game_state
+
+        state = get_game_state()
+        if not state:
+            return
+        base_damage = self.params.get("base_damage", 0.0)
+        radius = self.params.get("radius", 0.0)
+        if base_damage <= 0 or radius <= 0:
+            return
+        stacks = self.params.get("stacks", 0)
+        stack_mult = self.params.get("stack_multiplier", 0.0)
+        total_damage = base_damage * (1.0 + stack_mult * stacks)
+        radius_sq = radius * radius
+        for unit in state.player_combat_team + state.enemy_combat_team:
+            if not unit.is_alive:
+                continue
+            dx = unit.x - self.host.x
+            dy = unit.y - self.host.y
+            if dx * dx + dy * dy > radius_sq:
+                continue
+            outgoing = self.host.compute_outgoing_damage(
+                total_damage,
+                DamageType.MAGIC,
+                DamageSource.ITEM_ABILITY,
+                True,
+                unit,
+            )
+            unit.take_damage(
+                outgoing,
+                DamageType.MAGIC,
+                state,
+                self.host,
+                source_action=DamageSource.ITEM_ABILITY,
+                is_aoe=True,
+            )
+        self.host.take_damage(
+            self.host.current_hp,
+            DamageType.TRUE,
+            state,
+            self.host,
+            source_action=DamageSource.ITEM_ABILITY,
+            is_aoe=False,
+        )
+
+
+class RubberizedShotStatus(StatusEffect):
+    """Launches a disruptive shot along a line when applied."""
+
+    name = "RUBBERIZED_SHOT"
+    category = StatusCategory.BUFF
+    tick_interval = None
+
+    def __init__(
+        self,
+        host: "Unit",
+        source_id: str,
+        *,
+        damage: float,
+        line_range: float,
+        width: float,
+        knockback: float,
+    ) -> None:
+        super().__init__(host, source_id, None, stack_rule=StackRule.UNIQUE)
+        self.params.update(
+            {
+                "damage": damage,
+                "range": max(0.0, line_range),
+                "width": max(0.0, width),
+                "knockback": max(0.0, knockback),
+            }
+        )
+
+    def on_apply(self) -> None:
+        from engine.game_state import get_game_state
+
+        state = get_game_state()
+        if not state:
+            self._finish()
+            return
+        pool = (
+            state.player_combat_team
+            if self.host.is_enemy
+            else state.enemy_combat_team
+        )
+        enemies = [u for u in pool if u.is_alive]
+        if not enemies:
+            self._finish()
+            return
+        target = min(
+            enemies,
+            key=lambda u: (u.x - self.host.x) ** 2 + (u.y - self.host.y) ** 2,
+        )
+        dx = target.x - self.host.x
+        dy = target.y - self.host.y
+        dist = math.hypot(dx, dy)
+        if dist <= 1e-6:
+            nx, ny = 1.0, 0.0
+        else:
+            nx, ny = dx / dist, dy / dist
+        max_range = self.params.get("range", 0.0)
+        width = self.params.get("width", 0.0)
+        damage = self.params.get("damage", 0.0)
+        knockback = self.params.get("knockback", 0.0)
+        hits = []
+        for unit in enemies:
+            rel_x = unit.x - self.host.x
+            rel_y = unit.y - self.host.y
+            along = rel_x * nx + rel_y * ny
+            if along < 0:
+                continue
+            if max_range and along > max_range:
+                continue
+            perpendicular = abs(rel_x * ny - rel_y * nx)
+            if width and perpendicular > width * 0.5:
+                continue
+            hits.append(unit)
+        if not hits:
+            self._finish()
+            return
+        for unit in hits:
+            outgoing = self.host.compute_outgoing_damage(
+                damage,
+                DamageType.PHYSICAL,
+                DamageSource.ITEM_ABILITY,
+                False,
+                unit,
+            )
+            unit.take_damage(
+                outgoing,
+                DamageType.PHYSICAL,
+                state,
+                self.host,
+                source_action=DamageSource.ITEM_ABILITY,
+                is_aoe=False,
+            )
+            if knockback > 0:
+                self._apply_knockback(unit, nx, ny, knockback)
+        self._finish()
+
+    def _apply_knockback(
+        self, target: "Unit", nx: float, ny: float, distance: float
+    ) -> None:
+        if distance <= 0:
+            return
+        target.x += nx * distance
+        target.y += ny * distance
+        target.x = clamp(target.x, ARENA_MIN_X, ARENA_MAX_X)
+        target.y = clamp(target.y, ARENA_MIN_Y, ARENA_MAX_Y)
+
+    def _finish(self) -> None:
+        self.host._queue_status_removal(self, RemoveReason.CUSTOM_TRIGGER)
 
 
 class DamageStoreBuff(StatusEffect):
