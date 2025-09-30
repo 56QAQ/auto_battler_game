@@ -43,11 +43,14 @@ class LayoutManager:
             150,
             ui_c.BUTTON_HEIGHT,
         )
+        map_button_width = 180
+        map_button_height = ui_c.BUTTON_HEIGHT + 10
         self.map_button_rect = pg.Rect(
-            ui_c.SCREEN_WIDTH - 360,
-            220,
-            150,
-            ui_c.BUTTON_HEIGHT,
+            ui_c.LEFT_PANEL_WIDTH
+            + (ui_c.RIGHT_PANEL_WIDTH - map_button_width) // 2,
+            max(10, ui_c.COMBAT_FIELD_TOP - map_button_height - 6),
+            map_button_width,
+            map_button_height,
         )
         self.craft_button_rect = pg.Rect(
             ui_c.SCREEN_WIDTH - 160,
@@ -61,11 +64,14 @@ class LayoutManager:
             150,
             ui_c.BUTTON_HEIGHT,
         )
+        stats_button_size = 44
         self.stats_toggle_button_rect = pg.Rect(
-            ui_c.SCREEN_WIDTH - 60,
-            ui_c.SCREEN_HEIGHT // 2 - 20,
-            50,
-            ui_c.BUTTON_HEIGHT,
+            ui_c.LEFT_PANEL_WIDTH
+            + ui_c.RIGHT_PANEL_PADDING
+            - stats_button_size // 2,
+            ui_c.HUD_AREA_Y + ui_c.HUD_CARD_HEIGHT - stats_button_size - 8,
+            stats_button_size,
+            stats_button_size,
         )
         self.sell_area_rect = pg.Rect(
             ui_c.SHOP_X_START

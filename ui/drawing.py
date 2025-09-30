@@ -33,27 +33,57 @@ from ui.constants import (
     BUTTON_BG,
     BUTTON_DISABLED,
     BUTTON_HOVER,
+    COMBAT_FIELD_TOP,
     CYAN,
     DARK_GRAY,
     DEATH_ANIM_DURATION,
+    FIELD_CRYSTAL,
+    FIELD_CRYSTAL_GLOW,
+    FIELD_GRADIENT_BOTTOM,
+    FIELD_GRADIENT_TOP,
+    FIELD_MOUNTAIN,
+    FIELD_MOUNTAIN_LIGHT,
+    FIELD_NODE,
+    FIELD_SPEED_BG,
+    FIELD_SPEED_BORDER,
+    FIELD_SPEED_TEXT,
     GOLD,
     GRAY,
     GREEN,
     GRID_LINE,
     HEALTH_BAR_BG,
     HEALTH_BAR_COLOR,
+    HANDLE_BG,
+    HANDLE_GLOW,
     HIGHLIGHT_COLOR,
+    HUD_ACCENT,
+    HUD_AREA_Y,
+    HUD_BG,
+    HUD_BORDER,
+    HUD_CARD_HEIGHT,
+    HUD_MARGIN,
     INACTIVE_SYNERGY,
     ITEM_COLOR,
     LIGHT_GRAY,
+    LEFT_PANEL_ACCENT,
+    LEFT_PANEL_BG,
+    LEFT_PANEL_BORDER,
+    LEFT_PANEL_STRIPE,
+    LEFT_PANEL_WIDTH,
     MAP_NODE_BG,
     MAP_NODE_CURRENT,
     MAP_NODE_VISITED,
     MAP_PATH,
     MAX_ITEMS_EQUIPPED,
     PANEL_BG,
+    PADLOCK_COLOR,
     RARITY_COLORS,
     RED,
+    RIGHT_PANEL_PADDING,
+    RIGHT_PANEL_WIDTH,
+    SLOT_BG,
+    SLOT_BORDER,
+    SLOT_DIVIDER,
     SLOT_MARGIN,
     SLOT_SIZE,
     STATUS_ICON_KEYS,
@@ -197,6 +227,222 @@ def draw_button(
         (rect.centerx + offset[0], text_y),
         font_key,
         text_col,
+        align="center",
+    )
+
+
+def _draw_panel(surface: pygame.Surface, rect: pygame.Rect, radius: int = 12) -> None:
+    if rect.width <= 0 or rect.height <= 0:
+        return
+    pygame.draw.rect(surface, LEFT_PANEL_BG, rect, border_radius=radius)
+    pygame.draw.rect(surface, LEFT_PANEL_BORDER, rect, 2, border_radius=radius)
+
+
+def _draw_slot(surface: pygame.Surface, rect: pygame.Rect, *, accent: bool = False) -> None:
+    if rect.width <= 0 or rect.height <= 0:
+        return
+    base_color = LEFT_PANEL_ACCENT if accent else SLOT_BG
+    pygame.draw.rect(surface, base_color, rect, border_radius=8)
+    pygame.draw.rect(surface, SLOT_BORDER, rect, 2, border_radius=8)
+
+
+def _draw_padlock_icon(surface: pygame.Surface, rect: pygame.Rect) -> None:
+    lock_width = int(rect.width * 0.5)
+    lock_height = int(rect.height * 0.45)
+    body_rect = pygame.Rect(0, 0, lock_width, lock_height)
+    body_rect.center = (rect.centerx, int(rect.centery + rect.height * 0.15))
+    pygame.draw.rect(surface, PADLOCK_COLOR, body_rect, border_radius=4)
+    pygame.draw.rect(surface, _darken(PADLOCK_COLOR, 40), body_rect, 2, border_radius=4)
+    shackle_rect = pygame.Rect(0, 0, lock_width, max(6, int(lock_height * 0.9)))
+    shackle_rect.midbottom = (body_rect.centerx, body_rect.top + 6)
+    pygame.draw.arc(surface, PADLOCK_COLOR, shackle_rect, math.pi, 0, 3)
+    keyhole_radius = max(2, rect.width // 12)
+    keyhole_center = (body_rect.centerx, body_rect.centery + keyhole_radius)
+    pygame.draw.circle(surface, _darken(PADLOCK_COLOR, 80), keyhole_center, keyhole_radius)
+    pygame.draw.rect(
+        surface,
+        _darken(PADLOCK_COLOR, 80),
+        (
+            keyhole_center[0] - 1,
+            keyhole_center[1],
+            2,
+            max(2, lock_height // 3),
+        ),
+    )
+
+
+def _draw_equipment_icon(surface: pygame.Surface, rect: pygame.Rect, key: str) -> None:
+    center = rect.center
+    color = WHITE
+    if key == "weapon":
+        length = rect.width * 0.35
+        pygame.draw.line(
+            surface,
+            color,
+            (center[0] - length, center[1] - length),
+            (center[0] + length, center[1] + length),
+            3,
+        )
+        pygame.draw.line(
+            surface,
+            color,
+            (center[0] - length, center[1] + length),
+            (center[0] + length, center[1] - length),
+            3,
+        )
+        guard_width = rect.width * 0.25
+        guard_height = 4
+        pygame.draw.rect(
+            surface,
+            color,
+            (
+                center[0] - guard_width / 2,
+                center[1] - guard_height / 2,
+                guard_width,
+                guard_height,
+            ),
+        )
+    elif key == "armor":
+        top = center[1] - rect.height * 0.3
+        bottom = center[1] + rect.height * 0.3
+        left = center[0] - rect.width * 0.3
+        right = center[0] + rect.width * 0.3
+        points = [
+            (center[0], top),
+            (right, top + rect.height * 0.12),
+            (right - rect.width * 0.05, bottom),
+            (center[0], bottom - rect.height * 0.08),
+            (left + rect.width * 0.05, bottom),
+            (left, top + rect.height * 0.12),
+        ]
+        pygame.draw.polygon(surface, color, points, 2)
+
+
+def _draw_resource_icon(surface: pygame.Surface, center: tuple[int, int], key: str, size: int) -> None:
+    if key == "flame":
+        tip = (center[0], center[1] - size)
+        left = (center[0] - size // 2, center[1] + size // 2)
+        right = (center[0] + size // 2, center[1] + size // 2)
+        inner = (center[0], center[1] - size // 3)
+        pygame.draw.polygon(surface, (255, 140, 80), [tip, left, inner, right])
+        pygame.draw.polygon(surface, (255, 200, 120), [inner, left, right])
+    elif key == "coin":
+        pygame.draw.circle(surface, GOLD, center, size)
+        pygame.draw.circle(surface, _darken(GOLD, 30), center, size, 3)
+        pygame.draw.line(
+            surface,
+            _lighten(GOLD, 40),
+            (center[0] - size // 2, center[1]),
+            (center[0] + size // 2, center[1]),
+            3,
+        )
+
+
+def _draw_stat_icon(
+    surface: pygame.Surface, center: tuple[int, int], icon_key: str, color: tuple[int, int, int]
+) -> None:
+    cx, cy = center
+    if icon_key == "sword":
+        length = 14
+        pygame.draw.line(surface, color, (cx - length, cy - length), (cx + length, cy + length), 2)
+        pygame.draw.line(surface, color, (cx - length, cy + length), (cx + length, cy - length), 2)
+    elif icon_key == "boot":
+        boot_rect = pygame.Rect(cx - 12, cy - 8, 18, 16)
+        pygame.draw.rect(surface, color, boot_rect, 2, border_radius=4)
+        sole_rect = pygame.Rect(cx - 14, cy + 2, 22, 6)
+        pygame.draw.rect(surface, color, sole_rect, 2, border_radius=3)
+    elif icon_key == "crosshair":
+        pygame.draw.circle(surface, color, center, 10, 2)
+        pygame.draw.line(surface, color, (cx - 12, cy), (cx + 12, cy), 2)
+        pygame.draw.line(surface, color, (cx, cy - 12), (cx, cy + 12), 2)
+    elif icon_key == "flame":
+        _draw_resource_icon(surface, center, "flame", 12)
+    elif icon_key == "shield":
+        points = [
+            (cx, cy - 12),
+            (cx + 10, cy - 4),
+            (cx + 6, cy + 12),
+            (cx, cy + 8),
+            (cx - 6, cy + 12),
+            (cx - 10, cy - 4),
+        ]
+        pygame.draw.polygon(surface, color, points, 2)
+    elif icon_key == "swirl":
+        pygame.draw.arc(
+            surface,
+            color,
+            (cx - 12, cy - 10, 24, 20),
+            math.radians(20),
+            math.radians(310),
+            2,
+        )
+        pygame.draw.circle(surface, color, (cx + 6, cy + 4), 4, 2)
+    elif icon_key == "droplet":
+        drop_points = [
+            (cx, cy - 12),
+            (cx + 8, cy - 2),
+            (cx + 6, cy + 10),
+            (cx, cy + 14),
+            (cx - 6, cy + 10),
+            (cx - 8, cy - 2),
+        ]
+        pygame.draw.polygon(surface, color, drop_points, 2)
+    elif icon_key == "wand":
+        pygame.draw.line(surface, color, (cx - 12, cy + 10), (cx + 12, cy - 10), 3)
+        pygame.draw.circle(surface, color, (cx + 10, cy - 12), 5, 2)
+
+
+def _draw_crystal(surface: pygame.Surface, center: tuple[int, int], size: int) -> None:
+    cx, cy = center
+    points = [
+        (cx, cy - size),
+        (cx + size * 0.6, cy),
+        (cx, cy + size),
+        (cx - size * 0.6, cy),
+    ]
+    pygame.draw.polygon(surface, FIELD_CRYSTAL, points)
+    pygame.draw.polygon(surface, FIELD_CRYSTAL_GLOW, points, 2)
+
+
+def _draw_speed_button(context: UIContext, rect: pygame.Rect, text: str, active: bool) -> None:
+    base = _lighten(FIELD_SPEED_BG, 20) if active else FIELD_SPEED_BG
+    pygame.draw.rect(context.screen, base, rect, border_radius=10)
+    pygame.draw.rect(context.screen, FIELD_SPEED_BORDER, rect, 2, border_radius=10)
+    font = context.get_font("small")
+    text_surf = font.render(text, True, FIELD_SPEED_TEXT)
+    context.screen.blit(text_surf, text_surf.get_rect(center=rect.center))
+
+
+def _draw_question_button(context: UIContext, rect: pygame.Rect) -> None:
+    if not rect:
+        return
+    screen = context.screen
+    radius = rect.width // 2
+    center = rect.center
+    pygame.draw.circle(screen, (210, 130, 60), center, radius)
+    pygame.draw.circle(screen, _darken((210, 130, 60), 40), center, radius, 3)
+    draw_text(context, "?", center, "default", WHITE, align="center")
+
+
+def _draw_section_box(surface: pygame.Surface, rect: pygame.Rect) -> None:
+    if rect.width <= 0 or rect.height <= 0:
+        return
+    pygame.draw.rect(surface, _darken(LEFT_PANEL_BG, 8), rect, border_radius=12)
+    pygame.draw.rect(surface, LEFT_PANEL_BORDER, rect, 1, border_radius=12)
+
+
+def _draw_management_button(context: UIContext, rect: pygame.Rect, text: str) -> None:
+    if rect.width <= 0 or rect.height <= 0:
+        return
+    pygame.draw.rect(context.screen, LEFT_PANEL_ACCENT, rect, border_radius=12)
+    pygame.draw.rect(context.screen, SLOT_BORDER, rect, 2, border_radius=12)
+    font = context.get_font("small")
+    draw_text(
+        context,
+        text,
+        (rect.centerx, rect.centery - font.get_linesize() / 2),
+        "small",
+        WHITE,
         align="center",
     )
 
@@ -739,30 +985,368 @@ def draw_preparation_phase(state: GameState, context: UIContext):
     if context.stats_panel:
         context.stats_panel.draw()
 
-# ... (rest of drawing.py remains the same) ...
-def draw_combat_phase(state: GameState, context: UIContext):
-    bg = context.get_background_image("combat")
-    context.screen.blit(bg, (0, 0))
-    # Arena BG
-    if context.combat_arena_rect:
-        pygame.draw.rect(context.screen, DARK_GRAY, context.combat_arena_rect)
-        pygame.draw.rect(context.screen, LIGHT_GRAY, context.combat_arena_rect, 2)
-    # Panels
-    draw_player_info(state, context)
-    draw_synergies(state, context)
-    is_overtime = state.combat_timer > 30  # Use raw value
-    timer_color = RED if is_overtime else YELLOW
-    timer_text = f"{state.current_node_type or 'COMBAT'}! Time: {state.combat_timer:.1f}s {'OVERTIME!' if is_overtime else ''}"  # FIX default type
+
+def _get_primary_unit(state: GameState) -> Optional[Unit]:
+    for unit in state.player_combat_team:
+        if unit and not unit.is_enemy:
+            return unit
+    if state.player:
+        for unit in state.player.get_all_units():
+            if unit:
+                return unit
+    return None
+
+
+def _draw_inventory_grid(
+    state: GameState, context: UIContext, rect: pygame.Rect
+) -> None:
+    if rect.width <= 0 or rect.height <= 0:
+        return
+    pygame.draw.rect(context.screen, _darken(LEFT_PANEL_BG, 10), rect, border_radius=14)
+    pygame.draw.rect(context.screen, LEFT_PANEL_BORDER, rect, 1, border_radius=14)
+    cols = 10
+    rows = 4
+    gap = 8
+    usable_width = rect.width - (cols - 1) * gap - 24
+    slot_size = int(max(42, min(64, usable_width / cols)))
+    grid_width = slot_size * cols + gap * (cols - 1)
+    start_x = rect.x + (rect.width - grid_width) // 2
+    grid_height = slot_size * rows + gap * (rows - 1)
+    start_y = rect.y + max(16, (rect.height - grid_height) // 2)
+    items = state.player.item_inventory if state.player else []
+    for row in range(rows):
+        for col in range(cols):
+            index = row * cols + col
+            slot_rect = pygame.Rect(
+                int(start_x + col * (slot_size + gap)),
+                int(start_y + row * (slot_size + gap)),
+                slot_size,
+                slot_size,
+            )
+            _draw_slot(context.screen, slot_rect)
+            if index < len(items) and items[index]:
+                icon_rect = slot_rect.inflate(-12, -12)
+                img = context.get_item_image(
+                    items[index].name, (icon_rect.width, icon_rect.height)
+                )
+                context.screen.blit(img, icon_rect.topleft)
+
+
+def _draw_bottom_tabs(
+    context: UIContext, rect: pygame.Rect, counts: tuple[int, int, int]
+) -> None:
+    if rect.width <= 0 or rect.height <= 0:
+        return
+    tabs = ["Abilities", "Inventory", "Team"]
+    spacing = 12
+    tab_width = (rect.width - spacing * (len(tabs) - 1)) / len(tabs)
+    selected = 1
+    for idx, title in enumerate(tabs):
+        tab_rect = pygame.Rect(
+            rect.x + idx * (tab_width + spacing),
+            rect.y,
+            tab_width,
+            rect.height,
+        )
+        is_selected = idx == selected
+        base_color = HUD_ACCENT if is_selected else _darken(LEFT_PANEL_BG, 5)
+        pygame.draw.rect(context.screen, base_color, tab_rect, border_radius=18)
+        pygame.draw.rect(context.screen, LEFT_PANEL_BORDER, tab_rect, 1, border_radius=18)
+        text_color = WHITE if is_selected else LIGHT_GRAY
+        tab_font = context.get_font("default")
+        draw_text(
+            context,
+            title,
+            (tab_rect.centerx, tab_rect.centery - tab_font.get_linesize() / 2),
+            "default",
+            text_color,
+            align="center",
+        )
+        badge_center = (int(tab_rect.right - 22), int(tab_rect.top + 18))
+        pygame.draw.circle(context.screen, SLOT_BORDER, badge_center, 10)
+        badge_font = context.get_font("small")
+        draw_text(
+            context,
+            str(counts[idx]),
+            (badge_center[0], badge_center[1] - badge_font.get_linesize() / 2),
+            "small",
+            WHITE,
+            align="center",
+        )
+
+
+def _draw_left_panel(state: GameState, context: UIContext, rect: pygame.Rect) -> None:
+    if rect.width <= 0 or rect.height <= 0:
+        return
+    panel_surface = pygame.Surface(rect.size, pygame.SRCALPHA)
+    panel_surface.fill(LEFT_PANEL_BG)
+    for x in range(0, rect.width, 32):
+        stripe_rect = pygame.Rect(x, 0, 14, rect.height)
+        panel_surface.fill((*LEFT_PANEL_STRIPE, 35), stripe_rect)
+    context.screen.blit(panel_surface, rect.topleft)
+    pygame.draw.rect(context.screen, LEFT_PANEL_BORDER, rect, 2)
+
+    padding = 24
+    inner_width = rect.width - 2 * padding
+    column_gap = 18
+    top = rect.y + padding
+    relic_width = int(inner_width * 0.48)
+    char_width = inner_width - relic_width - column_gap
+    relic_rect = pygame.Rect(rect.x + padding, top, relic_width, 130)
+    char_rect = pygame.Rect(
+        relic_rect.right + column_gap, top, max(120, char_width), 130
+    )
+    _draw_section_box(context.screen, relic_rect)
+    draw_text(context, "Relics.", (relic_rect.x + 12, relic_rect.y + 8), "default", WHITE)
+    slot_size = min(60, relic_rect.height - 46)
+    slot_gap = 12
+    slots_width = slot_size * 3 + slot_gap * 2
+    slot_start = relic_rect.centerx - slots_width // 2
+    slot_y = relic_rect.bottom - slot_size - 12
+    for idx in range(3):
+        slot_rect = pygame.Rect(
+            int(slot_start + idx * (slot_size + slot_gap)),
+            int(slot_y),
+            slot_size,
+            slot_size,
+        )
+        _draw_slot(context.screen, slot_rect)
+        if idx > 0:
+            _draw_padlock_icon(context.screen, slot_rect)
+
+    _draw_section_box(context.screen, char_rect)
+    hero = _get_primary_unit(state)
+    name = hero.name if hero else "Calder"
+    role = "Rogue"
+    if hero and getattr(hero, "traits", None):
+        role = hero.traits[0] if hero.traits else role
+    draw_text(context, name, (char_rect.x + 12, char_rect.y + 6), "large", WHITE)
     draw_text(
         context,
-        timer_text,
-        (context.screen.get_width() // 2, 20),
-        "large",
-        timer_color,
+        role,
+        (char_rect.x + 12, char_rect.y + 6 + context.get_font("large").get_linesize()),
+        "small",
+        LIGHT_GRAY,
+    )
+    slot_size = min(58, char_rect.height - 60)
+    slot_start = char_rect.x + 12
+    slot_y = char_rect.bottom - slot_size - 12
+    for idx, key in enumerate(["weapon", "armor", "empty"]):
+        slot_rect = pygame.Rect(
+            int(slot_start + idx * (slot_size + 10)),
+            int(slot_y),
+            slot_size,
+            slot_size,
+        )
+        _draw_slot(context.screen, slot_rect, accent=idx < 2)
+        if key != "empty":
+            _draw_equipment_icon(context.screen, slot_rect, key)
+
+    resources_rect = pygame.Rect(
+        rect.x + padding,
+        relic_rect.bottom + 24,
+        inner_width,
+        90,
+    )
+    _draw_section_box(context.screen, resources_rect)
+    draw_text(
+        context,
+        "Resources.",
+        (resources_rect.x + 12, resources_rect.y + 6),
+        "default",
+        WHITE,
+    )
+    flame_center = (
+        int(resources_rect.x + resources_rect.width * 0.3),
+        int(resources_rect.y + resources_rect.height / 2 + 6),
+    )
+    coin_center = (
+        int(resources_rect.x + resources_rect.width * 0.7),
+        flame_center[1],
+    )
+    _draw_resource_icon(context.screen, flame_center, "flame", 24)
+    _draw_resource_icon(context.screen, coin_center, "coin", 20)
+    materials = state.player.materials if state.player else {"RED": 0}
+    crystals = state.player.crystals if state.player else 0
+    draw_text(
+        context,
+        str(materials.get("RED", 0)),
+        (flame_center[0], flame_center[1] + 26),
+        "small",
+        WHITE,
+        align="center",
+    )
+    draw_text(
+        context,
+        str(crystals),
+        (coin_center[0], coin_center[1] + 26),
+        "small",
+        WHITE,
         align="center",
     )
 
-    all_units = []
+    button_top = resources_rect.bottom + 18
+    button_height = 34
+    dismantle_width = 170
+    sort_width = 90
+    dismantle_rect = pygame.Rect(
+        rect.x + padding + inner_width - dismantle_width,
+        button_top,
+        dismantle_width,
+        button_height,
+    )
+    sort_rect = pygame.Rect(
+        dismantle_rect.x - sort_width - 12,
+        button_top,
+        sort_width,
+        button_height,
+    )
+    if sort_rect.x < rect.x + padding:
+        sort_rect.x = rect.x + padding
+    _draw_management_button(context, sort_rect, "Sort")
+    _draw_management_button(context, dismantle_rect, "Dismantle items")
+
+    tabs_height = 44
+    inventory_top = button_top + button_height + 14
+    inventory_bottom = rect.bottom - padding - tabs_height - 14
+    inventory_rect = pygame.Rect(
+        rect.x + padding,
+        inventory_top,
+        inner_width,
+        max(120, inventory_bottom - inventory_top),
+    )
+    _draw_inventory_grid(state, context, inventory_rect)
+
+    tabs_rect = pygame.Rect(
+        rect.x + padding,
+        rect.bottom - padding - tabs_height,
+        inner_width,
+        tabs_height,
+    )
+    inventory_count = len(state.player.item_inventory) if state.player else 0
+    team_count = len(state.player.get_board_units()) if state.player else 0
+    _draw_bottom_tabs(context, tabs_rect, (0, inventory_count, team_count))
+
+
+def _draw_field_background(context: UIContext, rect: pygame.Rect) -> None:
+    if rect.width <= 0 or rect.height <= 0:
+        return
+    surface = pygame.Surface(rect.size, pygame.SRCALPHA)
+    for y in range(rect.height):
+        t = y / max(1, rect.height - 1)
+        color = (
+            int(FIELD_GRADIENT_TOP[0] * (1 - t) + FIELD_GRADIENT_BOTTOM[0] * t),
+            int(FIELD_GRADIENT_TOP[1] * (1 - t) + FIELD_GRADIENT_BOTTOM[1] * t),
+            int(FIELD_GRADIENT_TOP[2] * (1 - t) + FIELD_GRADIENT_BOTTOM[2] * t),
+        )
+        pygame.draw.line(surface, color, (0, y), (rect.width, y))
+    horizon = rect.height // 2
+    mountain_points = [
+        (0, rect.height - horizon // 3),
+        (rect.width * 0.2, horizon - 30),
+        (rect.width * 0.45, horizon - 10),
+        (rect.width * 0.7, horizon - 40),
+        (rect.width, rect.height - horizon // 4),
+        (rect.width, rect.height),
+        (0, rect.height),
+    ]
+    pygame.draw.polygon(
+        surface,
+        FIELD_MOUNTAIN,
+        [(int(x), int(y)) for x, y in mountain_points],
+    )
+    highlight_points = [
+        (rect.width * 0.1, horizon - 20),
+        (rect.width * 0.35, horizon - 60),
+        (rect.width * 0.6, horizon - 30),
+        (rect.width * 0.85, horizon - 50),
+        (rect.width * 0.7, rect.height - horizon // 3),
+        (rect.width * 0.3, rect.height - horizon // 5),
+    ]
+    pygame.draw.polygon(
+        surface,
+        FIELD_MOUNTAIN_LIGHT,
+        [(int(x), int(y)) for x, y in highlight_points],
+    )
+    base_y = rect.height - rect.height // 4
+    path_points: list[tuple[int, int]] = []
+    for idx in range(7):
+        px = int(rect.width * 0.12 + idx * rect.width * 0.12)
+        py = int(base_y + (idx % 2) * 14 - 10)
+        path_points.append((px, py))
+        pygame.draw.circle(surface, FIELD_NODE, (px, py), 6, 2)
+        pygame.draw.circle(surface, FIELD_NODE, (px, py), 2)
+    for i in range(len(path_points) - 1):
+        pygame.draw.line(surface, MAP_PATH, path_points[i], path_points[i + 1], 2)
+    crystal_center = (int(rect.width * 0.82), int(base_y - 48))
+    _draw_crystal(surface, crystal_center, max(18, rect.height // 12))
+    context.screen.blit(surface, rect.topleft)
+    pygame.draw.rect(context.screen, LEFT_PANEL_BORDER, rect, 2, border_radius=18)
+
+
+def _draw_map_controls(
+    state: GameState, context: UIContext, field_rect: pygame.Rect
+) -> None:
+    map_rect = context.map_button_rect
+    if map_rect:
+        base = _lighten(HUD_ACCENT, 40)
+        pygame.draw.rect(context.screen, base, map_rect, border_radius=18)
+        pygame.draw.rect(context.screen, _darken(base, 40), map_rect, 2, border_radius=18)
+        map_font = context.get_font("large")
+        draw_text(
+            context,
+            "Map",
+            (map_rect.centerx, map_rect.centery - map_font.get_linesize() / 2),
+            "large",
+            BLACK,
+            align="center",
+        )
+        speed_width = 64
+        labels = ["×1", "×1.5", "×2"]
+        for idx, label in enumerate(labels):
+            speed_rect = pygame.Rect(
+                map_rect.right + 16 + idx * (speed_width + 12),
+                map_rect.y,
+                speed_width,
+                map_rect.height,
+            )
+            _draw_speed_button(context, speed_rect, label, idx == 0)
+        timer_text = f"{state.current_node_type or 'Combat'} • {state.combat_timer:.1f}s"
+        timer_color = RED if state.combat_timer > 30 else YELLOW
+        draw_text(
+            context,
+            timer_text,
+            (map_rect.left, map_rect.bottom + 8),
+            "small",
+            timer_color,
+        )
+
+
+def _draw_panel_handle(context: UIContext, left_rect: pygame.Rect) -> None:
+    handle_width = 12
+    handle_height = 72
+    handle_rect = pygame.Rect(
+        left_rect.right - handle_width // 2,
+        context.screen.get_height() // 2 - handle_height // 2,
+        handle_width,
+        handle_height,
+    )
+    pygame.draw.rect(context.screen, HANDLE_BG, handle_rect, border_radius=6)
+    inner = handle_rect.inflate(-4, -4)
+    if inner.width > 0 and inner.height > 0:
+        pygame.draw.rect(context.screen, HANDLE_GLOW, inner, border_radius=4)
+    draw_text(
+        context,
+        ">",
+        handle_rect.center,
+        "small",
+        WHITE,
+        align="center",
+    )
+
+
+def _draw_combat_entities(state: GameState, context: UIContext) -> None:
+    all_units: list[Unit] = []
     if state.player_combat_team:
         all_units.extend(state.player_combat_team)
     if state.enemy_combat_team:
@@ -779,14 +1363,233 @@ def draw_combat_phase(state: GameState, context: UIContext):
         for floater in state.damage_floaters:
             if floater:
                 draw_damage_floater(context, floater)
-    draw_button(
-        context,
-        context.stats_toggle_button_rect,
-        "Stats",
-        "small",
-        context.hovered_button_rect == context.stats_toggle_button_rect,
+
+
+def _draw_bottom_hud(state: GameState, context: UIContext, rect: pygame.Rect) -> None:
+    if rect.width <= 0 or rect.height <= 0:
+        return
+    pygame.draw.rect(context.screen, HUD_BG, rect, border_radius=20)
+    pygame.draw.rect(context.screen, HUD_BORDER, rect, 2, border_radius=20)
+    padding = 28
+    info_width = int(rect.width * 0.38)
+    info_rect = pygame.Rect(
+        rect.x + padding,
+        rect.y + padding,
+        info_width,
+        rect.height - 2 * padding,
     )
+    hero = _get_primary_unit(state)
+    name = hero.name if hero else "Calder"
+    role = "Rogue"
+    if hero and getattr(hero, "traits", None):
+        role = hero.traits[0] if hero.traits else role
+    draw_text(context, name, (info_rect.x, info_rect.y), "large", WHITE)
+    draw_text(
+        context,
+        role,
+        (info_rect.x, info_rect.y + context.get_font("large").get_linesize()),
+        "small",
+        LIGHT_GRAY,
+    )
+    hp_max = int(hero.current_stats.get("hp", 100)) if hero else 100
+    hp_current = int(hero.current_hp) if hero else hp_max
+    hp_ratio = hp_current / hp_max if hp_max > 0 else 0
+    hp_bar_rect = pygame.Rect(
+        info_rect.x,
+        info_rect.y + 60,
+        info_rect.width - 40,
+        18,
+    )
+    draw_bar(context, hp_bar_rect, hp_ratio, HEALTH_BAR_COLOR)
+    draw_text(
+        context,
+        f"{hp_current}/{hp_max}",
+        (hp_bar_rect.right, hp_bar_rect.centery - 10),
+        "small",
+        WHITE,
+        align="right",
+    )
+    player = state.player
+    xp_needed = player.xp_to_next_level()
+    xp_ratio = clamp(player.xp / xp_needed, 0, 1) if xp_needed else 1.0
+    xp_bar_rect = pygame.Rect(
+        info_rect.x + 36,
+        hp_bar_rect.bottom + 18,
+        hp_bar_rect.width - 36,
+        12,
+    )
+    draw_bar(context, xp_bar_rect, xp_ratio, HUD_ACCENT)
+    badge_center = (xp_bar_rect.x - 18, xp_bar_rect.centery)
+    pygame.draw.circle(context.screen, HUD_ACCENT, badge_center, 14)
+    draw_text(
+        context,
+        str(player.level),
+        badge_center,
+        "small",
+        BLACK,
+        align="center",
+    )
+    xp_text = f"{player.xp}/{xp_needed}" if xp_needed else "MAX"
+    draw_text(
+        context,
+        xp_text,
+        (xp_bar_rect.right, xp_bar_rect.centery - 10),
+        "small",
+        WHITE,
+        align="right",
+    )
+
+    stats_width = int(rect.width * 0.32)
+    stats_rect = pygame.Rect(
+        info_rect.right + 36,
+        rect.y + padding,
+        stats_width,
+        rect.height - 2 * padding,
+    )
+    stat_rows = [
+        ("sword", int(hero.current_stats.get("ad", 0)) if hero else 0, False),
+        (
+            "boot",
+            int(hero.current_stats.get("move_speed", 0)) if hero else 0,
+            False,
+        ),
+        (
+            "crosshair",
+            int(hero.current_stats.get("accuracy", 0)) if hero else 0,
+            True,
+        ),
+        ("flame", int(hero.current_stats.get("ap", 0)) if hero else 0, False),
+        ("shield", int(hero.current_stats.get("armor", 0)) if hero else 0, False),
+        (
+            "swirl",
+            int(hero.current_stats.get("dodge_chance", 0)) if hero else 0,
+            True,
+        ),
+        (
+            "droplet",
+            int(hero.current_stats.get("omnivamp", 0)) if hero else 0,
+            True,
+        ),
+        (
+            "wand",
+            int(hero.current_stats.get("spell_lifesteal", 0)) if hero else 0,
+            True,
+        ),
+    ]
+    rows_per_col = (len(stat_rows) + 1) // 2
+    row_height = 32
+    for idx, (icon_key, value, is_percent) in enumerate(stat_rows):
+        col = idx // rows_per_col
+        row = idx % rows_per_col
+        icon_center = (
+            int(stats_rect.x + col * (stats_rect.width / 2) + 20),
+            int(stats_rect.y + row * row_height + 16),
+        )
+        _draw_stat_icon(context.screen, icon_center, icon_key, WHITE)
+        value_text = f"{value}"
+        draw_text(
+            context,
+            value_text,
+            (icon_center[0] + 24, icon_center[1] - 10),
+            "small",
+            WHITE,
+        )
+        if is_percent:
+            draw_text(
+                context,
+                f"({value}%)",
+                (icon_center[0] + 24 + 40, icon_center[1] - 10),
+                "small",
+                LIGHT_GRAY,
+            )
+
+    slots_rect = pygame.Rect(
+        stats_rect.right + 36,
+        rect.y + padding,
+        rect.right - padding - (stats_rect.right + 36),
+        rect.height - 2 * padding,
+    )
+    pygame.draw.rect(context.screen, _darken(HUD_BG, 8), slots_rect, border_radius=12)
+    slot_cols = 3
+    slot_gap = 10
+    slot_size = int(
+        max(46, min(60, (slots_rect.width - (slot_cols - 1) * slot_gap - 16) / slot_cols))
+    )
+    grid_width = slot_size * slot_cols + slot_gap * (slot_cols - 1)
+    start_x = slots_rect.x + (slots_rect.width - grid_width) / 2
+    top_y = slots_rect.y + 12
+    group_gap = 26
+    divider_y = 0
+    for col in range(slot_cols):
+        x = start_x + col * (slot_size + slot_gap)
+        top_rect = pygame.Rect(int(x), int(top_y), slot_size, slot_size)
+        _draw_slot(context.screen, top_rect)
+        bottom_rect = pygame.Rect(
+            int(x), int(top_rect.bottom + group_gap), slot_size, slot_size
+        )
+        _draw_slot(context.screen, bottom_rect)
+        divider_y = top_rect.bottom + group_gap // 2
+    pygame.draw.line(
+        context.screen,
+        SLOT_DIVIDER,
+        (slots_rect.x + 10, divider_y),
+        (slots_rect.right - 10, divider_y),
+        1,
+    )
+
+    if context.stats_toggle_button_rect:
+        _draw_question_button(context, context.stats_toggle_button_rect)
+
+    menu_width = 120
+    menu_height = 44
+    menu_rect = pygame.Rect(
+        rect.right - padding - menu_width,
+        rect.bottom - padding - menu_height,
+        menu_width,
+        menu_height,
+    )
+    pygame.draw.rect(context.screen, LEFT_PANEL_ACCENT, menu_rect, border_radius=18)
+    pygame.draw.rect(context.screen, SLOT_BORDER, menu_rect, 2, border_radius=18)
+    menu_font = context.get_font("default")
+    draw_text(
+        context,
+        "Menu",
+        (menu_rect.centerx, menu_rect.centery - menu_font.get_linesize() / 2),
+        "default",
+        WHITE,
+        align="center",
+    )
+
+
+def draw_combat_phase(state: GameState, context: UIContext):
+    bg = context.get_background_image("combat")
+    context.screen.blit(bg, (0, 0))
+    left_rect = pygame.Rect(0, 0, LEFT_PANEL_WIDTH, context.screen.get_height())
+    _draw_left_panel(state, context, left_rect)
+    arena_rect = (
+        pygame.Rect(context.combat_arena_rect)
+        if context.combat_arena_rect
+        else pygame.Rect(
+            LEFT_PANEL_WIDTH + RIGHT_PANEL_PADDING,
+            COMBAT_FIELD_TOP,
+            RIGHT_PANEL_WIDTH - RIGHT_PANEL_PADDING * 2,
+            max(120, HUD_AREA_Y - COMBAT_FIELD_TOP - HUD_MARGIN),
+        )
+    )
+    _draw_field_background(context, arena_rect)
+    _draw_combat_entities(state, context)
+    _draw_map_controls(state, context, arena_rect)
+    hud_rect = pygame.Rect(
+        arena_rect.x,
+        HUD_AREA_Y,
+        arena_rect.width,
+        HUD_CARD_HEIGHT,
+    )
+    _draw_bottom_hud(state, context, hud_rect)
+    _draw_panel_handle(context, left_rect)
     draw_hover_info(state, context)
+    if context.drag_mgr:
+        context.draw_drag_preview()
     if context.details_window:
         context.details_window.draw(context)
     if context.stats_panel:
@@ -817,6 +1620,14 @@ def draw_unit_combat(context: UIContext, unit: Unit):
     # FIX: Use int() for drawing
     if int(current_radius) < 1:
         return
+
+    base_width = int(current_radius * 2.4)
+    base_height = max(6, int(current_radius * 0.6))
+    base_rect = pygame.Rect(0, 0, base_width, base_height)
+    base_rect.center = (x, y + int(current_radius * 0.8))
+    base_color = (90, 130, 170) if not unit.is_enemy else (170, 80, 80)
+    pygame.draw.ellipse(context.screen, base_color, base_rect)
+    pygame.draw.ellipse(context.screen, _darken(base_color, 40), base_rect, 2)
 
     # Handle color lerping for animations
     base_color = context.map_color(unit.base_color_key)
