@@ -2,21 +2,18 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Optional, Tuple
 
 import pygame
-from engine.crafting import craft, dismantle
+
 from data.constants import (
     MAX_ITEMS_EQUIPPED,
-    REFRESH_COST,
-    XP_BUY_AMOUNT,
-    XP_BUY_COST,
     REFRESH_CRYSTAL_COST,
-    XP_BUY_CRYSTAL_COST
+    XP_BUY_AMOUNT,
+    XP_BUY_CRYSTAL_COST,
 )
-from data.definitions import SYNERGY_DEFINITIONS,NODE_REWARDS
-from data.enums import ItemType
-from engine.classes import Artifact, Item, Unit
+from data.definitions import NODE_REWARDS
+from engine.classes import Item, Unit
 from engine.game_state import GameState
 from engine.logic import (
     attempt_equip_item,
@@ -35,16 +32,16 @@ from states.state_machine import (
     navigate_map,
     open_settings,
     resolve_event_choice,
-    run_preparation_phase,
     start_combat,
     start_new_run,
 )
 from ui import sounds
+from ui.crafting_window import CraftingWindow
 from ui.details_window import DetailsWindow
 from ui.drag_manager import get_drag_manager
-from ui.ui_context import UIContext
-from ui.crafting_window import CraftingWindow
 from ui.stats_panel import StatsPanel
+from ui.ui_context import UIContext
+
 
 def get_clicked_object_info(
     pos: Tuple[int, int], state: GameState, context: UIContext
@@ -130,6 +127,7 @@ def get_clicked_object_info(
             return (UnitLocation.SHOP, i, shop.slots[i])
     return None
 
+
 def _handle_details_window(event: pygame.event.Event, context: UIContext) -> bool:
     """Let the details window consume relevant events."""
     if context.details_window:
@@ -148,6 +146,15 @@ def _handle_stats_panel(event: pygame.event.Event, context: UIContext) -> bool:
     if context.stats_panel and context.stats_panel.handle_event(event):
         return True
     return False
+
+
+def _handle_warehouse_panel(event: pygame.event.Event, context: UIContext) -> bool:
+    """Delegate events to the warehouse panel if present."""
+    if context.warehouse_panel and context.warehouse_panel.handle_event(event):
+        return True
+    return False
+
+
 def handle_game_event(
     event: pygame.event.Event, state: GameState, context: UIContext
 ) -> Optional[GameState]:
@@ -160,8 +167,10 @@ def handle_game_event(
         return None
     if _handle_stats_panel(event, context):
         return None
+    if _handle_warehouse_panel(event, context):
+        return None
     if event.type == pygame.MOUSEMOTION:
-        pos =  getattr(event,"pos",None)
+        pos = getattr(event, "pos", None)
         if pos == None:
             return
         # -------- 若正在拖拽，更新并短路其余 Hover 逻辑 -------- #
@@ -184,8 +193,8 @@ def handle_game_event(
             and context.stats_toggle_button_rect.collidepoint(pos)
         ):
             context.hovered_button_rect = context.stats_toggle_button_rect
-#    if context.warehouse_panel:
-    pos =  getattr(event,"pos",None)
+    #    if context.warehouse_panel:
+    pos = getattr(event, "pos", None)
     if pos == None:
         return
     # Phase-specific motion handling
@@ -196,9 +205,8 @@ def handle_game_event(
     ):
         context.hovered_button_rect = context.start_menu_button_rect
     elif state.current_phase in [GamePhase.GAME_OVER, GamePhase.RUN_COMPLETE]:
-        if (
-            context.restart_button_rect
-            and context.restart_button_rect.collidepoint(pos)
+        if context.restart_button_rect and context.restart_button_rect.collidepoint(
+            pos
         ):
             context.hovered_button_rect = context.restart_button_rect
         elif (
@@ -219,11 +227,7 @@ def handle_game_event(
     elif state.current_phase == GamePhase.EVENT_CHOICE:
         for choice in state.event_choices:
             # FIX: check if rect exists
-            if (
-                "rect" in choice
-                and choice["rect"]
-                and choice["rect"].collidepoint(pos)
-            ):
+            if "rect" in choice and choice["rect"] and choice["rect"].collidepoint(pos):
                 context.hovered_button_rect = choice["rect"]
                 break
     elif state.current_phase == GamePhase.SETTINGS:
@@ -326,9 +330,8 @@ def handle_game_event(
                             f"{obj.name} ({obj.type})\n{obj.description}"
                         )
             # Synergy hover
-            elif (
-                context.synergy_panel_rect
-                and context.synergy_panel_rect.collidepoint(pos)
+            elif context.synergy_panel_rect and context.synergy_panel_rect.collidepoint(
+                pos
             ):
                 # Logic to find which synergy is hovered
                 pass  # Simplified for now
@@ -689,7 +692,7 @@ def handle_game_event(
     if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
         context.details_window = None
     if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-        pos =  getattr(event,"pos",None)
+        pos = getattr(event, "pos", None)
         if pos == None:
             return
         if context.details_window:
