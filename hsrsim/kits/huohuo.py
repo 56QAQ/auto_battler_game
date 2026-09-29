@@ -11,7 +11,7 @@ from .. import stats as S
 from ..entities import Character, Enemy
 from ..enums import ActionKind
 from ..modifiers import Modifier, Tick
-from . import register
+from . import register, register_enhanced
 from .base import Kit
 
 
@@ -21,8 +21,6 @@ class Huohuo(Kit):
     ult_targets_ally = True
 
     def setup(self) -> None:
-        if self.char.enhanced:
-            raise NotImplementedError("Huohuo enhanced kit is not implemented yet")
         self.triggers_left = 0
         self.on(E.TURN_START, self._on_turn_start)
         self.on(E.ULT_USED, self._on_ult)
@@ -103,3 +101,41 @@ class Huohuo(Kit):
                         "Spiritual Domination", stats={S.ATK_PCT: self.p("ult", 1)}, duration=int(self.p("ult", 2))
                     ),
                 )
+
+
+@register_enhanced
+class HuohuoEnhanced(Huohuo):
+    """Enhanced Huohuo: Divine Provision from Skill and Ultimate, extra ATK for high-Energy allies (A4)."""
+
+    def setup(self) -> None:
+        self.triggers_left = 0
+        self.on(E.TURN_START, self._on_turn_start)
+        self.on(E.ULT_USED, self._on_ult)
+
+    def on_battle_start(self) -> None:
+        if self.trace(1):
+            self.battle.gain_energy(self.char, self.tp(1, 0), fixed=True)
+            self._provision(int(self.tp(1, 1)))
+
+    def _provision_turns(self) -> int:
+        return int(self.p("talent", 0)) + (int(self.ep(1, 0)) if self.e(1) else 0)
+
+    def skill(self, target: Enemy | None) -> None:
+        ally = self.main_dps()
+        with self.action(ActionKind.SKILL, "skill", ally):
+            self.battle.heal(ally, self.p("skill", 0) * self.char.max_hp + self.p("skill", 1), self.char)
+            self._provision(self._provision_turns())
+            if self.e(6):
+                self.buff(
+                    ally, Modifier("Woven Together", stats={S.DMG_PCT: self.ep(6, 0)}, duration=int(self.ep(6, 1)))
+                )
+
+    def ult(self, target: Enemy | None) -> None:
+        with self.action(ActionKind.ULT, "ult"):
+            for c in self.teammates():
+                self.battle.gain_energy(c, self.p("ult", 0) * c.max_energy, fixed=True)
+                atk = self.p("ult", 1)
+                if self.trace(2) and c.max_energy >= self.tp(2, 1):
+                    atk += self.tp(2, 2)
+                self.buff(c, Modifier("Spiritual Domination", stats={S.ATK_PCT: atk}, duration=int(self.p("ult", 2))))
+            self._provision(self._provision_turns())

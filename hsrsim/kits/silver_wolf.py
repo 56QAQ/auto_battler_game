@@ -10,7 +10,7 @@ from .. import stats as S
 from ..entities import Enemy
 from ..enums import ActionKind, Element
 from ..modifiers import Modifier, ModKind
-from . import register
+from . import register, register_enhanced
 from .base import Kit
 
 BUGS = ("ATK", "DEF", "SPD")
@@ -22,8 +22,6 @@ class SilverWolf(Kit):
     default_opts = {"implant": None}  # element to implant (default: first ally element the target lacks)
 
     def setup(self) -> None:
-        if self.char.enhanced:
-            raise NotImplementedError("Silver Wolf enhanced kit is not implemented yet")
         self.on(E.ATTACK_END, self._talent)
         if self.trace(1):
             self.on(E.BREAK, self._a2)
@@ -148,3 +146,116 @@ class SilverWolf(Kit):
             if self.e(4):
                 for _ in range(min(int(self.ep(4, 1)), len(target.debuffs))):
                     self.battle.additional_damage(self.char, target, self.ep(4, 0), label="E4 Bounce Attack")
+
+
+@register_enhanced
+class SilverWolfEnhanced(SilverWolf):
+    """Enhanced Silver Wolf: AoE Ultimate, 100% Bug chance, EHR-to-ATK (A6), DMG taken on entry (E2)."""
+
+    def setup(self) -> None:
+        self.on(E.ATTACK_END, self._talent)
+        if self.trace(1):
+            self.on(E.BREAK, self._a2)
+        if self.trace(2):
+            self.on(
+                E.TURN_START, lambda ev: ev.entity is self.char and self.battle.gain_energy(self.char, self.tp(2, 1))
+            )
+        if self.trace(3):
+            self.passive(
+                "Side Note",
+                {},
+                dyn=lambda m, k, e: min(
+                    self.tp(3, 2), int(self.char.stat(S.EHR) / self.tp(3, 0) + 1e-9) * self.tp(3, 1)
+                ),
+                dyn_keys={S.ATK_PCT},
+            )
+        if self.e(2):
+            self.on(E.ENEMY_SPAWNED, lambda ev: self._e2_enter(ev.enemy))
+            self.on(E.ATTACK_END, self._e2_bug)
+        if self.e(6):
+            self.on(E.BEFORE_HIT, self._e6)
+
+    def on_battle_start(self) -> None:
+        if self.trace(2):
+            self.battle.gain_energy(self.char, self.tp(2, 0), fixed=True)
+        if self.e(2):
+            for e in self.enemies():
+                self._e2_enter(e)
+
+    def _e2_enter(self, e: Enemy) -> None:
+        self.battle.apply(
+            Modifier("Zombie Network", stats={S.VULN: self.ep(2, 0)}, kind=ModKind.DEBUFF, dispellable=False),
+            e,
+            self.char,
+        )
+
+    def _e2_bug(self, ev: E.Ev) -> None:
+        act = ev.attack
+        if act.owner is not None and act.owner.side == self.char.side and act.owner is not self.char:
+            for t in act.attacked:
+                if t.alive:
+                    self.bug(t, self.ep(2, 1))
+
+    def _implant_element(self, target: Enemy) -> Element | None:
+        pref = self.opts.get("implant")
+        if pref:
+            return Element(pref)
+        first = self.battle.team[0]  # "prioritizing the implant of a Weakness that matches the first character"
+        if not target.is_weak_to(first.element):
+            return first.element
+        return super()._implant_element(target)
+
+    def ult(self, target: Enemy | None) -> None:
+        with self.action(ActionKind.ULT, "ult", target) as act:
+            for e in self.enemies():
+                self.battle.try_debuff(
+                    Modifier(
+                        "User Banned",
+                        stats={S.DEF_REDUCTION: self.p("ult", 2)},
+                        duration=int(self.p("ult", 3)),
+                        kind=ModKind.DEBUFF,
+                    ),
+                    e,
+                    self.char,
+                    self.p("ult", 1),
+                )
+            act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target)
+            main = target if target is not None and target.alive else None
+            if self.e(1) and main is not None:
+                act.energy += self.ep(1, 0) * min(int(self.ep(1, 1)), len(main.debuffs))
+            if self.e(4):
+                for e in self.enemies():
+                    for _ in range(min(int(self.ep(4, 1)), len(e.debuffs))):
+                        self.battle.additional_damage(self.char, e, self.ep(4, 0), label="E4 Bounce Attack")
+
+    def skill(self, target: Enemy | None) -> None:  # the enhanced A4/A6 no longer modify the Skill
+        assert target is not None
+        with self.action(ActionKind.SKILL, "skill", target) as act:
+            el = self._implant_element(target)
+            if el is not None:
+                self.battle.remove_named(target, "Implanted Weakness")
+                stats = {} if target.is_weak_to(el) else {f"{S.RES_REDUCTION}:{el.value}": self.p("skill", 3)}
+                self.battle.try_debuff(
+                    Modifier(
+                        "Implanted Weakness",
+                        stats=stats,
+                        duration=int(self.p("skill", 2)),
+                        kind=ModKind.DEBUFF,
+                        tags={f"weak:{el.value}"},
+                    ),
+                    target,
+                    self.char,
+                    self.p("skill", 1),
+                )
+            self.battle.try_debuff(
+                Modifier(
+                    "Allow Changes?",
+                    stats={S.RES_REDUCTION: self.p("skill", 5)},
+                    duration=int(self.p("skill", 6)),
+                    kind=ModKind.DEBUFF,
+                ),
+                target,
+                self.char,
+                self.p("skill", 4),
+            )
+            act.hit(target, self.p("skill", 0), toughness=self.toughness("skill"))

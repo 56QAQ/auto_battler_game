@@ -9,8 +9,8 @@ from .. import events as E
 from .. import stats as S
 from ..entities import Character, Enemy
 from ..enums import ActionKind, Element
-from ..modifiers import Modifier, Stacking, Tick
-from . import register
+from ..modifiers import Modifier, ModKind, Stacking, Tick
+from . import register, register_enhanced
 from .base import Kit
 
 
@@ -21,8 +21,6 @@ class Sparkle(Kit):
     default_opts = {"target": None}
 
     def setup(self) -> None:
-        if self.char.enhanced:
-            raise NotImplementedError("Sparkle enhanced kit is not implemented yet")
         extra = int(self.p("talent", 2)) + (1 if self.e(4) else 0)
         self.battle.max_sp += extra
         self.on(E.SP_CHANGED, self._on_sp)
@@ -130,3 +128,135 @@ class Sparkle(Kit):
                     for c in self.allies():
                         if not c.has_mod("Dreamdiver"):
                             self._apply_cd_buff(c, value)
+
+
+@register_enhanced
+class SparkleEnhanced(Sparkle):
+    """Enhanced Sparkle: "Figment" stacks raise enemies' DMG taken, SP overflow bank, free Skill (A4)."""
+
+    def setup(self) -> None:
+        extra = int(self.p("talent", 2)) + (1 if self.e(4) else 0)
+        self.battle.max_sp += extra
+        self.bank = 0
+        self.free_skill = False
+        self.spent_in_turn: dict[tuple[int, int], int] = {}
+        self.on(E.SP_CHANGED, self._on_sp_enh)
+        self.on(E.SP_RECOVERED, self._on_recover)
+        self.on(E.TURN_END, self._refill)
+        self.on(E.BEFORE_HIT, self._figment_hit)
+        if self.trace(3):
+            self.passive("Nocturne", {S.ATK_PCT: self.tp(3, 0)}, scope=self.ally_scope)
+            self.passive(
+                "Nocturne (PEN)",
+                {},
+                scope=self.ally_scope,
+                key="Sparkle A6 PEN",
+                dyn=lambda m, k, e: self.tp(3, 1) if e.has_mod("Dreamdiver") else 0.0,
+                dyn_keys={S.RES_PEN},
+            )
+
+    def on_battle_start(self) -> None:
+        if self.e(1):
+            self._e1_spd()
+
+    def technique(self) -> None:
+        p = self.sk("technique")["params"][0]
+        self.battle.gain_sp(int(p[0]), self.char)
+        self.battle.gain_energy(self.char, p[1], fixed=True)
+
+    def _e1_spd(self) -> None:
+        self.buff_self(
+            Modifier("Suspension of Disbelief", stats={S.SPD_PCT: self.ep(1, 1)}, duration=int(self.ep(1, 2)))
+        )
+
+    # ---------------------------------------------------------------- Figment
+    def _on_sp_enh(self, ev: E.Ev) -> None:
+        if ev.delta >= 0:
+            return
+        who = ev.entity
+        n = -ev.delta
+        for _ in range(n):
+            self.buff_self(
+                Modifier(
+                    "Figment",
+                    duration=int(self.p("talent", 0)),
+                    stacking=Stacking.STACK,
+                    max_stacks=int(self.p("talent", 3)),
+                    kind=ModKind.BUFF,
+                )
+            )
+        if isinstance(who, Character):
+            if self.trace(1) and who.has_mod("Dreamdiver"):
+                self.battle.gain_energy(self.char, self.tp(1, 1) * n)
+            key = (self.battle.turns, who.uid)
+            self.spent_in_turn[key] = self.spent_in_turn.get(key, 0) + n
+            if self.trace(2) and self.spent_in_turn[key] >= self.tp(2, 0):
+                self.free_skill = True
+
+    def _figment_hit(self, ev: E.Ev) -> None:
+        fig = self.char.get_mod("Figment")
+        if fig is None:
+            return
+        hit = ev.hit
+        if hit.attacker.side != self.char.side:
+            return
+        per = self.p("talent", 1)
+        src = hit.credited
+        if src.has_mod("Cipher"):
+            per += self.p("ult", 2)
+        hit.add(S.VULN, per * fig.stacks)
+        if self.e(2):
+            hit.add(S.DEF_REDUCTION, self.ep(2, 0) * fig.stacks)
+
+    # ------------------------------------------------------------- SP bank
+    def _on_recover(self, ev: E.Ev) -> None:
+        if (
+            ev.entity is self.char
+            and self.battle.current_action is not None
+            and self.battle.current_action.kind == ActionKind.ULT
+            and ev.overflow > 0
+        ):
+            self.bank = min(int(self.p("ult", 4)), self.bank + int(ev.overflow))
+
+    def _refill(self, ev: E.Ev) -> None:
+        if self.bank > 0 and isinstance(ev.entity, Character) and self.battle.sp < self.battle.max_sp:
+            n = min(self.bank, self.battle.max_sp - self.battle.sp)
+            self.bank -= n
+            self.battle.gain_sp(n, self.char)
+
+    # -------------------------------------------------------------- actions
+    def can_skill(self) -> bool:
+        return self.free_skill or super().can_skill()
+
+    def _cd_buff(self, ally: Character, value: float) -> None:
+        self.buff(ally, Modifier("Dreamdiver", stats={S.CRIT_DMG: value}, duration=int(self.p("skill", 2))))
+
+    def skill(self, target: Enemy | None) -> None:
+        ally = self.main_dps()
+        sp = 0 if self.free_skill else None
+        self.free_skill = False
+        with self.action(ActionKind.SKILL, "skill", ally, sp=sp):
+            value = self._cd_buff_value()
+            self._cd_buff(ally, value)
+            if self.e(6):
+                for c in self.allies():
+                    if c is not ally and c.has_mod("Cipher"):
+                        self._cd_buff(c, value)
+            if self.e(1):
+                self._e1_spd()
+        if ally is not self.char:
+            self.battle.advance(ally, self.p("skill", 3))
+
+    def ult(self, target: Enemy | None) -> None:
+        with self.action(ActionKind.ULT, "ult"):
+            self.battle.gain_sp(int(self.p("ult", 1)) + (1 if self.e(4) else 0), self.char)
+            for c in self.allies():
+                stats = {S.ATK_PCT: self.ep(1, 0)} if self.e(1) else {}
+                self.buff(c, Modifier("Cipher", stats=stats, duration=int(self.p("ult", 3))))
+            if self.e(6):
+                holders = [c for c in self.allies() if c.has_mod("Dreamdiver")]
+                if holders:
+                    value = holders[0].get_mod("Dreamdiver").stats[S.CRIT_DMG]  # type: ignore[union-attr]
+                    for c in self.allies():
+                        if not c.has_mod("Dreamdiver"):
+                            self._cd_buff(c, value)

@@ -13,7 +13,7 @@ from ..battle import Battle
 from ..entities import Enemy, Entity
 from ..enums import ActionKind, DmgTag, Element
 from ..modifiers import DotModifier, Modifier, ModKind, Stacking, Tick
-from . import register
+from . import register, register_enhanced
 from .base import Kit
 
 DOT_KINDS = ("wind_shear", "bleed", "burn", "shock")
@@ -25,8 +25,6 @@ class BlackSwan(Kit):
     char_id = "1307"
 
     def setup(self) -> None:
-        if self.char.enhanced:
-            raise NotImplementedError("Black Swan enhanced kit is not implemented yet")
         self.a4_count: dict[tuple[int, int], int] = defaultdict(int)
         self.on(E.DOT_TRIGGERED, self._on_dot)
         if self.trace(2):
@@ -198,3 +196,179 @@ class Epiphany(Modifier):
                 ev.hit.add(S.VULN, self.data.get("vuln", 0.0))
 
         self.listen(E.BEFORE_HIT, before_hit)
+
+
+@register_enhanced
+class BlackSwanEnhanced(BlackSwan):
+    """Enhanced Black Swan: Arcana always counts as all four DoTs, halves instead of resetting, 20% DEF ignore,
+    team-wide EHR-based DMG%, stronger Epiphany."""
+
+    def setup(self) -> None:
+        self.a4_count = defaultdict(int)
+        self.on(E.DOT_TRIGGERED, self._on_dot_enh)
+        self.on(E.ATTACK_END, self._on_attack_enh)
+        self.on(E.BEFORE_HIT, self._epiphany_vuln)
+        if self.trace(2) or self.e(2):
+            self.on(E.ENEMY_SPAWNED, lambda ev: self._on_enter(ev.enemy))
+        if self.trace(3):
+            self.passive(
+                "Candleflame's Portent",
+                {},
+                scope=self.ally_scope,
+                key="BS A6",
+                dyn=lambda m, k, e: min(self.tp(3, 1), self.tp(3, 0) * self.char.stat(S.EHR)),
+                dyn_keys={S.DMG_PCT},
+            )
+        if self.e(1):
+            self.passive(
+                "Seven Pillars of Wisdom",
+                {},
+                scope=self.enemy_scope,
+                dyn=self._e1,
+                dyn_keys={f"{S.RES_REDUCTION}:{el}" for el in ("Wind", "Physical", "Fire", "Thunder")},
+            )
+        if self.e(4):
+            self.on(E.TURN_START, self._e4_energy)
+            self.on(
+                E.KILL, lambda ev: ev.target.has_mod("Epiphany") and self.battle.gain_energy(self.char, self.ep(4, 1))
+            )
+
+    def on_battle_start(self) -> None:
+        for e in self.enemies():
+            self._on_enter(e)
+
+    def _on_enter(self, e: Enemy) -> None:
+        if self.trace(2):
+            self.add_arcana(e, 1, self.tp(2, 0))
+            self._def_down(e, self.tp(2, 1), int(self.tp(2, 2)))
+        if self.e(2):
+            self.add_arcana(e, int(self.ep(2, 1)), self.ep(2, 0))
+
+    def _e1(self, mod: Modifier, key: str, enemy: Entity) -> float:
+        return (
+            self.ep(1, 0)
+            if enemy.has_mod("Arcana")
+            or enemy.has_tag(
+                {"Wind": "wind_shear", "Physical": "bleed", "Fire": "burn", "Thunder": "shock"}[key.split(":")[1]]
+            )
+            else 0.0
+        )
+
+    def _e4_energy(self, ev: E.Ev) -> None:
+        if isinstance(ev.entity, Enemy) and ev.entity.has_mod("Epiphany"):
+            self.battle.gain_energy(self.char, self.ep(4, 1))
+
+    def _max_arcana(self) -> int:
+        return int(self.p("talent", 7)) + (int(self.ep(6, 3)) if self.e(6) else 0)
+
+    def arcana_mod(self, target: Enemy, stacks: int) -> DotModifier:
+        bs = self.char
+
+        def dmg(mod: DotModifier, b: Battle, ratio: float) -> float:
+            n = min(mod.stacks, self._max_arcana())
+            extra = {S.DEF_IGNORE: self.p("talent", 6)}
+            mult = self.p("talent", 0) + self.p("talent", 2) * n
+            d = b.dot_damage(
+                bs, target, Element.WIND, mult, label="Arcana", tags=(DmgTag.DOT, "arcana"), ratio=ratio, extra=extra
+            )
+            if mod.turn_start:
+                for adj in b.adjacent(target):
+                    b.dot_damage(
+                        bs,
+                        adj,
+                        Element.WIND,
+                        self.p("talent", 4),
+                        label="Arcana (adjacent)",
+                        tags=(DmgTag.DOT, "arcana"),
+                        extra=extra,
+                    )
+                mod.stacks = min(mod.stacks, self._max_arcana())
+                if not target.has_mod("Epiphany"):
+                    mod.stacks = max(1, mod.stacks // 2)
+            return d
+
+        # Arcana counts as Wind Shear, Bleed, Burn and Shock at all times in the enhanced kit
+        return DotModifier(
+            "Arcana",
+            dot_type="arcana",
+            damage_fn=dmg,
+            duration=None,  # type: ignore[arg-type]
+            stacks=stacks,
+            max_stacks=10_000,
+            stacking=Stacking.STACK,
+            key="Arcana",
+            tags=set(DOT_KINDS),
+        )
+
+    def add_arcana(self, target: Entity, n: int, chance: float, fixed: bool = False) -> None:
+        if not isinstance(target, Enemy) or not target.alive:
+            return
+        if target.has_mod("Epiphany"):
+            n += sum(1 for _ in range(n) if self.battle.rng.random() < self.p("ult", 3))
+        if self.e(6):
+            n *= 2
+        mod = self.arcana_mod(target, n)
+        mod.duration = None
+        self.battle.try_debuff(mod, target, self.char, chance, fixed=fixed)
+
+    def _on_dot_enh(self, ev: E.Ev) -> None:
+        if ev.target.alive:
+            self.add_arcana(ev.target, 1, self.p("talent", 1))
+
+    def _on_attack_enh(self, ev: E.Ev) -> None:
+        act = ev.attack
+        if act.owner is self.char:
+            if self.trace(1):
+                for t in act.attacked:
+                    self.add_arcana(t, int(self.tp(1, 1)), self.tp(1, 0))
+            if self.trace(2) and act.kind in (ActionKind.BASIC, ActionKind.ULT):
+                for t in act.attacked:
+                    self._def_down(t, self.tp(2, 1), int(self.tp(2, 2)))
+        elif self.e(6) and act.owner is not None and act.owner.side == self.char.side:
+            for t in act.attacked:
+                self.add_arcana(t, 1, self.ep(6, 1))
+
+    def _def_down(self, t: Enemy, chance: float, turns: int) -> None:
+        if t.alive:
+            self.battle.try_debuff(
+                Modifier(
+                    "Decadence, False Twilight",
+                    stats={S.DEF_REDUCTION: self.p("skill", 3)},
+                    duration=turns,
+                    kind=ModKind.DEBUFF,
+                ),
+                t,
+                self.char,
+                chance,
+            )
+
+    def _epiphany_vuln(self, ev: E.Ev) -> None:
+        ep = ev.hit.target.get_mod("Epiphany")
+        if ep is not None and ev.hit.attacker.side == self.char.side:
+            ev.hit.add(S.VULN, self.p("ult", 2) + (self.ep(4, 0) if self.e(4) else 0.0))
+
+    def basic(self, target: Enemy | None) -> None:
+        assert target is not None
+        self.simple_basic(target)
+
+    def skill(self, target: Enemy | None) -> None:
+        assert target is not None
+        with self.action(ActionKind.SKILL, "skill", target) as act:
+            hits = act.blast(
+                target,
+                self.p("skill", 0),
+                self.p("skill", 0),
+                toughness=(self.toughness("skill", 0), self.toughness("skill", 2)),
+            )
+            for t in {h.target for h in hits}:
+                self._def_down(t, self.p("skill", 2), int(self.p("skill", 1)))
+
+    def ult(self, target: Enemy | None) -> None:
+        with self.action(ActionKind.ULT, "ult", target) as act:
+            for e in self.enemies():
+                self.battle.apply(
+                    Modifier("Epiphany", duration=int(self.p("ult", 1)), kind=ModKind.DEBUFF, key="Epiphany"),
+                    e,
+                    self.char,
+                )
+            act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target)

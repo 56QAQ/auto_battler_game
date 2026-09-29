@@ -10,7 +10,7 @@ from .. import stats as S
 from ..entities import Enemy, Summon
 from ..enums import ActionKind, Element
 from ..modifiers import Modifier, ModKind, hidden
-from . import register
+from . import register, register_enhanced
 from .base import Kit
 
 
@@ -19,8 +19,6 @@ class Firefly(Kit):
     char_id = "1310"
 
     def setup(self) -> None:
-        if self.char.enhanced:
-            raise NotImplementedError("Firefly enhanced kit is not implemented yet")
         self.combustion: Modifier | None = None
         self.countdown: Summon | None = None
         self.e2_ready_turn = -1
@@ -179,3 +177,46 @@ class Firefly(Kit):
             tough = self.battle.super_break_toughness(act, t)
             if tough > 0:
                 self.battle.super_break(self.char, t, tough, mult, label="Super Break (Module β)")
+
+
+@register_enhanced
+class FireflyEnhanced(Firefly):
+    """Enhanced Firefly: Combustion Break Effect, countdown delay on breaks, lower Super Break thresholds."""
+
+    def setup(self) -> None:
+        super().setup()
+        self.delays_left = 0
+
+    def ult(self, target: Enemy | None) -> None:
+        super().ult(target)
+        self.delays_left = int(self.tp(1, 2)) if self.trace(1) else 0
+        if self.trace(1) and self.combustion is not None:
+            self.combustion.stats[S.BREAK_EFFECT] = self.tp(1, 0)
+
+    def _tough(self, e: Enemy, base: float) -> tuple[float, bool]:
+        return base, False  # the enhanced A2 no longer lets SAM reduce non-Fire-weak Toughness
+
+    def _e2(self, act: object, broke_or_killed: bool) -> None:
+        if self.e(2) and broke_or_killed and self.e2_ready_turn != self.battle.turns:
+            self.e2_ready_turn = self.battle.turns
+            self.battle.queue_extra_turn(self.char)
+
+    def skill(self, target: Enemy | None) -> None:
+        assert target is not None
+        if self.in_combustion:
+            for e in [target, *self.battle.adjacent(target)]:
+                self.fire_weakness(e, 2)
+        before = len(self.battle.records)
+        super().skill(target)
+        self._check_breaks(before)
+
+    def basic(self, target: Enemy | None) -> None:
+        before = len(self.battle.records)
+        super().basic(target)
+        self._check_breaks(before)
+
+    def _check_breaks(self, before: int) -> None:
+        broke = any(r.label == "Break" and r.owner == self.char.name for r in self.battle.records[before:])
+        if broke and self.trace(1) and self.delays_left > 0 and self.countdown is not None:
+            self.delays_left -= 1
+            self.battle.delay(self.countdown, self.tp(1, 1))
