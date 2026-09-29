@@ -184,7 +184,7 @@ class BlackSwan(Kit):
                 )
                 mod.data["keep"] = int(self.p("ult", 3))
                 mod.data["vuln"] = self.p("ult", 2)
-            act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target)
+            act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target, splits="data")
 
 
 class Epiphany(Modifier):
@@ -371,4 +371,4 @@ class BlackSwanEnhanced(BlackSwan):
                     e,
                     self.char,
                 )
-            act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target)
+            act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target, splits="data")

@@ -163,6 +163,13 @@ class Action:
     def is_attack(self) -> bool:
         return self.attack_started
 
+    def _splits(self, splits: list[float] | str | None) -> list[float]:
+        """``splits="data"`` uses the per-hit ratios of the skill from the game's ability script."""
+        if splits == "data":
+            found = self.skill.get("splits") if self.skill else None
+            return list(found) if found else [1.0]
+        return list(splits) if splits else [1.0]  # type: ignore[arg-type]
+
     # ------------------------------------------------------------ hit helpers
     def hit(
         self,
@@ -171,7 +178,7 @@ class Action:
         *,
         stat: str = "atk",
         toughness: float = 0.0,
-        splits: list[float] | None = None,
+        splits: list[float] | str | None = None,
         element: Element | None = None,
         tags: Iterable[str] | None = None,
         label: str | None = None,
@@ -183,7 +190,7 @@ class Action:
     ) -> list[Hit]:
         """Deal DMG to one target, optionally split into several hits (ratios sum to 1)."""
         out = []
-        for r in splits or [1.0]:
+        for r in self._splits(splits):
             out.append(
                 self.battle.do_hit(
                     self._make(
@@ -213,12 +220,12 @@ class Action:
         *,
         stat: str = "atk",
         toughness: tuple[float, float] = (0.0, 0.0),
-        splits: list[float] | None = None,
+        splits: list[float] | str | None = None,
         **kw: Any,
     ) -> list[Hit]:
         out = []
         adjs = self.battle.adjacent(target)
-        for r in splits or [1.0]:
+        for r in self._splits(splits):
             for t, m, tg, prim in [(target, main, toughness[0], True)] + [(a, adj, toughness[1], False) for a in adjs]:
                 out.append(self.battle.do_hit(self._make(t, m, stat, tg, r, primary=prim, **kw)))
         return out
@@ -229,12 +236,12 @@ class Action:
         *,
         stat: str = "atk",
         toughness: float = 0.0,
-        splits: list[float] | None = None,
+        splits: list[float] | str | None = None,
         main_target: Enemy | None = None,
         **kw: Any,
     ) -> list[Hit]:
         out = []
-        for r in splits or [1.0]:
+        for r in self._splits(splits):
             for t in self.battle.alive_enemies():
                 prim = main_target is None or t is main_target
                 out.append(self.battle.do_hit(self._make(t, mult, stat, toughness, r, primary=prim, **kw)))

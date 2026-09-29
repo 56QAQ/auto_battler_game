@@ -56,13 +56,13 @@ class Seele(Kit):
                     max_stacks=int(self.ep(2, 0)) if self.e(2) else 1,
                 )
             )
-            act.hit(target, self.p("skill", 0), toughness=self.toughness("skill"))
+            act.hit(target, self.p("skill", 0), toughness=self.toughness("skill"), splits="data")
 
     def ult(self, target: Enemy | None) -> None:
         assert target is not None
         self.amplify()
         with self.action(ActionKind.ULT, "ult", target) as act:
-            act.hit(target, self.p("ult", 0), toughness=self.toughness("ult"))
+            act.hit(target, self.p("ult", 0), toughness=self.toughness("ult"), splits="data")
         if self.e(6) and target.alive:
             self.battle.apply(Modifier("Butterfly Flurry", duration=1, kind=ModKind.DEBUFF), target, self.char)
 
@@ -172,13 +172,13 @@ class SeeleEnhanced(Seele):
                     max_stacks=int(self.ep(2, 0)) if self.e(2) else 1,
                 )
             )
-            act.hit(target, self.p("skill", 0), toughness=self.toughness("skill"))
+            act.hit(target, self.p("skill", 0), toughness=self.toughness("skill"), splits="data")
 
     def ult(self, target: Enemy | None) -> None:
         assert target is not None
         self.amplify()
         with self.action(ActionKind.ULT, "ult", target) as act:
-            hits = act.hit(target, self.p("ult", 0), toughness=self.toughness("ult"))
+            hits = act.hit(target, self.p("ult", 0), toughness=self.toughness("ult"), splits="data")
         self.last_ult_damage = sum(h.damage for h in hits)
         if self.e(6) and target.alive:
             self.battle.apply(

@@ -404,8 +404,67 @@ def main() -> None:
     }
     dump("tables", tables)
 
+    add_hit_splits(skills, characters, cache)
+    dump("skills", skills)
+
     enemy_raw = {t: fetch(RAW_BASE + t + ".json", cache / "raw" / f"{t}.json") for t in ENEMY_TABLES}
     dump("endgame", build_endgame(enemy_raw))
+
+
+CONFIG_BASE = "https://raw.githubusercontent.com/DimbreathBot/turnbasedgamedata/main/"
+
+
+def add_hit_splits(skills: dict[str, Any], characters: dict[str, Any], cache: Path) -> None:
+    """Attach per-hit split ratios to skills from the characters' ability scripts.
+
+    For every ability named ``..._<SkillTriggerKey>_Phase*`` the fixed ``HitSplitRatio`` of each
+    ``DamageByAttackProperty`` aimed at the designated target is recorded in order as
+    ``skill["splits"]`` (only when all ratios are fixed numbers summing to ~1).
+    """
+
+    def walk(o: Any, out: list[tuple[str, float | None]]) -> None:
+        if isinstance(o, dict):
+            if str(o.get("$type", "")).endswith("DamageByAttackProperty"):
+                ap = o.get("AttackProperty") or {}
+                hs = ap.get("HitSplitRatio") or {}
+                ratio = None if hs.get("IsDynamic") else val(hs.get("FixedValue"), None)
+                alias = (o.get("TargetType") or {}).get("Alias", "")
+                out.append((alias, ratio))
+            for v in o.values():
+                walk(v, out)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v, out)
+
+    for cid, c in characters.items():
+        variants = [(c.get("config", ""), [k for k in skills if k[:-2] == cid])]
+        if "enhanced" in c:
+            variants.append((c["enhanced"].get("config", ""), [k for k in skills if k[:-2] == "1" + cid]))
+        for cfg, sids in variants:
+            if not cfg:
+                continue
+            path = cfg.replace("ConfigCharacter", "ConfigAbility").replace("_Config.json", "_Ability.json")
+            try:
+                data = fetch(CONFIG_BASE + path, cache / "ability" / path.replace("/", "_"))
+            except Exception as exc:  # noqa: BLE001 - some characters have differently named scripts
+                print(f"no ability script for {cid}: {exc}", file=sys.stderr)
+                continue
+            by_trigger: dict[str, list[tuple[str, float | None]]] = {}
+            for ab in data.get("AbilityList", []):
+                name = ab.get("Name", "")
+                for part in name.split("_"):
+                    if part.startswith("Skill") and "_Phase" in name:
+                        hits: list[tuple[str, float | None]] = []
+                        walk(ab.get("OnStart", []), hits)
+                        if hits:
+                            by_trigger.setdefault(part, []).extend(hits)
+                        break
+            for sid in sids:
+                trig = skills[sid].get("trigger", "")
+                hits = by_trigger.get(trig, [])
+                main = [r for a, r in hits if a == "AbilityTargetEntity"]
+                if main and all(r is not None for r in main) and abs(sum(main) - 1.0) < 0.02 and len(main) > 1:
+                    skills[sid]["splits"] = [round(float(r), 4) for r in main]  # type: ignore[arg-type]
 
 
 def build_endgame(raw: dict[str, Any]) -> dict[str, Any]:

@@ -62,7 +62,7 @@ class Pela(Kit):
         with self.action(ActionKind.SKILL, "skill", target) as act:
             for m in [m for m in target.buffs if m.dispellable][: int(self.p("skill", 1))]:
                 self.battle.remove_modifier(m)
-            act.hit(target, self.p("skill", 0), toughness=self.toughness("skill"))
+            act.hit(target, self.p("skill", 0), toughness=self.toughness("skill"), splits="data")
             if self.e(4):
                 self.battle.try_debuff(
                     Modifier(
@@ -90,4 +90,4 @@ class Pela(Kit):
                     self.char,
                     self.p("ult", 0),
                 )
-            act.aoe(self.p("ult", 3), toughness=self.toughness("ult", 1), main_target=target)
+            act.aoe(self.p("ult", 3), toughness=self.toughness("ult", 1), main_target=target, splits="data")

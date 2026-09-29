@@ -90,7 +90,7 @@ class Kafka(Kit):
 
     def ult(self, target: Enemy | None) -> None:
         with self.action(ActionKind.ULT, "ult", target) as act:
-            act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target)
+            act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target, splits="data")
             for e in self.enemies():
                 self.shock(e, self.p("ult", 1))
                 if self.trace(1):
@@ -200,7 +200,7 @@ class KafkaEnhanced(Kafka):
 
     def ult(self, target: Enemy | None) -> None:
         with self.action(ActionKind.ULT, "ult", target) as act:
-            act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target)
+            act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target, splits="data")
             for e in self.enemies():
                 self.shock(e, self.p("ult", 1))
                 if e.has_tag("shock"):

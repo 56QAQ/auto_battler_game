@@ -92,12 +92,12 @@ class JingYuan(Kit):
 
     def skill(self, target: Enemy | None) -> None:
         with self.action(ActionKind.SKILL, "skill", target) as act:
-            act.aoe(self.p("skill", 0), toughness=self.toughness("skill", 1), main_target=target)
+            act.aoe(self.p("skill", 0), toughness=self.toughness("skill", 1), main_target=target, splits="data")
         self.add_hits(int(self.p("skill", 1)))
         if self.trace(3):
             self.buff_self(Modifier("War Marshal", stats={S.CRIT_RATE: self.tp(3, 0)}, duration=int(self.tp(3, 1))))
 
     def ult(self, target: Enemy | None) -> None:
         with self.action(ActionKind.ULT, "ult", target) as act:
-            act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target)
+            act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target, splits="data")
         self.add_hits(int(self.p("ult", 1)))

@@ -245,7 +245,7 @@ class Kit:
             kw["energy"] = 0.0
         return self.battle.action(self.char, kind, skill=rec, target=target, **kw)
 
-    def simple_basic(self, target: Enemy, splits: list[float] | None = None) -> Action:
+    def simple_basic(self, target: Enemy, splits: list[float] | str | None = "data") -> Action:
         with self.action(ActionKind.BASIC, "basic", target) as act:
             act.hit(target, self.p("basic", 0), toughness=self.toughness("basic"), splits=splits)
         return act

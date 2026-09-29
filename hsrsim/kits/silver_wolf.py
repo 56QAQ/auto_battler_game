@@ -123,7 +123,7 @@ class SilverWolf(Kit):
                 self.char,
                 self.p("skill", 4),
             )
-            act.hit(target, self.p("skill", 0), toughness=self.toughness("skill"))
+            act.hit(target, self.p("skill", 0), toughness=self.toughness("skill"), splits="data")
 
     def ult(self, target: Enemy | None) -> None:
         assert target is not None
@@ -139,7 +139,7 @@ class SilverWolf(Kit):
                 self.char,
                 self.p("ult", 1),
             )
-            act.hit(target, self.p("ult", 0), toughness=self.toughness("ult"))
+            act.hit(target, self.p("ult", 0), toughness=self.toughness("ult"), splits="data")
             n = min(int(self.ep(1, 1)), len(target.debuffs)) if target.alive else 0
             if self.e(1) and n:
                 act.energy += self.ep(1, 0) * n
@@ -219,7 +219,7 @@ class SilverWolfEnhanced(SilverWolf):
                     self.char,
                     self.p("ult", 1),
                 )
-            act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target)
+            act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target, splits="data")
             main = target if target is not None and target.alive else None
             if self.e(1) and main is not None:
                 act.energy += self.ep(1, 0) * min(int(self.ep(1, 1)), len(main.debuffs))
@@ -258,4 +258,4 @@ class SilverWolfEnhanced(SilverWolf):
                 self.char,
                 self.p("skill", 4),
             )
-            act.hit(target, self.p("skill", 0), toughness=self.toughness("skill"))
+            act.hit(target, self.p("skill", 0), toughness=self.toughness("skill"), splits="data")
