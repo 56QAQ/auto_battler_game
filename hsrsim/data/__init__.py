@@ -84,6 +84,11 @@ class GameData:
         return _load("tables")
 
     @cached_property
+    def memosprites(self) -> dict[str, Any]:
+        """Memosprite (servant) HP/SPD formulas keyed by servant ID ("1" + owner ID)."""
+        return _load("memosprites")
+
+    @cached_property
     def endgame(self) -> dict[str, Any]:
         """Recent Memory of Chaos ("moc"), Apocalyptic Shadow ("as") and Pure Fiction ("pf") stages."""
         return _load("endgame")

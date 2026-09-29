@@ -134,6 +134,27 @@ Parameters: `self.p("skill", i)` (current level incl. eidolons), `self.tp(n, i)`
 A2/A4/A6 (`n` = 1/2/3, check `self.trace(n)`), `self.ep(n, i)` eidolon parameters (check `self.e(n)`),
 `self.toughness("skill", which)` where `which` = 0 main target, 1 all targets (AoE), 2 adjacent.
 
+### Common patterns
+
+| Mechanic | How |
+|---|---|
+| Follow-up attack | `self.battle.queue_action(fn, self.char, "label")`; inside `fn` open `self.action(ActionKind.FUA, "talent", target)` |
+| Counter when an ally is attacked | listen `E.ALLY_ATTACKED` (`ev.attacker` enemy, `ev.targets`) |
+| Extra turn | `self.battle.queue_extra_turn(self.char)` |
+| Enhanced Basic ATK / Skill (other skill ID) | `rec = self.sk("<skill id>")`; `self.action(ActionKind.BASIC, rec, target, sp=-2)` (explicit SP cost); params: `rec["params"][self.level_of(rec) - 1]` |
+| Resource that replaces Energy (Acheron, Rappa ...) | override `ult_ready()` and `pay_ult_cost()`; set `self.char.max_energy = 0` if the unit has no Energy |
+| Countdown / summon with own SPD | `self.battle.add_unit(Summon(name, self.char, spd=90, on_turn=fn))`, remove with `self.battle.remove_unit(u)`; take the owner off the bar with `self.char.on_timeline = False` |
+| Memosprite (Remembrance) | `memo = self.summon_memosprite("Name", on_turn=fn)` (HP/SPD from `AvatarServantConfig`, other stats synced from the owner); its actions: `self.battle.action(memo, ActionKind.MEMOSPRITE, skill=rec, target=t)`; `self.memosprite()` returns the live one |
+| HP consumption / healing / shields | `battle.lose_hp(unit, x, source)`, `battle.heal(unit, x, source)`, `battle.add_shield(unit, value, source, duration=2)` |
+| Super Break | at `E.ATTACK_END`: `tough = battle.super_break_toughness(act, t)`; `battle.super_break(attacker, t, tough, mult)` |
+| True DMG | `battle.true_damage(hit, ratio, target, credited, label)` |
+| "Final DMG" (multiplicative) | stat `final_dmg` (each source a separate factor) or `hit.add(S.FINAL_DMG, x)` |
+| Elation (Punchline / Aha) | class attrs `has_elation_skill = True`, `elation_skill_id = "<id>"`; implement `elation_skill(self, punchline)`; `self.gain_punchline(n)`; `self.elation_hit(target, scaling, punchline, action=act, tags=("elation_skill",), toughness=x)`; `self.banger()` = Punchline stored in Certified Banger; `self.battle.elation.extra_turn(fixed_p, self.char)`; events `AHA_INSTANT_START/END` in `hsrsim.elation` |
+| Break-type damage | `battle.break_damage(attacker, target, element, mult=x)` ("x% of <element> Break DMG") |
+
+Use `tools/kitinfo.py <name>` for the data and keep kits readable; comment every approximation
+with `# approximation:` or `# not modelled:`.
+
 ## 7. Writing a light cone / relic set
 
 ```python

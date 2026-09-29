@@ -19,6 +19,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from .. import events as E
+from .. import stats as S
+from ..entities import Summon
 from ..enums import ActionKind, DmgTag, Side
 from ..modifiers import Modifier, ModKind, Tick, hidden
 
@@ -181,6 +183,45 @@ class Kit:
     def banger_extra_turns(self) -> int:
         """Extra turns added to Certified Banger gained by this character (e.g. traces)."""
         return 0
+
+    # ------------------------------------------------------------ memosprites
+    def _servant_value(self, expr: str, skill_id: str) -> float:
+        if expr.startswith("#"):
+            rec = self.gd.skills[skill_id]
+            return float(rec["params"][self.level_of(rec) - 1][int(expr[1:]) - 1])
+        return float(expr or 0)
+
+    def summon_memosprite(
+        self, name: str, on_turn: Any, servant_id: str | None = None, av: float | None = None
+    ) -> Summon:
+        """Create this character's memosprite with HP/SPD from ``AvatarServantConfig`` (stats synced
+        from the owner otherwise). Call again to re-summon (returns the existing one if alive)."""
+        for s in self.char.summons:
+            if s.is_memosprite and s.alive:
+                return s
+        sv = self.gd.memosprites[servant_id or ("1" + self.char.char_id)]
+        hp_base = self._servant_value(sv["hp_base"], sv["hp_skill"]) if sv["hp_skill"] else float(sv["hp_base"] or 0)
+        hp_inh = self._servant_value(sv["hp_inherit"], sv["hp_skill"]) if sv["hp_skill"] else 0.0
+        spd_base = (
+            self._servant_value(sv["spd_base"], sv["spd_skill"]) if sv["spd_skill"] else float(sv["spd_base"] or 0)
+        )
+        spd_inh = self._servant_value(sv["spd_inherit"], sv["spd_skill"]) if sv["spd_skill"] else 0.0
+        memo = Summon(name, self.char, stat_mode="sync", targetable=True, on_turn=on_turn)
+        owner = self.char
+        memo.base[S.BASE_HP] = hp_base
+        memo.base[S.AGGRO] = float(sv["aggro"])
+        memo.base[S.BASE_SPD] = spd_base
+        if hp_inh:
+            memo.apply_dyn_base(S.BASE_HP, lambda: hp_base + hp_inh * owner.max_hp)
+        if spd_inh:
+            memo.apply_dyn_base(S.BASE_SPD, lambda: spd_base + spd_inh * owner.spd)
+        return self.battle.add_unit(memo, av=av)
+
+    def memosprite(self) -> Summon | None:
+        for s in self.char.summons:
+            if s.is_memosprite and s.alive:
+                return s
+        return None
 
     # --------------------------------------------------------------- elation
     def gain_punchline(self, n: int) -> None:

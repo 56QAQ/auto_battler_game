@@ -33,6 +33,7 @@ RAW_TABLES = [
     "AvatarPromotionConfig",
     "AvatarSkillConfig",
     "AvatarServantSkillConfig",
+    "AvatarServantConfig",
     "AvatarRankConfig",
     "AvatarSkillTreeConfig",
     "EquipmentConfig",
@@ -244,6 +245,26 @@ def main() -> None:
             **text(res["character_skills"], key, "desc"),
         }
     dump("skills", skills)
+
+    # ---------------------------------------------------------- memosprites
+    # HP = HPBase + HPInherit x owner Max HP ; SPD = SpeedBase + SpeedInherit x owner SPD
+    # values like "#5" reference parameter 5 (1-based) of HPSkill / SpeedSkill at its current level
+    memos: dict[str, Any] = {}
+    for sv in raw["AvatarServantConfig"]:
+        sid = str(sv["ServantID"])
+        memos[sid] = {
+            "id": sid,
+            "owner": sid[1:],
+            "skills": [str(x) for x in sv.get("SkillIDList", [])],
+            "hp_base": sv.get("HPBase", "0"),
+            "hp_inherit": sv.get("HPInherit", "0"),
+            "hp_skill": str(sv.get("HPSkill", "")),
+            "spd_base": sv.get("SpeedBase", "0"),
+            "spd_inherit": sv.get("SpeedInherit", "0"),
+            "spd_skill": str(sv.get("SpeedSkill", "")),
+            "aggro": val(sv.get("Aggro"), 100),
+        }
+    dump("memosprites", memos)
 
     # ----------------------------------------------------------------- eidolons
     ranks: dict[str, Any] = {}

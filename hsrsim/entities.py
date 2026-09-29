@@ -310,6 +310,7 @@ class Summon(Entity):
         self.on_timeline = on_timeline
         if spd is not None:
             self.base[S.BASE_SPD] = spd
+        self._dyn_base: dict[str, Callable[[], float]] = {}
         self.element = owner.element
         self.path = owner.path
 
@@ -317,8 +318,12 @@ class Summon(Entity):
     def is_memosprite(self) -> bool:
         return self.stat_mode == "sync"
 
+    def apply_dyn_base(self, key: str, fn: Callable[[], float]) -> None:
+        """Make a base stat follow the owner (e.g. memosprite Max HP = x% of owner Max HP + flat)."""
+        self._dyn_base[key] = fn
+
     def _own_raw(self, key: str, fields: bool) -> float:
-        total = self.base.get(key, 0.0)
+        total = self._dyn_base[key]() if key in self._dyn_base else self.base.get(key, 0.0)
         for m in self.modifiers:
             if m.scope is None and m.touches(key):
                 total += m.value(key, self)
