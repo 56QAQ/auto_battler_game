@@ -83,8 +83,7 @@ class RuanMei(Kit):
                 stats[S.DEF_IGNORE] = self.ep(1, 0)
             dur = int(self.p("ult", 1)) + (int(self.ep(6, 0)) if self.e(6) else 0)
             self.zone = self.buff_self(
-                Modifier("Ruan Mei Zone", stats=stats, duration=dur, tick=Tick.SOURCE_TURN_START,
-                         scope=self.ally_scope)
+                Modifier("Ruan Mei Zone", stats=stats, duration=dur, tick=Tick.SOURCE_TURN_START, scope=self.ally_scope)
             )
 
     # ----------------------------------------------------------- talent
@@ -95,8 +94,9 @@ class RuanMei(Kit):
         mult = self.p("talent", 1) + (self.ep(6, 1) if self.e(6) else 0.0)
         self.battle.break_damage(self.char, ev.target, Element.ICE, mult=mult, label="Ruan Mei Talent Break")
         if self.e(4):
-            self.buff_self(Modifier("Chatoyant Eclat", stats={S.BREAK_EFFECT: self.ep(4, 0)},
-                                    duration=int(self.ep(4, 1))))
+            self.buff_self(
+                Modifier("Chatoyant Eclat", stats={S.BREAK_EFFECT: self.ep(4, 0)}, duration=int(self.ep(4, 1)))
+            )
 
     def _e2(self, ev: E.Ev) -> None:
         hit = ev.hit
@@ -111,8 +111,9 @@ class RuanMei(Kit):
             return
         t = hit.target
         if t.alive and not t.has_mod("Thanatoplum Rebloom") and not t.data_flags.get("rebloom_used"):
-            self.battle.apply(Modifier("Thanatoplum Rebloom", kind=ModKind.DEBUFF, dispellable=False,
-                                       tick=Tick.NONE), t, self.char)
+            self.battle.apply(
+                Modifier("Thanatoplum Rebloom", kind=ModKind.DEBUFF, dispellable=False, tick=Tick.NONE), t, self.char
+            )
 
     def _rebloom(self, ev: E.Ev) -> None:
         e = ev.entity

@@ -34,8 +34,13 @@ class BlackSwan(Kit):
         if self.trace(3):
             self.passive("Candleflame's Portent", {}, dyn=self._a6, dyn_keys={S.DMG_PCT})
         if self.e(1):
-            self.passive("Seven Pillars of Wisdom", {}, scope=self.enemy_scope, dyn=self._e1,
-                         dyn_keys={f"{S.RES_REDUCTION}:{el}" for el in ("Wind", "Physical", "Fire", "Thunder")})
+            self.passive(
+                "Seven Pillars of Wisdom",
+                {},
+                scope=self.enemy_scope,
+                dyn=self._e1,
+                dyn_keys={f"{S.RES_REDUCTION}:{el}" for el in ("Wind", "Physical", "Fire", "Thunder")},
+            )
         if self.e(6):
             self.on(E.ATTACK_END, self._e6)
 
@@ -61,13 +66,21 @@ class BlackSwan(Kit):
             if mod.turn_start and n >= self.p("talent", 5):
                 extra[S.DEF_IGNORE] = self.p("talent", 6)
             mult = self.p("talent", 0) + self.p("talent", 2) * n
-            d = b.dot_damage(bs, target, Element.WIND, mult, label="Arcana", tags=(DmgTag.DOT, "arcana"),
-                             ratio=ratio, extra=extra)
+            d = b.dot_damage(
+                bs, target, Element.WIND, mult, label="Arcana", tags=(DmgTag.DOT, "arcana"), ratio=ratio, extra=extra
+            )
             if mod.turn_start:
                 if n >= self.p("talent", 3):
                     for adj in b.adjacent(target):
-                        b.dot_damage(bs, adj, Element.WIND, self.p("talent", 4), label="Arcana (adjacent)",
-                                     tags=(DmgTag.DOT, "arcana"), extra=extra)
+                        b.dot_damage(
+                            bs,
+                            adj,
+                            Element.WIND,
+                            self.p("talent", 4),
+                            label="Arcana (adjacent)",
+                            tags=(DmgTag.DOT, "arcana"),
+                            extra=extra,
+                        )
                         self.add_arcana(adj, 1, self.p("talent", 1))
                 ep = target.get_mod("Epiphany")
                 if ep is not None and ep.data.get("keep", 0) > 0:
@@ -129,16 +142,27 @@ class BlackSwan(Kit):
     def skill(self, target: Enemy | None) -> None:
         assert target is not None
         with self.action(ActionKind.SKILL, "skill", target) as act:
-            hits = act.blast(target, self.p("skill", 0), self.p("skill", 0),
-                             toughness=(self.toughness("skill", 0), self.toughness("skill", 2)))
+            hits = act.blast(
+                target,
+                self.p("skill", 0),
+                self.p("skill", 0),
+                toughness=(self.toughness("skill", 0), self.toughness("skill", 2)),
+            )
             for t in {h.target for h in hits}:
                 if not t.alive:
                     continue
                 self.add_arcana(t, 1, self.p("skill", 1))
                 self.battle.try_debuff(
-                    Modifier("Decadence, False Twilight", stats={S.DEF_REDUCTION: self.p("skill", 3)},
-                             duration=int(self.p("skill", 4)), kind=ModKind.DEBUFF),
-                    t, self.char, self.p("skill", 2))
+                    Modifier(
+                        "Decadence, False Twilight",
+                        stats={S.DEF_REDUCTION: self.p("skill", 3)},
+                        duration=int(self.p("skill", 4)),
+                        kind=ModKind.DEBUFF,
+                    ),
+                    t,
+                    self.char,
+                    self.p("skill", 2),
+                )
             if self.trace(1) and target.alive:
                 for kind in DOT_KINDS:
                     if target.has_tag(kind):
@@ -149,9 +173,17 @@ class BlackSwan(Kit):
             for e in self.enemies():
                 stats = {S.EFFECT_RES: -self.ep(4, 0)} if self.e(4) else {}
                 mod = self.battle.apply(
-                    Epiphany("Epiphany", stats=stats, duration=int(self.p("ult", 1)), kind=ModKind.DEBUFF,
-                             tick=Tick.HOLDER_TURN_END, tags=set(DOT_KINDS)),
-                    e, self.char)
+                    Epiphany(
+                        "Epiphany",
+                        stats=stats,
+                        duration=int(self.p("ult", 1)),
+                        kind=ModKind.DEBUFF,
+                        tick=Tick.HOLDER_TURN_END,
+                        tags=set(DOT_KINDS),
+                    ),
+                    e,
+                    self.char,
+                )
                 mod.data["keep"] = int(self.p("ult", 3))
                 mod.data["vuln"] = self.p("ult", 2)
             act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target)

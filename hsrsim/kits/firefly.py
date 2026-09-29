@@ -49,8 +49,17 @@ class Firefly(Kit):
         return self.combustion is not None
 
     def fire_weakness(self, e: Enemy, turns: int) -> None:
-        self.battle.apply(Modifier("Fire Weakness (Firefly)", duration=turns, kind=ModKind.DEBUFF,
-                                   tags={f"weak:{Element.FIRE.value}"}, key="Firefly Fire Weakness"), e, self.char)
+        self.battle.apply(
+            Modifier(
+                "Fire Weakness (Firefly)",
+                duration=turns,
+                kind=ModKind.DEBUFF,
+                tags={f"weak:{Element.FIRE.value}"},
+                key="Firefly Fire Weakness",
+            ),
+            e,
+            self.char,
+        )
 
     # ------------------------------------------------------------ policy
     def ult_ready(self) -> bool:
@@ -127,8 +136,9 @@ class Firefly(Kit):
             hits += act.hit(target, lv[4] * be + lv[0], toughness=tough, ignore_weakness=ign, extra=extra)
             for adj in self.battle.adjacent(target):
                 tough, ign = self._tough(adj, rec["toughness"][2])
-                hits += act.hit(adj, lv[5] * be + lv[1], toughness=tough, ignore_weakness=ign, extra=extra,
-                                primary=False)
+                hits += act.hit(
+                    adj, lv[5] * be + lv[1], toughness=tough, ignore_weakness=ign, extra=extra, primary=False
+                )
         self.battle.remove_modifier(mod)
         self._e2(act, any(h.broke for h in hits) or any(h.target.hp <= 0 for h in hits))
 
@@ -169,4 +179,3 @@ class Firefly(Kit):
             tough = self.battle.super_break_toughness(act, t)
             if tough > 0:
                 self.battle.super_break(self.char, t, tough, mult, label="Super Break (Module β)")
-

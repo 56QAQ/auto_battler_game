@@ -203,9 +203,7 @@ class DotModifier(Modifier):
         # Freeze/Entanglement also trigger at turn start but are not DoTs (is_dot=False)
         tags = set(kw.pop("tags", set())) | {dot_type} | ({"dot"} if is_dot else set())
         kw.setdefault("stacking", Stacking.REFRESH)
-        super().__init__(
-            name, duration=duration, tick=Tick.HOLDER_TURN_START, kind=ModKind.DEBUFF, tags=tags, **kw
-        )
+        super().__init__(name, duration=duration, tick=Tick.HOLDER_TURN_START, kind=ModKind.DEBUFF, tags=tags, **kw)
         self.dot_type = dot_type
         self.damage_fn = damage_fn
         self.turn_start = False  # True while triggering at the holder's turn start

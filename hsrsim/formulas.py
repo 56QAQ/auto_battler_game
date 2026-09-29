@@ -90,7 +90,7 @@ def mitigation_multiplier(mitigations: list[float]) -> float:
 
 
 def final_dmg_multiplier(boosts: list[float]) -> float:
-    """"Final DMG" boosts (e.g. Acheron trace, Castorice E1) multiply with each other."""
+    """ "Final DMG" boosts (e.g. Acheron trace, Castorice E1) multiply with each other."""
     m = 1.0
     for x in boosts:
         m *= 1.0 + x

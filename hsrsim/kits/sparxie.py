@@ -31,13 +31,23 @@ class Sparxie(Kit):
         if self.trace(1):
             self.passive("Punchline Signing", {}, dyn=self._a2, dyn_keys={S.ELATION_DMG_PCT})
         if self.trace(3):
-            self.passive("Palette of Truth and Lies", {}, scope=self.ally_scope, key="Sparxie A6",
-                         dyn=lambda m, k, e: min(self.tp(3, 1), self.tp(3, 0) * self.battle.elation.punchline),
-                         dyn_keys={S.CRIT_DMG})
+            self.passive(
+                "Palette of Truth and Lies",
+                {},
+                scope=self.ally_scope,
+                key="Sparxie A6",
+                dyn=lambda m, k, e: min(self.tp(3, 1), self.tp(3, 0) * self.battle.elation.punchline),
+                dyn_keys={S.CRIT_DMG},
+            )
         if self.e(1):
-            self.passive("#GoingViral", {}, scope=self.ally_scope, key="Sparxie E1",
-                         dyn=lambda m, k, e: min(self.ep(1, 2), self.ep(1, 1) * self.battle.elation.punchline),
-                         dyn_keys={S.RES_PEN})
+            self.passive(
+                "#GoingViral",
+                {},
+                scope=self.ally_scope,
+                key="Sparxie E1",
+                dyn=lambda m, k, e: min(self.ep(1, 2), self.ep(1, 1) * self.battle.elation.punchline),
+                dyn_keys={S.RES_PEN},
+            )
         if self.e(6):
             self.passive("#BuiltDifferent", {S.RES_PEN: self.ep(6, 2)})
         self.on(AHA_INSTANT_END, self._after_aha)
@@ -68,9 +78,15 @@ class Sparxie(Kit):
             self.thrill -= 1
             self.battle.events.emit(E.SP_CHANGED, delta=-1, entity=self.char, thrill=True)
             if self.e(2):
-                self.buff_self(Modifier("#AudienceKnows", stats={S.CRIT_DMG: self.ep(2, 1)},
-                                        duration=int(self.ep(2, 2)), stacking=Stacking.STACK,
-                                        max_stacks=int(self.ep(2, 3))))
+                self.buff_self(
+                    Modifier(
+                        "#AudienceKnows",
+                        stats={S.CRIT_DMG: self.ep(2, 1)},
+                        duration=int(self.ep(2, 2)),
+                        stacking=Stacking.STACK,
+                        max_stacks=int(self.ep(2, 3)),
+                    )
+                )
             return True
         if self.battle.sp >= 1:
             self.battle.use_sp(1, self.char)
@@ -146,8 +162,9 @@ class Sparxie(Kit):
                 self.thrill += int(self.tp(2, 3 + idx))
             if self.e(4):
                 gain += int(self.ep(4, 0))
-                self.buff_self(Modifier("#LockedIn", stats={S.ELATION_DMG_PCT: self.ep(4, 1)},
-                                        duration=int(self.ep(4, 2))))
+                self.buff_self(
+                    Modifier("#LockedIn", stats={S.ELATION_DMG_PCT: self.ep(4, 1)}, duration=int(self.ep(4, 2)))
+                )
             self.gain_punchline(gain)
             mult = self.p("ult", 2) * self.char.stat(S.ELATION_DMG_PCT) + self.p("ult", 1)
             act.aoe(mult, toughness=self.toughness("ult", 1), main_target=target)
@@ -166,13 +183,26 @@ class Sparxie(Kit):
             n = min(int(self.ep(6, 1)), n + int(punchline) * int(self.ep(6, 0)))
         with self.action(ActionKind.ELATION, rec, label=rec["name"]) as act:
             for e in self.enemies():
-                self.elation_hit(e, lv[1], punchline, label="Signal Overflow (AoE)", action=act,
-                                 tags=("elation_skill",), toughness=tough[1])
+                self.elation_hit(
+                    e,
+                    lv[1],
+                    punchline,
+                    label="Signal Overflow (AoE)",
+                    action=act,
+                    tags=("elation_skill",),
+                    toughness=tough[1],
+                )
             for _ in range(n):
                 pool = [e for e in self.enemies() if e.hp > 0] or self.enemies()
                 if not pool:
                     break
-                self.elation_hit(self.battle.rng.choice(pool), lv[0], punchline, label="Signal Overflow (bounce)",
-                                 action=act, tags=("elation_skill",), toughness=tough[0])
+                self.elation_hit(
+                    self.battle.rng.choice(pool),
+                    lv[0],
+                    punchline,
+                    label="Signal Overflow (bounce)",
+                    action=act,
+                    tags=("elation_skill",),
+                    toughness=tough[0],
+                )
         self.thrill += int(lv[3])
-

@@ -1,10 +1,10 @@
 """Command line interface.
 
-    python -m hsrsim run examples/seele_boss.yaml [--runs 20] [--seed 1] [-v] [--json out.json]
-    python -m hsrsim stats examples/seele_boss.yaml
-    python -m hsrsim list characters [--implemented]
-    python -m hsrsim list lightcones | relics
-    python -m hsrsim info Seele
+python -m hsrsim run examples/seele_boss.yaml [--runs 20] [--seed 1] [-v] [--json out.json]
+python -m hsrsim stats examples/seele_boss.yaml
+python -m hsrsim list characters [--implemented]
+python -m hsrsim list lightcones | relics
+python -m hsrsim info Seele
 """
 
 from __future__ import annotations
@@ -22,14 +22,14 @@ from .data import get_data
 from .equipment import LIGHT_CONES, RELIC_SETS, load_gear
 from .kits import load_all
 from .report import Report
-from .scenarios import PRESETS, EnemySpec, Scenario
+from .scenarios import PRESETS, EnemySpec, InfiniteWaveSpec, Scenario
 
 
 def load_config(path: str) -> dict[str, Any]:
     text = Path(path).read_text(encoding="utf-8")
     if path.endswith((".yaml", ".yml")):
         try:
-            import yaml
+            import yaml  # type: ignore[import-untyped]
         except ImportError as exc:  # pragma: no cover
             raise SystemExit("PyYAML is required for YAML configs (pip install pyyaml) or use JSON") from exc
         return yaml.safe_load(text)
@@ -40,7 +40,7 @@ def scenario_from(cfg: dict[str, Any]) -> Scenario:
     sc = dict(cfg.get("scenario", {"preset": "boss"}))
     battle_cfg = dict(cfg.get("config", {}))
     if "waves" in sc:
-        waves = [[EnemySpec(**e) for e in wave] for wave in sc["waves"]]
+        waves: list[list[EnemySpec] | InfiniteWaveSpec] = [[EnemySpec(**e) for e in wave] for wave in sc["waves"]]
         s = Scenario(sc.get("name", "custom"), waves, max_cycles=sc.get("cycles"), max_av=sc.get("max_av"))
     elif sc.get("preset") in ("moc", "pf", "as", "endgame"):
         mode = sc.pop("preset")
@@ -83,7 +83,9 @@ def summarize(reports: list[Report]) -> str:
     cycles = [r.cycles for r in reports]
     lines = [reports[0].to_text(), "", f"=== {len(reports)} runs (random effects re-rolled per seed) ==="]
     sd = statistics.pstdev(totals) if len(totals) > 1 else 0.0
-    lines.append(f"Total DMG mean {statistics.fmean(totals):,.0f}  sd {sd:,.0f}  min {min(totals):,.0f}  max {max(totals):,.0f}")
+    lines.append(
+        f"Total DMG mean {statistics.fmean(totals):,.0f}  sd {sd:,.0f}  min {min(totals):,.0f}  max {max(totals):,.0f}"
+    )
     lines.append(f"Cycles mean {statistics.fmean(cycles):.2f}")
     by: dict[str, list[float]] = {}
     for r in reports:
@@ -104,8 +106,10 @@ def cmd_run(args: argparse.Namespace) -> None:
     print(summarize(reports))
     if args.json:
         out = [r.to_dict() for r in reports]
-        Path(args.json).write_text(json.dumps(out if runs > 1 else out[0], ensure_ascii=False, indent=2,
-                                              default=_json_default), encoding="utf-8")
+        Path(args.json).write_text(
+            json.dumps(out if runs > 1 else out[0], ensure_ascii=False, indent=2, default=_json_default),
+            encoding="utf-8",
+        )
         print(f"\nwrote {args.json}")
 
 

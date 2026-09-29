@@ -113,9 +113,6 @@ def test_vulnerability_and_final_dmg_layers():
     b.apply(Modifier("Final", stats={S.FINAL_DMG: 0.1}), c, c)
     b.run(max_av=90)
     base = (
-        c.atk
-        * F.def_multiplier(80, 1150)
-        * 0.9
-        * F.crit_multiplier_expected(c.stat(S.CRIT_RATE), c.stat(S.CRIT_DMG))
+        c.atk * F.def_multiplier(80, 1150) * 0.9 * F.crit_multiplier_expected(c.stat(S.CRIT_RATE), c.stat(S.CRIT_DMG))
     )
     assert b.records[0].amount == pytest.approx(base * 1.2 * 1.1)

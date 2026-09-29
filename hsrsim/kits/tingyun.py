@@ -77,8 +77,11 @@ class Tingyun(Kit):
             )
             self.blessed = ally
             if self.trace(1):
-                self.buff_self(Modifier("Nourished Joviality", stats={S.SPD_PCT: self.tp(1, 0)}, duration=1,
-                                        tick=Tick.HOLDER_TURN_START))
+                self.buff_self(
+                    Modifier(
+                        "Nourished Joviality", stats={S.SPD_PCT: self.tp(1, 0)}, duration=1, tick=Tick.HOLDER_TURN_START
+                    )
+                )
 
     def ult(self, target: Enemy | None) -> None:
         ally = self.main_dps()
@@ -87,8 +90,12 @@ class Tingyun(Kit):
             self.battle.gain_energy(ally, energy, fixed=True)
             self.buff(
                 ally,
-                Modifier("Rejoicing Clouds", stats={S.DMG_PCT: self.p("ult", 2)}, duration=int(self.p("ult", 1)),
-                         skip_first_tick=False),  # LifeStepImmediately
+                Modifier(
+                    "Rejoicing Clouds",
+                    stats={S.DMG_PCT: self.p("ult", 2)},
+                    duration=int(self.p("ult", 1)),
+                    skip_first_tick=False,
+                ),  # LifeStepImmediately
             )
 
     # ----------------------------------------------------------- talent
@@ -115,8 +122,15 @@ class Tingyun(Kit):
     def _e1(self, ev: E.Ev) -> None:
         b = self._blessed()
         if b is not None and ev.entity is b:
-            self.buff(b, Modifier("Windfall of Lucky Springs", stats={S.SPD_PCT: self.ep(1, 0)}, duration=1,
-                                  tick=Tick.HOLDER_TURN_START))
+            self.buff(
+                b,
+                Modifier(
+                    "Windfall of Lucky Springs",
+                    stats={S.SPD_PCT: self.ep(1, 0)},
+                    duration=1,
+                    tick=Tick.HOLDER_TURN_START,
+                ),
+            )
 
     def _e2(self, ev: E.Ev) -> None:
         b = self._blessed()

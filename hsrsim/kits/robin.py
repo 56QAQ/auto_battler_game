@@ -99,7 +99,9 @@ class Robin(Kit):
             self.countdown = None
         self.char.on_timeline = True
         # "exits the Concerto state and immediately takes action"
-        self.battle.queue_action(lambda: self.battle.take_turn(self.char), self.char, "Robin after Concerto", priority=0)
+        self.battle.queue_action(
+            lambda: self.battle.take_turn(self.char), self.char, "Robin after Concerto", priority=0
+        )
 
     # ----------------------------------------------------------- talent
     def _on_ally_attack(self, ev: E.Ev) -> None:

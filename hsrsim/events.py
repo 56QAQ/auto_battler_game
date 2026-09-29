@@ -41,6 +41,9 @@ DAMAGE_DEALT = "damage_dealt"  # ev.record (every damage instance, incl. DoT/bre
 PRE_TURN = "pre_turn"  # ev.entity; set ev.data["cancel"] = True to cancel the turn (e.g. Rebloom)
 BEFORE_RECOVER = "before_recover"  # ev.enemy; set ev.data["cancel"] = True to stay broken
 RECOVERED = "recovered"  # ev.enemy recovered from Weakness Break
+HEALED = "healed"  # ev.entity, ev.amount (requested), ev.effective (actual HP gained), ev.source
+UNIT_ADDED = "unit_added"  # ev.unit (summon / memosprite / countdown), ev.owner
+UNIT_REMOVED = "unit_removed"  # ev.unit, ev.owner
 
 
 @dataclass

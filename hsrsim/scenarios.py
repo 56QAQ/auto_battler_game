@@ -7,7 +7,7 @@ Toughness, weaknesses and RES to match the fight you want to study.
 from __future__ import annotations
 
 import copy
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field, replace
 from typing import Any
 
@@ -62,10 +62,21 @@ class EnemySpec:
     def from_monster(cls, m: dict[str, Any]) -> EnemySpec:
         """Spec from a datamined endgame monster record (``data.endgame``)."""
         return cls(
-            name=m["name"], level=m["level"], hp=m["hp"], atk=m["atk"], spd=m["spd"], toughness=m["toughness"],
-            weaknesses=list(m["weaknesses"]), res=dict(m["res"]), default_res=0.0, weak_res=0.0,
-            effect_res=m["effect_res"], rank=m["rank"], debuff_res=dict(m["debuff_res"]),
-            hit_energy=m.get("hit_energy"), initial_delay=m.get("initial_delay", 1.0),
+            name=m["name"],
+            level=m["level"],
+            hp=m["hp"],
+            atk=m["atk"],
+            spd=m["spd"],
+            toughness=m["toughness"],
+            weaknesses=list(m["weaknesses"]),
+            res=dict(m["res"]),
+            default_res=0.0,
+            weak_res=0.0,
+            effect_res=m["effect_res"],
+            rank=m["rank"],
+            debuff_res=dict(m["debuff_res"]),
+            hit_energy=m.get("hit_energy"),
+            initial_delay=m.get("initial_delay", 1.0),
         )
 
     def make(self) -> list[Enemy]:
@@ -144,8 +155,12 @@ class Scenario:
 def boss_dps(cycles: int = 5, weaknesses: str | list[str] = "all", **enemy: Any) -> Scenario:
     """Single high-HP boss; total DMG after ``cycles`` cycles (single-target output)."""
     spec = EnemySpec(
-        name="Boss", hp=enemy.pop("hp", 1e12), toughness=enemy.pop("toughness", 300.0), rank="boss",
-        weaknesses=weaknesses, **enemy,
+        name="Boss",
+        hp=enemy.pop("hp", 1e12),
+        toughness=enemy.pop("toughness", 300.0),
+        rank="boss",
+        weaknesses=weaknesses,
+        **enemy,
     )
     return Scenario(f"boss_dps_{cycles}c", [[spec]], max_cycles=cycles, description=boss_dps.__doc__ or "")
 
@@ -153,14 +168,21 @@ def boss_dps(cycles: int = 5, weaknesses: str | list[str] = "all", **enemy: Any)
 def aoe_dps(cycles: int = 5, count: int = 5, weaknesses: str | list[str] = "all", **enemy: Any) -> Scenario:
     """``count`` high-HP elites side by side (blast / AoE output)."""
     spec = EnemySpec(
-        name="Elite", hp=enemy.pop("hp", 1e12), toughness=enemy.pop("toughness", 100.0), rank="elite",
-        count=count, weaknesses=weaknesses, **enemy,
+        name="Elite",
+        hp=enemy.pop("hp", 1e12),
+        toughness=enemy.pop("toughness", 100.0),
+        rank="elite",
+        count=count,
+        weaknesses=weaknesses,
+        **enemy,
     )
     return Scenario(f"aoe_dps_{cycles}c", [[spec]], max_cycles=cycles, description=aoe_dps.__doc__ or "")
 
 
 def clear_waves(
-    waves: list[list[EnemySpec]] | None = None, max_cycles: int = 30, weaknesses: str | list[str] = "all"
+    waves: list[list[EnemySpec] | InfiniteWaveSpec] | None = None,
+    max_cycles: int = 30,
+    weaknesses: str | list[str] = "all",
 ) -> Scenario:
     """MoC-style: clear all waves as fast as possible; the report shows cycles used."""
     if waves is None:
@@ -206,7 +228,7 @@ def endgame(mode: str = "moc", group: int | None = None, floor: int | None = Non
     return Scenario(name, waves, max_cycles=int(cycles), description=desc)
 
 
-PRESETS = {
+PRESETS: dict[str, Callable[..., Scenario]] = {
     "boss": boss_dps,
     "aoe": aoe_dps,
     "waves": clear_waves,

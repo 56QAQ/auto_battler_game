@@ -32,7 +32,5 @@ def load_all() -> dict[str, type[Kit]]:
 def get_kit(char_id: str) -> type[Kit]:
     load_all()
     if char_id not in KITS:
-        raise NotImplementedError(
-            f"character {char_id} has no kit implementation yet; implemented: {sorted(KITS)}"
-        )
+        raise NotImplementedError(f"character {char_id} has no kit implementation yet; implemented: {sorted(KITS)}")
     return KITS[char_id]

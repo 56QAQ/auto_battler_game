@@ -20,13 +20,19 @@ class _TrailblazerHarmony(Kit):
         self.on(E.BREAK, self._on_break)
         self.on(E.ATTACK_END, self._super_break)
         if self.e(4):
-            self.passive("Dove in Tophat", {}, scope=self.teammate_scope,
-                         dyn=lambda m, k, e: self.ep(4, 0) * self.char.stat(S.BREAK_EFFECT), dyn_keys={S.BREAK_EFFECT})
+            self.passive(
+                "Dove in Tophat",
+                {},
+                scope=self.teammate_scope,
+                dyn=lambda m, k, e: self.ep(4, 0) * self.char.stat(S.BREAK_EFFECT),
+                dyn_keys={S.BREAK_EFFECT},
+            )
 
     def on_battle_start(self) -> None:
         if self.e(2):
-            self.buff_self(Modifier("Jailbreaking Rainbowwalk", stats={S.ERR: self.ep(2, 0)},
-                                    duration=int(self.ep(2, 1))))
+            self.buff_self(
+                Modifier("Jailbreaking Rainbowwalk", stats={S.ERR: self.ep(2, 0)}, duration=int(self.ep(2, 1)))
+            )
 
     def technique(self) -> None:
         p = self.sk("technique")["params"][0]
@@ -54,8 +60,14 @@ class _TrailblazerHarmony(Kit):
     def ult(self, target: Enemy | None) -> None:
         with self.action(ActionKind.ULT, "ult"):
             self.dancer = self.buff_self(
-                Modifier("Backup Dancer", stats={S.BREAK_EFFECT: self.p("ult", 2)}, duration=int(self.p("ult", 0)),
-                         tick=Tick.SOURCE_TURN_START, scope=self.ally_scope, key="Backup Dancer")
+                Modifier(
+                    "Backup Dancer",
+                    stats={S.BREAK_EFFECT: self.p("ult", 2)},
+                    duration=int(self.p("ult", 0)),
+                    tick=Tick.SOURCE_TURN_START,
+                    scope=self.ally_scope,
+                    key="Backup Dancer",
+                )
             )
 
     # ---------------------------------------------------------- talent
@@ -76,8 +88,9 @@ class _TrailblazerHarmony(Kit):
         for t in act.attacked:
             tough = self.battle.super_break_toughness(act, t)
             if tough > 0:
-                self.battle.super_break(act.actor, t, tough, 1.0 + bonus, credited=act.owner,
-                                        label="Super Break (Backup Dancer)")
+                self.battle.super_break(
+                    act.actor, t, tough, 1.0 + bonus, credited=act.owner, label="Super Break (Backup Dancer)"
+                )
 
 
 @register

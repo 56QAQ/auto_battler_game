@@ -29,7 +29,9 @@ class Pela(Kit):
         for e in self.enemies():
             self.battle.try_debuff(
                 Modifier("Pela Technique", stats={S.DEF_REDUCTION: p[1]}, duration=int(p[2]), kind=ModKind.DEBUFF),
-                e, self.char, p[0],
+                e,
+                self.char,
+                p[0],
             )
 
     def _bash(self, ev: E.Ev) -> None:
@@ -46,8 +48,9 @@ class Pela(Kit):
         if self.e(6):
             for t in act.attacked:
                 if t.alive and t.debuffs:
-                    self.battle.additional_damage(self.char, t, self.ep(6, 0), element=Element.ICE,
-                                                  label="E6 Feeble Pursuit")
+                    self.battle.additional_damage(
+                        self.char, t, self.ep(6, 0), element=Element.ICE, label="E6 Feeble Pursuit"
+                    )
 
     # ---------------------------------------------------------- actions
     def basic(self, target: Enemy | None) -> None:
@@ -62,17 +65,29 @@ class Pela(Kit):
             act.hit(target, self.p("skill", 0), toughness=self.toughness("skill"))
             if self.e(4):
                 self.battle.try_debuff(
-                    Modifier("Full Analysis", stats={f"{S.RES_REDUCTION}:Ice": self.ep(4, 1)},
-                             duration=int(self.ep(4, 2)), kind=ModKind.DEBUFF),
-                    target, self.char, self.ep(4, 0),
+                    Modifier(
+                        "Full Analysis",
+                        stats={f"{S.RES_REDUCTION}:Ice": self.ep(4, 1)},
+                        duration=int(self.ep(4, 2)),
+                        kind=ModKind.DEBUFF,
+                    ),
+                    target,
+                    self.char,
+                    self.ep(4, 0),
                 )
 
     def ult(self, target: Enemy | None) -> None:
         with self.action(ActionKind.ULT, "ult", target) as act:
             for e in self.enemies():
                 self.battle.try_debuff(
-                    Modifier("Exposed", stats={S.DEF_REDUCTION: self.p("ult", 1)}, duration=int(self.p("ult", 2)),
-                             kind=ModKind.DEBUFF),
-                    e, self.char, self.p("ult", 0),
+                    Modifier(
+                        "Exposed",
+                        stats={S.DEF_REDUCTION: self.p("ult", 1)},
+                        duration=int(self.p("ult", 2)),
+                        kind=ModKind.DEBUFF,
+                    ),
+                    e,
+                    self.char,
+                    self.p("ult", 0),
                 )
             act.aoe(self.p("ult", 3), toughness=self.toughness("ult", 1), main_target=target)

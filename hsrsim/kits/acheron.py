@@ -40,8 +40,12 @@ class Acheron(Kit):
 
             self.on(E.BEFORE_HIT, the_abyss)
         if self.e(1):
-            self.on(E.BEFORE_HIT, lambda ev: ev.hit.attacker is self.char and ev.hit.target.debuffs
-                    and ev.hit.add(S.CRIT_RATE, self.ep(1, 0)))
+            self.on(
+                E.BEFORE_HIT,
+                lambda ev: ev.hit.attacker is self.char
+                and ev.hit.target.debuffs
+                and ev.hit.add(S.CRIT_RATE, self.ep(1, 0)),
+            )
         if self.e(2):
             self.on(E.TURN_START, lambda ev: ev.entity is self.char and self._gain(1, knot=True))
         if self.e(4):
@@ -67,8 +71,17 @@ class Acheron(Kit):
             act.aoe(p[0], toughness=20, ignore_weakness=True)
 
     def _e4(self, e: Enemy) -> None:
-        self.battle.apply(Modifier("Shrined Fire", stats={f"{S.VULN}:{DmgTag.ULT}": self.ep(4, 0)},
-                                   kind=ModKind.DEBUFF, tick=Tick.NONE, dispellable=False), e, self.char)
+        self.battle.apply(
+            Modifier(
+                "Shrined Fire",
+                stats={f"{S.VULN}:{DmgTag.ULT}": self.ep(4, 0)},
+                kind=ModKind.DEBUFF,
+                tick=Tick.NONE,
+                dispellable=False,
+            ),
+            e,
+            self.char,
+        )
 
     # ------------------------------------------------ Slashed Dream / Knots
     def _qa_max(self) -> int:
@@ -98,9 +111,19 @@ class Acheron(Kit):
         if self.in_ult or n <= 0 or not e.alive:
             return
         self.battle.apply(
-            Modifier("Crimson Knot", kind=ModKind.DEBUFF, stacks=n, max_stacks=MAX_KNOTS, stacking=Stacking.STACK,
-                     tick=Tick.NONE, dispellable=False, key="Crimson Knot"),
-            e, self.char)
+            Modifier(
+                "Crimson Knot",
+                kind=ModKind.DEBUFF,
+                stacks=n,
+                max_stacks=MAX_KNOTS,
+                stacking=Stacking.STACK,
+                tick=Tick.NONE,
+                dispellable=False,
+                key="Crimson Knot",
+            ),
+            e,
+            self.char,
+        )
 
     def _on_mod(self, ev: E.Ev) -> None:
         mod, target = ev.mod, ev.target
@@ -153,9 +176,15 @@ class Acheron(Kit):
                 had_knot = self.knots(t) > 0
                 act.hit(t, lv[0], toughness=rb["toughness"][0], ignore_weakness=True, label="Rainblade")
                 if self.trace(3) and had_knot:
-                    self.buff_self(Modifier("Thunder Core", stats={S.DMG_PCT: self.tp(3, 0)},
-                                            duration=int(self.tp(3, 2)), stacking=Stacking.STACK,
-                                            max_stacks=int(self.tp(3, 1))))
+                    self.buff_self(
+                        Modifier(
+                            "Thunder Core",
+                            stats={S.DMG_PCT: self.tp(3, 0)},
+                            duration=int(self.tp(3, 2)),
+                            stacking=Stacking.STACK,
+                            max_stacks=int(self.tp(3, 1)),
+                        )
+                    )
                 removed = min(3, self.knots(t))
                 if removed:
                     m = t.get_mod("Crimson Knot")
@@ -164,12 +193,18 @@ class Acheron(Kit):
                     if m.stacks <= 0:
                         b.remove_modifier(m)
                     mult = min(self.p("ult", 4), lv[1] * (1 + removed))
-                    act.aoe(mult, toughness=rb["toughness"][1], ignore_weakness=True, label="Rainblade (Crimson Knot)",
-                            main_target=t)
+                    act.aoe(
+                        mult,
+                        toughness=rb["toughness"][1],
+                        ignore_weakness=True,
+                        label="Rainblade (Crimson Knot)",
+                        main_target=t,
+                    )
             sr = self.sk("130817")
             lv = sr["params"][self.level_of(sr) - 1]
-            act.aoe(lv[0], toughness=sr["toughness"][1], ignore_weakness=True, label="Stygian Resurge",
-                    main_target=target)
+            act.aoe(
+                lv[0], toughness=sr["toughness"][1], ignore_weakness=True, label="Stygian Resurge", main_target=target
+            )
             for e in b.alive_enemies():
                 b.remove_named(e, "Crimson Knot")
             if self.trace(3):
@@ -195,6 +230,10 @@ class Acheron(Kit):
         with self.action(ActionKind.SKILL, "skill", target, tags=self._tags(DmgTag.SKILL)) as act:
             self._gain(int(self.p("skill", 2)), knot=False)
             self.add_knots(target, int(self.p("skill", 2)))
-            act.blast(target, self.p("skill", 0), self.p("skill", 1),
-                      toughness=(self.toughness("skill", 0), self.toughness("skill", 2)), ignore_weakness=self.e(6))
-
+            act.blast(
+                target,
+                self.p("skill", 0),
+                self.p("skill", 1),
+                toughness=(self.toughness("skill", 0), self.toughness("skill", 2)),
+                ignore_weakness=self.e(6),
+            )

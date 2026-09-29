@@ -185,8 +185,21 @@ class Action:
         for r in splits or [1.0]:
             out.append(
                 self.battle.do_hit(
-                    self._make(target, mult, stat, toughness, r, element, tags, label, flat, can_crit,
-                               ignore_weakness, extra, primary)
+                    self._make(
+                        target,
+                        mult,
+                        stat,
+                        toughness,
+                        r,
+                        element,
+                        tags,
+                        label,
+                        flat,
+                        can_crit,
+                        ignore_weakness,
+                        extra,
+                        primary,
+                    )
                 )
             )
         return out
@@ -783,7 +796,7 @@ class Battle:
     ) -> float:
         lvl = self.data.break_base(attacker.level)
         base = F.super_break_base(lvl, toughness_reduced) * mult
-        el = element or getattr(attacker, "element", Element.PHYSICAL)
+        el: Element = element or Element(getattr(attacker, "element", Element.PHYSICAL))
         return self.special_damage(
             attacker,
             target,
@@ -802,8 +815,9 @@ class Battle:
             if any(k in m.tags for k in kinds):
                 d = m.trigger(self, ratio)
                 total += d
-                self.events.emit(E.DOT_TRIGGERED, mod=m, target=target, damage=d, turn_start=False,
-                                 action=self.current_action)
+                self.events.emit(
+                    E.DOT_TRIGGERED, mod=m, target=target, damage=d, turn_start=False, action=self.current_action
+                )
         return total
 
     @staticmethod
@@ -838,8 +852,16 @@ class Battle:
         does not benefit from DMG% boosts. BEFORE_HIT/AFTER_HIT fire with a hit whose ``action`` is
         None, so hit-local modifiers (DEF ignore, vulnerability, RES PEN ...) apply."""
         tg = frozenset(tags)
-        hit = Hit(attacker=attacker, target=target, element=element, tags=tg, mult={}, label=label,
-                  owner=credited, can_crit=False)
+        hit = Hit(
+            attacker=attacker,
+            target=target,
+            element=element,
+            tags=tg,
+            mult={},
+            label=label,
+            owner=credited,
+            can_crit=False,
+        )
         hit.was_broken = target.broken
         self.events.emit(E.BEFORE_HIT, hit=hit)
         q, ex = hit.quals, hit.extra
@@ -848,9 +870,7 @@ class Battle:
             boost += attacker.stat(boost_key, ex)
         be = 1.0 + attacker.stat(S.BREAK_EFFECT, ex) if use_break_effect else 1.0
         hit.base = base
-        hit.parts = self._parts(
-            attacker, target, element, q, ex, base=base * be, boost=boost, broken_mult=broken_mult
-        )
+        hit.parts = self._parts(attacker, target, element, q, ex, base=base * be, boost=boost, broken_mult=broken_mult)
         hit.damage = hit.parts.total
         self.deal(target, hit.damage, hit.credited, attacker, label, tg, element)
         self.events.emit(E.AFTER_HIT, hit=hit)
@@ -905,13 +925,15 @@ class Battle:
         can_crit: bool = True,
         extra: dict[str, float] | None = None,
         crit_override: tuple[float, float] | None = None,
+        flat: float = 0.0,
     ) -> Hit:
-        """Additional DMG: a hit that does not reduce Toughness and is not an attack of its own."""
+        """Additional DMG: a hit that does not reduce Toughness and is not an attack of its own.
+        ``flat`` is added to the base DMG (for effects computed from something other than a stat)."""
         m = {stat: mult} if isinstance(mult, (int, float)) else dict(mult)
         hit = Hit(
             attacker=attacker,
             target=target,
-            element=element or getattr(attacker, "element", Element.PHYSICAL),
+            element=element or Element(getattr(attacker, "element", Element.PHYSICAL)),
             tags=frozenset(tags),
             mult=m,
             label=label,
@@ -920,10 +942,11 @@ class Battle:
             extra=dict(extra or {}),
             action=None,
             crit_override=crit_override,
+            flat=flat,
         )
         hit.was_broken = target.broken
         self.events.emit(E.BEFORE_HIT, hit=hit)
-        hit.base = sum(r * attacker.scaling(k, hit.extra) for k, r in hit.mult.items())
+        hit.base = sum(r * attacker.scaling(k, hit.extra) for k, r in hit.mult.items()) + hit.flat
         hit.parts = self.compute(hit)
         hit.damage = hit.parts.total
         self.deal(target, hit.damage, hit.credited, attacker, label, hit.tags, hit.element)
@@ -1029,8 +1052,15 @@ class Battle:
         self.events.emit(E.SP_CHANGED, delta=-n, entity=who)
 
     def add_shield(
-        self, target: Entity, value: float, source: Entity, *, duration: int | None = 2, name: str = "Shield",
-        tick: Tick = Tick.HOLDER_TURN_START, key: str | None = None,
+        self,
+        target: Entity,
+        value: float,
+        source: Entity,
+        *,
+        duration: int | None = 2,
+        name: str = "Shield",
+        tick: Tick = Tick.HOLDER_TURN_START,
+        key: str | None = None,
     ) -> Modifier:
         """Shield absorbing enemy DMG. ``value`` is scaled by the source's Shield effect bonus (``shield%``)."""
         mod = Modifier(name, duration=duration, tick=tick, kind=ModKind.BUFF, tags={"shield"}, key=key)
@@ -1055,6 +1085,7 @@ class Battle:
     def heal(self, target: Entity, amount: float, source: Entity | None = None) -> None:
         before = target.hp
         target.hp = min(target.max_hp, target.hp + amount)
+        self.events.emit(E.HEALED, entity=target, amount=amount, effective=target.hp - before, source=source)
         if target.hp != before:
             self.events.emit(E.HP_CHANGED, entity=target, delta=target.hp - before, source=source)
 
@@ -1142,11 +1173,12 @@ class Battle:
             self.log("all waves cleared")
             return
         wave = self.waves[self.wave_index]
-        self.infinite = wave if isinstance(wave, InfiniteWave) else None
-        if self.infinite is not None:
-            first = [self._take_from_pool() for _ in range(min(self.infinite.on_field, self.infinite.max_count))]
+        if isinstance(wave, InfiniteWave):
+            self.infinite = wave
+            first = [self._take_from_pool() for _ in range(min(wave.on_field, wave.max_count))]
             self.enemies = [e for e in first if e is not None]
         else:
+            self.infinite = None
             self.enemies = list(wave)
         self.queue = [q for q in self.queue if not q.needs_enemies]
         for i, e in enumerate(self.enemies):
@@ -1223,6 +1255,7 @@ class Battle:
         unit.hp = unit.max_hp if unit.stat_mode in ("self", "sync") else 0.0
         self.units.append(unit)
         unit.owner.summons.append(unit)
+        self.events.emit(E.UNIT_ADDED, unit=unit, owner=unit.owner)
         return unit
 
     def remove_unit(self, unit: Summon) -> None:
@@ -1233,6 +1266,7 @@ class Battle:
             self.units.remove(unit)
         if unit in unit.owner.summons:
             unit.owner.summons.remove(unit)
+        self.events.emit(E.UNIT_REMOVED, unit=unit, owner=unit.owner)
 
     def character(self, name: str) -> Character:
         for c in self.team:

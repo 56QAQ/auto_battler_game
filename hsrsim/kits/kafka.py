@@ -50,15 +50,23 @@ class Kafka(Kit):
         kafka = self.char
 
         def dmg(mod: DotModifier, b: Battle, ratio: float) -> float:
-            d = b.dot_damage(kafka, target, Element.LIGHTNING, self.shock_mult(), label="Shock (Kafka)",
-                             tags=(DmgTag.DOT, "shock"), ratio=ratio)
+            d = b.dot_damage(
+                kafka,
+                target,
+                Element.LIGHTNING,
+                self.shock_mult(),
+                label="Shock (Kafka)",
+                tags=(DmgTag.DOT, "shock"),
+                ratio=ratio,
+            )
             if self.e(4):
                 b.gain_energy(kafka, self.ep(4, 0))
             return d
 
         dur = int(self.p("ult", 2)) + (int(self.ep(6, 1)) if self.e(6) else 0)
-        self.battle.try_debuff(DotModifier("Shock (Kafka)", dot_type="shock", damage_fn=dmg, duration=dur),
-                               target, self.char, chance)
+        self.battle.try_debuff(
+            DotModifier("Shock (Kafka)", dot_type="shock", damage_fn=dmg, duration=dur), target, self.char, chance
+        )
 
     # ------------------------------------------------------------ actions
     def basic(self, target: Enemy | None) -> None:
@@ -68,8 +76,12 @@ class Kafka(Kit):
     def skill(self, target: Enemy | None) -> None:
         assert target is not None
         with self.action(ActionKind.SKILL, "skill", target) as act:
-            act.blast(target, self.p("skill", 0), self.p("skill", 2),
-                      toughness=(self.toughness("skill", 0), self.toughness("skill", 2)))
+            act.blast(
+                target,
+                self.p("skill", 0),
+                self.p("skill", 2),
+                toughness=(self.toughness("skill", 0), self.toughness("skill", 2)),
+            )
             if target.alive and target.has_tag("dot"):
                 self.battle.detonate(target, self.p("skill", 1))
 
@@ -104,9 +116,16 @@ class Kafka(Kit):
                     self.shock(t, self.p("talent", 1))
                     if self.e(1):
                         self.battle.try_debuff(
-                            Modifier("Da Capo", stats={f"{S.VULN}:{DmgTag.DOT}": self.ep(1, 1)},
-                                     duration=int(self.ep(1, 2)), kind=ModKind.DEBUFF),
-                            t, self.char, self.ep(1, 0))
+                            Modifier(
+                                "Da Capo",
+                                stats={f"{S.VULN}:{DmgTag.DOT}": self.ep(1, 1)},
+                                duration=int(self.ep(1, 2)),
+                                kind=ModKind.DEBUFF,
+                            ),
+                            t,
+                            self.char,
+                            self.ep(1, 0),
+                        )
 
         self.battle.queue_action(fua, self.char, "Kafka follow-up")
 

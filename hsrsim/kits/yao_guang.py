@@ -56,8 +56,16 @@ class YaoGuang(Kit):
         if self.e(2):
             self.buff_self(hidden("Decalight (self E2)", {S.ELATION_DMG_PCT: self.ep(2, 0)}))
         self.zone = self.buff_self(
-            Modifier("Decalight Zone", stats=stats, duration=int(self.p("skill", 0)), tick=Tick.SOURCE_TURN_START,
-                     scope=self.ally_scope, dyn=self._zone_elation, dyn_keys={S.ELATION_DMG_PCT}, key="Decalight Zone")
+            Modifier(
+                "Decalight Zone",
+                stats=stats,
+                duration=int(self.p("skill", 0)),
+                tick=Tick.SOURCE_TURN_START,
+                scope=self.ally_scope,
+                dyn=self._zone_elation,
+                dyn_keys={S.ELATION_DMG_PCT},
+                key="Decalight Zone",
+            )
         )
 
     # ---------------------------------------------------------- policy
@@ -75,8 +83,12 @@ class YaoGuang(Kit):
     def basic(self, target: Enemy | None) -> None:
         assert target is not None
         with self.action(ActionKind.BASIC, "basic", target) as act:
-            act.blast(target, self.p("basic", 0), self.p("basic", 1),
-                      toughness=(self.toughness("basic", 0), self.toughness("basic", 2)))
+            act.blast(
+                target,
+                self.p("basic", 0),
+                self.p("basic", 1),
+                toughness=(self.toughness("basic", 0), self.toughness("basic", 2)),
+            )
         self.gain_punchline(int(self.p("skill", 2)))
 
     def skill(self, target: Enemy | None) -> None:
@@ -88,8 +100,9 @@ class YaoGuang(Kit):
         with self.action(ActionKind.ULT, "ult"):
             self.gain_punchline(int(self.p("ult", 0)))
             for c in self.allies():
-                self.buff(c, Modifier("Hexagram RES PEN", stats={S.RES_PEN: self.p("ult", 1)},
-                                      duration=int(self.p("ult", 2))))
+                self.buff(
+                    c, Modifier("Hexagram RES PEN", stats={S.RES_PEN: self.p("ult", 1)}, duration=int(self.p("ult", 2)))
+                )
         fixed = int(self.ep(1, 1)) if self.e(1) else int(self.p("ult", 3))
         if self.e(4):
             self.battle.queue_action(self._flag_e4, self.char, "Yao Guang E4 flag", priority=4)
@@ -99,8 +112,11 @@ class YaoGuang(Kit):
 
     def _flag_e4(self) -> None:
         self.e4_turn = True
-        self.passive("Threads of Fate (E4)", {f"{S.FINAL_DMG}:elation_skill": self.ep(4, 0) - 1.0},
-                     scope=lambda e: e.side == Side.ALLY)
+        self.passive(
+            "Threads of Fate (E4)",
+            {f"{S.FINAL_DMG}:elation_skill": self.ep(4, 0) - 1.0},
+            scope=lambda e: e.side == Side.ALLY,
+        )
 
     def _unflag_e4(self) -> None:
         self.e4_turn = False
@@ -115,18 +131,41 @@ class YaoGuang(Kit):
         with self.action(ActionKind.ELATION, rec, label=rec["name"]) as act:
             for e in self.enemies():
                 self.battle.try_debuff(
-                    Modifier("Woe's Whisper", stats={S.VULN: lv[2]}, duration=int(lv[3]), kind=ModKind.DEBUFF,
-                             key="Woe's Whisper"), e, self.char, 1.0)
+                    Modifier(
+                        "Woe's Whisper",
+                        stats={S.VULN: lv[2]},
+                        duration=int(lv[3]),
+                        kind=ModKind.DEBUFF,
+                        key="Woe's Whisper",
+                    ),
+                    e,
+                    self.char,
+                    1.0,
+                )
             for e in self.enemies():
-                self.elation_hit(e, lv[1] * mult, punchline, label="Let Thy Fortune Burst (AoE)", action=act,
-                                 tags=("elation_skill",), toughness=tough[1])
+                self.elation_hit(
+                    e,
+                    lv[1] * mult,
+                    punchline,
+                    label="Let Thy Fortune Burst (AoE)",
+                    action=act,
+                    tags=("elation_skill",),
+                    toughness=tough[1],
+                )
             for _ in range(int(lv[4])):
                 pool = [e for e in self.enemies() if e.hp > 0] or self.enemies()
                 if not pool:
                     break
                 t = self.battle.rng.choice(pool)
-                self.elation_hit(t, lv[5] * mult, punchline, label="Let Thy Fortune Burst (bounce)", action=act,
-                                 tags=("elation_skill",), toughness=tough[0])
+                self.elation_hit(
+                    t,
+                    lv[5] * mult,
+                    punchline,
+                    label="Let Thy Fortune Burst (bounce)",
+                    action=act,
+                    tags=("elation_skill",),
+                    toughness=tough[0],
+                )
         if self.trace(2):
             self.battle.gain_sp(int(self.tp(2, 0)), self.char)
 
@@ -146,5 +185,12 @@ class YaoGuang(Kit):
             if not pool:
                 return
             t = self.battle.rng.choice(pool)
-            self.battle.elation.damage(owner, t, self.p("talent", 0), punchline=p, label="Great Boon (Yao Guang)",
-                                       credited=owner, min_elation=min_el)
+            self.battle.elation.damage(
+                owner,
+                t,
+                self.p("talent", 0),
+                punchline=p,
+                label="Great Boon (Yao Guang)",
+                credited=owner,
+                min_elation=min_el,
+            )

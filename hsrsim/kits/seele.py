@@ -64,9 +64,7 @@ class Seele(Kit):
         with self.action(ActionKind.ULT, "ult", target) as act:
             act.hit(target, self.p("ult", 0), toughness=self.toughness("ult"))
         if self.e(6) and target.alive:
-            self.battle.apply(
-                Modifier("Butterfly Flurry", duration=1, kind=ModKind.DEBUFF), target, self.char
-            )
+            self.battle.apply(Modifier("Butterfly Flurry", duration=1, kind=ModKind.DEBUFF), target, self.char)
 
     # ------------------------------------------------------------ talent
     def _on_action_end(self, ev: E.Ev) -> None:
@@ -102,4 +100,3 @@ class Seele(Kit):
                     label="E6 Butterfly Flurry",
                     tags=("additional",),
                 )
-

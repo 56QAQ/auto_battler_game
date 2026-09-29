@@ -117,4 +117,16 @@ class Report:
         return self.to_text()
 
 
-_MAIN_TAGS = {"basic", "skill", "ult", "fua", "dot", "break", "super_break", "additional", "memosprite", "elation", "true"}
+_MAIN_TAGS = {
+    "basic",
+    "skill",
+    "ult",
+    "fua",
+    "dot",
+    "break",
+    "super_break",
+    "additional",
+    "memosprite",
+    "elation",
+    "true",
+}

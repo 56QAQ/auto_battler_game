@@ -34,8 +34,15 @@ class Huohuo(Kit):
     # --------------------------------------------------------- provision
     def _provision(self, turns: int) -> None:
         stats = {S.SPD_PCT: self.ep(1, 0)} if self.e(1) else {}
-        self.buff_self(Modifier("Divine Provision", stats=stats, duration=turns, tick=Tick.SOURCE_TURN_START,
-                                scope=self.ally_scope if self.e(1) else None))
+        self.buff_self(
+            Modifier(
+                "Divine Provision",
+                stats=stats,
+                duration=turns,
+                tick=Tick.SOURCE_TURN_START,
+                scope=self.ally_scope if self.e(1) else None,
+            )
+        )
         self.triggers_left = int(self.p("talent", 6))
 
     def _provision_active(self) -> bool:
@@ -82,12 +89,17 @@ class Huohuo(Kit):
             self.battle.heal(ally, self.p("skill", 0) * self.char.max_hp + self.p("skill", 1), self.char)
             self._provision(int(self.p("talent", 0)) + (int(self.ep(1, 1)) if self.e(1) else 0))
             if self.e(6):
-                self.buff(ally, Modifier("Woven Together", stats={S.DMG_PCT: self.ep(6, 0)},
-                                         duration=int(self.ep(6, 1))))
+                self.buff(
+                    ally, Modifier("Woven Together", stats={S.DMG_PCT: self.ep(6, 0)}, duration=int(self.ep(6, 1)))
+                )
 
     def ult(self, target: Enemy | None) -> None:
         with self.action(ActionKind.ULT, "ult"):
             for c in self.teammates():
                 self.battle.gain_energy(c, self.p("ult", 0) * c.max_energy, fixed=True)
-                self.buff(c, Modifier("Spiritual Domination", stats={S.ATK_PCT: self.p("ult", 1)},
-                                      duration=int(self.p("ult", 2))))
+                self.buff(
+                    c,
+                    Modifier(
+                        "Spiritual Domination", stats={S.ATK_PCT: self.p("ult", 1)}, duration=int(self.p("ult", 2))
+                    ),
+                )

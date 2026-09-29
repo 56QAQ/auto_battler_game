@@ -122,10 +122,7 @@ def plist(xs: list[Any] | None) -> list[float]:
 def dump(name: str, data: dict[str, Any]) -> None:
     """One record per line keeps the snapshot diff-friendly after patches."""
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    lines = [
-        f"{json.dumps(k)}:{json.dumps(v, ensure_ascii=False, separators=(',', ':'))}"
-        for k, v in data.items()
-    ]
+    lines = [f"{json.dumps(k)}:{json.dumps(v, ensure_ascii=False, separators=(',', ':'))}" for k, v in data.items()]
     (OUT_DIR / f"{name}.json").write_text("{\n" + ",\n".join(lines) + "\n}\n", encoding="utf-8")
     print(f"wrote {name}.json ({len(data)} records)", file=sys.stderr)
 
@@ -324,9 +321,7 @@ def main() -> None:
             "skill_cn": lc_rank["cn"].get(key, {}).get("skill", ""),
             **text(lc_rank, key, "desc"),
             "params": [plist(s.get("ParamList")) for s in srow],
-            "props": [
-                [[x["PropertyType"], val(x["Value"])] for x in s.get("AbilityProperty", [])] for s in srow
-            ],
+            "props": [[[x["PropertyType"], val(x["Value"])] for x in s.get("AbilityProperty", [])] for s in srow],
         }
     dump("light_cones", light_cones)
 
@@ -406,8 +401,12 @@ def build_endgame(raw: dict[str, Any]) -> dict[str, Any]:
         e = elite.get(eg, {}) if eg else {}
 
         def mul(field: str, mfield: str) -> float:
-            return float(val(t.get(field), 0) * val(m.get(mfield), 1) * val(h.get(field.replace("Base", "Ratio")), 1)
-                         * val(e.get(field.replace("Base", "Ratio")), 1))
+            return float(
+                val(t.get(field), 0)
+                * val(m.get(mfield), 1)
+                * val(h.get(field.replace("Base", "Ratio")), 1)
+                * val(e.get(field.replace("Base", "Ratio")), 1)
+            )
 
         hits = [val(skills[k].get("SPHitBase"), 0) for k in m.get("SkillList", []) if k in skills]
         hits = [x for x in hits if x]
@@ -436,11 +435,15 @@ def build_endgame(raw: dict[str, Any]) -> dict[str, Any]:
         if st is None:
             return None
         lv, hl, eg = st["Level"], st["HardLevelGroup"], st.get("EliteGroup")
-        waves = [[monster(mid, lv, hl, eg) for _, mid in sorted(w.items()) if mid in monsters]
-                 for w in st.get("MonsterList", [])]
+        waves = [
+            [monster(mid, lv, hl, eg) for _, mid in sorted(w.items()) if mid in monsters]
+            for w in st.get("MonsterList", [])
+        ]
         out: dict[str, Any] = {"stage_id": sid, "level": lv, "waves": waves}
-        infinite = next((c["MNDFOPKBHKP"] for c in st.get("StageConfigData", []) if c.get("BFLIFKBEOPJ") ==
-                         "_StageInfiniteGroup"), None)
+        infinite = next(
+            (c["MNDFOPKBHKP"] for c in st.get("StageConfigData", []) if c.get("BFLIFKBEOPJ") == "_StageInfiniteGroup"),
+            None,
+        )
         if infinite:
             group = next((g for g in raw["StageInfiniteGroup"] if g["WaveGroupID"] == int(infinite)), None)
             iwaves = {w["InfiniteWaveID"]: w for w in raw["StageInfiniteWaveConfig"]}
@@ -452,8 +455,7 @@ def build_endgame(raw: dict[str, Any]) -> dict[str, Any]:
                 for gid in w["MonsterGroupIDList"]:
                     g = igroups[gid]
                     pool += [monster(mid, lv, hl, g.get("EliteGroup")) for mid in g["MonsterList"] if mid in monsters]
-                spawn.append({"max_count": w["MaxMonsterCount"], "on_field": w["MaxTeammateCount"],
-                              "monsters": pool})
+                spawn.append({"max_count": w["MaxMonsterCount"], "on_field": w["MaxTeammateCount"], "monsters": pool})
             out["infinite"] = spawn
         return out
 
@@ -471,10 +473,12 @@ def build_endgame(raw: dict[str, Any]) -> dict[str, Any]:
                 for side in (1, 2):
                     sts = [stage(sid) for sid in mz.get(f"EventIDList{side}", [])]
                     halves.append({"weakness_hint": mz.get(f"DamageType{side}", []), "stages": [x for x in sts if x]})
-                floors.append({"id": mz["ID"], "floor": mz["Floor"], "cycles": mz.get("ChallengeCountDown"),
-                               "halves": halves})
-            out.append({"group": g["GroupID"], "mode": mode, "begin": sc["BeginTime"], "end": sc["EndTime"],
-                        "floors": floors})
+                floors.append(
+                    {"id": mz["ID"], "floor": mz["Floor"], "cycles": mz.get("ChallengeCountDown"), "halves": halves}
+                )
+            out.append(
+                {"group": g["GroupID"], "mode": mode, "begin": sc["BeginTime"], "end": sc["EndTime"], "floors": floors}
+            )
         return out
 
     return {

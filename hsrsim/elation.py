@@ -102,7 +102,9 @@ class ElationSystem:
     @staticmethod
     def certified_banger(c: Entity) -> int:
         """Total Punchline stored in the unit's Certified Banger stacks."""
-        return int(sum(m.data.get("punchline", 0) for m in c.modifiers if m.name == "Certified Banger" and not m.removed))
+        return int(
+            sum(m.data.get("punchline", 0) for m in c.modifiers if m.name == "Certified Banger" and not m.removed)
+        )
 
     # ----------------------------------------------------------- punchline
     def gain(self, n: int, source: Entity | None = None) -> None:
@@ -153,8 +155,9 @@ class ElationSystem:
             b.events.emit(PUNCHLINE_CHANGED, delta=-p, total=0, source=self.aha)
         for c in parts:
             dur = CERTIFIED_BANGER_TURNS + int(getattr(c.kit, "banger_extra_turns", lambda: 0)())
-            mod = Modifier("Certified Banger", duration=dur, kind=ModKind.BUFF, stacking=Stacking.INDEPENDENT,
-                           dispellable=False)
+            mod = Modifier(
+                "Certified Banger", duration=dur, kind=ModKind.BUFF, stacking=Stacking.INDEPENDENT, dispellable=False
+            )
             mod.data["punchline"] = p
             b.apply(mod, c, c)
         b.events.emit(AHA_INSTANT_END, punchline=p, participants=parts, fixed=not consume)
@@ -182,10 +185,20 @@ class ElationSystem:
         from .battle import Hit
 
         b = self.battle
-        el = element or getattr(attacker, "element", Element.PHYSICAL)
-        hit = Hit(attacker=attacker, target=target, element=el, tags=frozenset({DmgTag.ELATION, *tags}), mult={},
-                  label=label, owner=credited, can_crit=can_crit, extra=dict(extra or {}), action=action,
-                  toughness=toughness)
+        el: Element = element or Element(getattr(attacker, "element", Element.PHYSICAL))
+        hit = Hit(
+            attacker=attacker,
+            target=target,
+            element=el,
+            tags=frozenset({DmgTag.ELATION, *tags}),
+            mult={},
+            label=label,
+            owner=credited,
+            can_crit=can_crit,
+            extra=dict(extra or {}),
+            action=action,
+            toughness=toughness,
+        )
         if action is not None:
             if not action.attack_started:
                 action.attack_started = True

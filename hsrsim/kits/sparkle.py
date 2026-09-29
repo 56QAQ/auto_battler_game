@@ -89,8 +89,12 @@ class Sparkle(Kit):
 
     def _apply_cd_buff(self, ally: Character, value: float) -> None:
         if self.trace(2):  # extended until the start of the target's next turn
-            mod = Modifier("Dreamdiver", stats={S.CRIT_DMG: value}, duration=int(self.p("skill", 2)) + 1,
-                           tick=Tick.HOLDER_TURN_START)
+            mod = Modifier(
+                "Dreamdiver",
+                stats={S.CRIT_DMG: value},
+                duration=int(self.p("skill", 2)) + 1,
+                tick=Tick.HOLDER_TURN_START,
+            )
             if ally is self.battle.current_turn:
                 mod.duration = int(self.p("skill", 2))
         else:

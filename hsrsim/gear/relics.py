@@ -33,8 +33,9 @@ def _def_reduced(e: Entity) -> bool:
 
 
 class _Set(RelicSet):
-    def passive(self, name: str, stats: dict[str, float] | None = None, target: Entity | None = None,
-                **kw: Any) -> Modifier:
+    def passive(
+        self, name: str, stats: dict[str, float] | None = None, target: Entity | None = None, **kw: Any
+    ) -> Modifier:
         return self.battle.apply(hidden(name, stats, **kw), target or self.char, self.char)
 
     def buff(self, target: Entity, mod: Modifier) -> Modifier:
@@ -60,8 +61,14 @@ class Hunter(_Set):
 
     def setup(self) -> None:
         if self.pieces >= 4:
-            self.on(E.ACTION_END, lambda ev: self.mine(ev.action) and ev.action.kind == ActionKind.ULT and self.buff(
-                self.char, Modifier("Hunter 4pc", stats={S.CRIT_DMG: self.p(4, 0)}, duration=int(self.p(4, 1)))))
+            self.on(
+                E.ACTION_END,
+                lambda ev: self.mine(ev.action)
+                and ev.action.kind == ActionKind.ULT
+                and self.buff(
+                    self.char, Modifier("Hunter 4pc", stats={S.CRIT_DMG: self.p(4, 0)}, duration=int(self.p(4, 1)))
+                ),
+            )
 
 
 @register_relic
@@ -70,9 +77,18 @@ class Champion(_Set):
 
     def setup(self) -> None:
         if self.pieces >= 4:
+
             def stack(ev: E.Ev) -> None:
-                self.buff(self.char, Modifier("Champion 4pc", stats={S.ATK_PCT: self.p(4, 0)}, stacking=Stacking.STACK,
-                                              max_stacks=int(self.p(4, 1)), tick=Tick.NONE))
+                self.buff(
+                    self.char,
+                    Modifier(
+                        "Champion 4pc",
+                        stats={S.ATK_PCT: self.p(4, 0)},
+                        stacking=Stacking.STACK,
+                        max_stacks=int(self.p(4, 1)),
+                        tick=Tick.NONE,
+                    ),
+                )
 
             self.on(E.ATTACK_END, lambda ev: self.mine(ev.attack) and stack(ev))
             self.on(E.ALLY_ATTACKED, lambda ev: self.char in ev.targets and stack(ev))
@@ -118,6 +134,7 @@ class Genius(_Set):
 
     def setup(self) -> None:
         if self.pieces >= 4:
+
             def before_hit(ev: E.Ev) -> None:
                 h = ev.hit
                 if h.attacker is self.char:
@@ -133,8 +150,14 @@ class BandOfSizzlingThunder(_Set):
 
     def setup(self) -> None:
         if self.pieces >= 4:
-            self.on(E.ACTION_START, lambda ev: self.mine(ev.action) and ev.action.kind == ActionKind.SKILL and self.buff(
-                self.char, Modifier("Band 4pc", stats={S.ATK_PCT: self.p(4, 0)}, duration=int(self.p(4, 1)))))
+            self.on(
+                E.ACTION_START,
+                lambda ev: self.mine(ev.action)
+                and ev.action.kind == ActionKind.SKILL
+                and self.buff(
+                    self.char, Modifier("Band 4pc", stats={S.ATK_PCT: self.p(4, 0)}, duration=int(self.p(4, 1)))
+                ),
+            )
 
 
 @register_relic
@@ -143,8 +166,12 @@ class Eagle(_Set):
 
     def setup(self) -> None:
         if self.pieces >= 4:
-            self.on(E.ACTION_END, lambda ev: self.mine(ev.action) and ev.action.kind == ActionKind.ULT
-                    and self.battle.advance(self.char, self.p(4, 0)))
+            self.on(
+                E.ACTION_END,
+                lambda ev: self.mine(ev.action)
+                and ev.action.kind == ActionKind.ULT
+                and self.battle.advance(self.char, self.p(4, 0)),
+            )
 
 
 @register_relic
@@ -162,6 +189,7 @@ class Wastelander(_Set):
 
     def setup(self) -> None:
         if self.pieces >= 4:
+
             def before_hit(ev: E.Ev) -> None:
                 h = ev.hit
                 if h.attacker is self.char and h.target.debuffs:
@@ -178,11 +206,19 @@ class Longevous(_Set):
 
     def setup(self) -> None:
         if self.pieces >= 4:
+
             def on_hp(ev: E.Ev) -> None:
                 if ev.entity is self.char and ev.delta < 0:
-                    self.buff(self.char, Modifier("Longevous 4pc", stats={S.CRIT_RATE: self.p(4, 0)},
-                                                  duration=int(self.p(4, 1)), stacking=Stacking.STACK,
-                                                  max_stacks=int(self.p(4, 2))))
+                    self.buff(
+                        self.char,
+                        Modifier(
+                            "Longevous 4pc",
+                            stats={S.CRIT_RATE: self.p(4, 0)},
+                            duration=int(self.p(4, 1)),
+                            stacking=Stacking.STACK,
+                            max_stacks=int(self.p(4, 2)),
+                        ),
+                    )
 
             self.on(E.HP_CHANGED, on_hp)
 
@@ -193,13 +229,22 @@ class Messenger(_Set):
 
     def setup(self) -> None:
         if self.pieces >= 4:
+
             def after_ult(ev: E.Ev) -> None:
                 act = ev.action
                 kit = getattr(self.char, "kit", None)
                 if self.mine(act) and act.kind == ActionKind.ULT and getattr(kit, "ult_targets_ally", False):
                     for c in self.battle.allies():
-                        self.battle.apply(Modifier("Messenger 4pc", stats={S.SPD_PCT: self.p(4, 0)},
-                                                   duration=int(self.p(4, 1)), key="Messenger 4pc"), c, self.char)
+                        self.battle.apply(
+                            Modifier(
+                                "Messenger 4pc",
+                                stats={S.SPD_PCT: self.p(4, 0)},
+                                duration=int(self.p(4, 1)),
+                                key="Messenger 4pc",
+                            ),
+                            c,
+                            self.char,
+                        )
 
             self.on(E.ACTION_END, after_ult)
 
@@ -211,6 +256,7 @@ class Ashblazing(_Set):
     def setup(self) -> None:
         self.passive("Ashblazing 2pc", {f"{S.DMG_PCT}:{DmgTag.FUA}": self.p(2, 0)})
         if self.pieces >= 4:
+
             def start(ev: E.Ev) -> None:
                 if self.mine(ev.action) and ev.action.kind == ActionKind.FUA:
                     self.battle.remove_named(self.char, "Ashblazing 4pc")
@@ -218,9 +264,16 @@ class Ashblazing(_Set):
             def after_hit(ev: E.Ev) -> None:
                 h = ev.hit
                 if h.action is not None and self.mine(h.action) and h.action.kind == ActionKind.FUA and h.primary:
-                    self.buff(self.char, Modifier("Ashblazing 4pc", stats={S.ATK_PCT: self.p(4, 0)},
-                                                  duration=int(self.p(4, 2)), stacking=Stacking.STACK,
-                                                  max_stacks=int(self.p(4, 1))))
+                    self.buff(
+                        self.char,
+                        Modifier(
+                            "Ashblazing 4pc",
+                            stats={S.ATK_PCT: self.p(4, 0)},
+                            duration=int(self.p(4, 2)),
+                            stacking=Stacking.STACK,
+                            max_stacks=int(self.p(4, 1)),
+                        ),
+                    )
 
             self.on(E.ACTION_START, start)
             self.on(E.AFTER_HIT, after_hit)
@@ -232,6 +285,7 @@ class Prisoner(_Set):
 
     def setup(self) -> None:
         if self.pieces >= 4:
+
             def before_hit(ev: E.Ev) -> None:
                 h = ev.hit
                 if h.attacker is self.char:
@@ -276,13 +330,22 @@ class Watchmaker(_Set):
 
     def setup(self) -> None:
         if self.pieces >= 4:
+
             def after_ult(ev: E.Ev) -> None:
                 act = ev.action
                 kit = getattr(self.char, "kit", None)
                 if self.mine(act) and act.kind == ActionKind.ULT and getattr(kit, "ult_targets_ally", False):
                     for c in self.battle.allies():
-                        self.battle.apply(Modifier("Watchmaker 4pc", stats={S.BREAK_EFFECT: self.p(4, 0)},
-                                                   duration=int(self.p(4, 1)), key="Watchmaker 4pc"), c, self.char)
+                        self.battle.apply(
+                            Modifier(
+                                "Watchmaker 4pc",
+                                stats={S.BREAK_EFFECT: self.p(4, 0)},
+                                duration=int(self.p(4, 1)),
+                                key="Watchmaker 4pc",
+                            ),
+                            c,
+                            self.char,
+                        )
 
             self.on(E.ACTION_END, after_ult)
 
@@ -293,14 +356,19 @@ class IronCavalry(_Set):
 
     def setup(self) -> None:
         if self.pieces >= 4:
+
             def dyn(mod: Modifier, key: str, ent: Entity) -> float:
                 be = self.char.stat(S.BREAK_EFFECT)
                 if key == f"{S.DEF_IGNORE}:{DmgTag.BREAK}":
                     return self.p(4, 2) if be >= self.p(4, 0) else 0.0
                 return self.p(4, 3) if be >= self.p(4, 1) else 0.0
 
-            self.passive("Iron Cavalry 4pc", {}, dyn=dyn,
-                         dyn_keys={f"{S.DEF_IGNORE}:{DmgTag.BREAK}", f"{S.DEF_IGNORE}:{DmgTag.SUPER_BREAK}"})
+            self.passive(
+                "Iron Cavalry 4pc",
+                {},
+                dyn=dyn,
+                dyn_keys={f"{S.DEF_IGNORE}:{DmgTag.BREAK}", f"{S.DEF_IGNORE}:{DmgTag.SUPER_BREAK}"},
+            )
 
 
 @register_relic
@@ -309,9 +377,19 @@ class WindSoaring(_Set):
 
     def setup(self) -> None:
         if self.pieces >= 4:
-            self.on(E.ACTION_END, lambda ev: self.mine(ev.action) and ev.action.kind == ActionKind.FUA and self.buff(
-                self.char, Modifier("Wind-Soaring 4pc", stats={f"{S.DMG_PCT}:{DmgTag.ULT}": self.p(4, 1)},
-                                    duration=int(self.p(4, 2)))))
+            self.on(
+                E.ACTION_END,
+                lambda ev: self.mine(ev.action)
+                and ev.action.kind == ActionKind.FUA
+                and self.buff(
+                    self.char,
+                    Modifier(
+                        "Wind-Soaring 4pc",
+                        stats={f"{S.DMG_PCT}:{DmgTag.ULT}": self.p(4, 1)},
+                        duration=int(self.p(4, 2)),
+                    ),
+                ),
+            )
 
 
 @register_relic
@@ -320,13 +398,23 @@ class Sacerdos(_Set):
 
     def setup(self) -> None:
         if self.pieces >= 4:
+
             def on_action(ev: E.Ev) -> None:
                 act = ev.action
                 t = act.target
                 if self.mine(act) and act.kind in (ActionKind.SKILL, ActionKind.ULT) and isinstance(t, Character):
-                    self.battle.apply(Modifier("Sacerdos 4pc", stats={S.CRIT_DMG: self.p(4, 0)},
-                                               duration=int(self.p(4, 1)), stacking=Stacking.STACK,
-                                               max_stacks=int(self.p(4, 2)), key="Sacerdos 4pc"), t, self.char)
+                    self.battle.apply(
+                        Modifier(
+                            "Sacerdos 4pc",
+                            stats={S.CRIT_DMG: self.p(4, 0)},
+                            duration=int(self.p(4, 1)),
+                            stacking=Stacking.STACK,
+                            max_stacks=int(self.p(4, 2)),
+                            key="Sacerdos 4pc",
+                        ),
+                        t,
+                        self.char,
+                    )
 
             self.on(E.ACTION_START, on_action)
 
@@ -337,8 +425,9 @@ class Scholar(_Set):
 
     def setup(self) -> None:
         if self.pieces >= 4:
-            self.passive("Scholar 4pc", {f"{S.DMG_PCT}:{DmgTag.SKILL}": self.p(4, 0),
-                                         f"{S.DMG_PCT}:{DmgTag.ULT}": self.p(4, 0)})
+            self.passive(
+                "Scholar 4pc", {f"{S.DMG_PCT}:{DmgTag.SKILL}": self.p(4, 0), f"{S.DMG_PCT}:{DmgTag.ULT}": self.p(4, 0)}
+            )
 
             def on_end(ev: E.Ev) -> None:
                 act = ev.action
@@ -358,14 +447,20 @@ class HeroOfTriumphantSong(_Set):
 
     def setup(self) -> None:
         if self.pieces >= 4:
-            self.passive("Hero 4pc SPD", {}, dyn=lambda m, k, e: self.p(4, 0) if _memosprite_of(self.char) else 0.0,
-                         dyn_keys={S.SPD_PCT})
+            self.passive(
+                "Hero 4pc SPD",
+                {},
+                dyn=lambda m, k, e: self.p(4, 0) if _memosprite_of(self.char) else 0.0,
+                dyn_keys={S.SPD_PCT},
+            )
 
             def on_attack(ev: E.Ev) -> None:
                 act = ev.attack
                 if isinstance(act.actor, Summon) and act.actor.owner is self.char and act.actor.is_memosprite:
-                    self.buff(self.char, Modifier("Hero 4pc CRIT DMG", stats={S.CRIT_DMG: self.p(4, 1)},
-                                                  duration=int(self.p(4, 2))))
+                    self.buff(
+                        self.char,
+                        Modifier("Hero 4pc CRIT DMG", stats={S.CRIT_DMG: self.p(4, 1)}, duration=int(self.p(4, 2))),
+                    )
 
             self.on(E.ATTACK_END, on_attack)
 
@@ -388,15 +483,25 @@ class WarriorGoddess(_Set):
 
     def setup(self) -> None:
         if self.pieces >= 4:
+
             def on_heal(ev: E.Ev) -> None:
                 src = ev.source
                 owner = src.owner if isinstance(src, Summon) else src
                 if owner is self.char and ev.delta > 0 and ev.entity is not src:
-                    self.buff(self.char, Modifier("Gentle Rain", stats={S.SPD_PCT: self.p(4, 0)},
-                                                  duration=int(self.p(4, 2))))
-                    self.battle.apply(Modifier("Gentle Rain (team)", stats={S.CRIT_DMG: self.p(4, 1)},
-                                               duration=int(self.p(4, 2)), scope=_ally, key="Gentle Rain team"),
-                                      self.char, self.char)
+                    self.buff(
+                        self.char, Modifier("Gentle Rain", stats={S.SPD_PCT: self.p(4, 0)}, duration=int(self.p(4, 2)))
+                    )
+                    self.battle.apply(
+                        Modifier(
+                            "Gentle Rain (team)",
+                            stats={S.CRIT_DMG: self.p(4, 1)},
+                            duration=int(self.p(4, 2)),
+                            scope=_ally,
+                            key="Gentle Rain team",
+                        ),
+                        self.char,
+                        self.char,
+                    )
 
             self.on(E.HP_CHANGED, on_heal)
 
@@ -415,8 +520,10 @@ class Wavestrider(_Set):
                     self.help = min(int(self.p(4, 0)), self.help + 1)
                 if self.mine(act) and act.kind == ActionKind.ULT and self.help >= self.p(4, 0):
                     self.help = 0
-                    self.buff(self.char, Modifier("Wavestrider 4pc", stats={S.ATK_PCT: self.p(4, 1)},
-                                                  duration=int(self.p(4, 2))))
+                    self.buff(
+                        self.char,
+                        Modifier("Wavestrider 4pc", stats={S.ATK_PCT: self.p(4, 1)}, duration=int(self.p(4, 2))),
+                    )
 
             self.on(E.ACTION_START, on_action)
 
@@ -427,14 +534,16 @@ class WorldRemaking(_Set):
 
     def setup(self) -> None:
         if self.pieces >= 4:
+
             def on_end(ev: E.Ev) -> None:
                 act = ev.action
                 if not self.mine(act) or act.kind not in (ActionKind.BASIC, ActionKind.SKILL):
                     return
                 self.battle.remove_named(self.char, "World-Remaking 4pc")
                 if _memosprite_of(self.char):
-                    self.battle.apply(hidden("World-Remaking 4pc", {S.DMG_PCT: self.p(4, 1)}, scope=_ally),
-                                      self.char, self.char)
+                    self.battle.apply(
+                        hidden("World-Remaking 4pc", {S.DMG_PCT: self.p(4, 1)}, scope=_ally), self.char, self.char
+                    )
                     self.buff(self.char, hidden("World-Remaking 4pc HP", {S.HP_PCT: self.p(4, 0)}))
 
             self.on(E.ACTION_END, on_end)
@@ -446,6 +555,7 @@ class SelfEnshroudedRecluse(_Set):
 
     def setup(self) -> None:
         if self.pieces >= 4:
+
             def dyn(mod: Modifier, key: str, ent: Entity) -> float:
                 shielded = any("shield" in m.tags and m.source is self.char for m in ent.modifiers)
                 return self.p(4, 1) if shielded else 0.0
@@ -480,10 +590,18 @@ class Isee(_Set):
 
     def setup(self) -> None:
         if self.pieces >= 4:
+
             def add() -> None:
-                self.buff(self.char, Modifier(
-                    "Isee 4pc", stats={f"{S.DMG_PCT}:{DmgTag.SKILL}": self.p(4, 0), f"{S.DMG_PCT}:{DmgTag.ULT}": self.p(4, 0)},
-                    stacking=Stacking.STACK, max_stacks=int(self.p(4, 1)), tick=Tick.NONE))
+                self.buff(
+                    self.char,
+                    Modifier(
+                        "Isee 4pc",
+                        stats={f"{S.DMG_PCT}:{DmgTag.SKILL}": self.p(4, 0), f"{S.DMG_PCT}:{DmgTag.ULT}": self.p(4, 0)},
+                        stacking=Stacking.STACK,
+                        max_stacks=int(self.p(4, 1)),
+                        tick=Tick.NONE,
+                    ),
+                )
 
             def remove_one() -> None:
                 m = self.char.get_mod("Isee 4pc")
@@ -513,12 +631,26 @@ class MasterSmith(_Set):
 
             def on_debuff(ev: E.Ev) -> None:
                 m = ev.mod
-                if (self.comburent_ready and m.source is self.char and m.is_debuff and isinstance(ev.target, Enemy)
-                        and (S.DEF_REDUCTION in m.stats)):
+                if (
+                    self.comburent_ready
+                    and m.source is self.char
+                    and m.is_debuff
+                    and isinstance(ev.target, Enemy)
+                    and (S.DEF_REDUCTION in m.stats)
+                ):
                     self.comburent_ready = False
-                    self.battle.apply(Modifier("Comburent", stats={S.DMG_PCT: self.p(4, 2)},
-                                               duration=int(self.p(4, 1)), tick=Tick.SOURCE_TURN_END,
-                                               scope=_ally, key="Comburent"), self.char, self.char)
+                    self.battle.apply(
+                        Modifier(
+                            "Comburent",
+                            stats={S.DMG_PCT: self.p(4, 2)},
+                            duration=int(self.p(4, 1)),
+                            tick=Tick.SOURCE_TURN_END,
+                            scope=_ally,
+                            key="Comburent",
+                        ),
+                        self.char,
+                        self.char,
+                    )
 
             def after_attack(ev: E.Ev) -> None:
                 if self.mine(ev.attack):
@@ -536,8 +668,14 @@ class EdaciousHeretic(_Set):
     def setup(self) -> None:
         if self.pieces >= 4:
             self.passive("Heretic 4pc", {f"{S.DMG_PCT}:{DmgTag.BASIC}": self.p(4, 0)})
-            self.on(E.ACTION_START, lambda ev: self.mine(ev.action) and ev.action.kind == ActionKind.BASIC and self.buff(
-                self.char, Modifier("Heretic 4pc ATK", stats={S.ATK_PCT: self.p(4, 1)}, duration=int(self.p(4, 2)))))
+            self.on(
+                E.ACTION_START,
+                lambda ev: self.mine(ev.action)
+                and ev.action.kind == ActionKind.BASIC
+                and self.buff(
+                    self.char, Modifier("Heretic 4pc ATK", stats={S.ATK_PCT: self.p(4, 1)}, duration=int(self.p(4, 2)))
+                ),
+            )
 
 
 # ------------------------------------------------------------------ planar ornaments
@@ -554,8 +692,12 @@ class SpaceSealingStation(_Set):
     set_id = "301"
 
     def setup(self) -> None:
-        self.passive("Space Sealing 2pc", {}, dyn=_threshold("spd", self.p(2, 1), {S.ATK_PCT: self.p(2, 2)}, self.char),
-                     dyn_keys={S.ATK_PCT})
+        self.passive(
+            "Space Sealing 2pc",
+            {},
+            dyn=_threshold("spd", self.p(2, 1), {S.ATK_PCT: self.p(2, 2)}, self.char),
+            dyn_keys={S.ATK_PCT},
+        )
 
 
 @register_relic
@@ -563,8 +705,14 @@ class FleetOfTheAgeless(_Set):
     set_id = "302"
 
     def setup(self) -> None:
-        self.passive("Fleet 2pc", {}, scope=_ally, key="Fleet 2pc",
-                     dyn=_threshold("spd", self.p(2, 1), {S.ATK_PCT: self.p(2, 2)}, self.char), dyn_keys={S.ATK_PCT})
+        self.passive(
+            "Fleet 2pc",
+            {},
+            scope=_ally,
+            key="Fleet 2pc",
+            dyn=_threshold("spd", self.p(2, 1), {S.ATK_PCT: self.p(2, 2)}, self.char),
+            dyn_keys={S.ATK_PCT},
+        )
 
 
 @register_relic
@@ -572,8 +720,12 @@ class PanCosmic(_Set):
     set_id = "303"
 
     def setup(self) -> None:
-        self.passive("Pan-Cosmic 2pc", {}, dyn=lambda m, k, e: min(self.p(2, 2), self.p(2, 1) * self.char.stat(S.EHR)),
-                     dyn_keys={S.ATK_PCT})
+        self.passive(
+            "Pan-Cosmic 2pc",
+            {},
+            dyn=lambda m, k, e: min(self.p(2, 2), self.p(2, 1) * self.char.stat(S.EHR)),
+            dyn_keys={S.ATK_PCT},
+        )
 
 
 @register_relic
@@ -581,8 +733,12 @@ class Belobog(_Set):
     set_id = "304"
 
     def setup(self) -> None:
-        self.passive("Belobog 2pc", {}, dyn=_threshold(S.EHR, self.p(2, 1), {S.DEF_PCT: self.p(2, 2)}, self.char),
-                     dyn_keys={S.DEF_PCT})
+        self.passive(
+            "Belobog 2pc",
+            {},
+            dyn=_threshold(S.EHR, self.p(2, 1), {S.DEF_PCT: self.p(2, 2)}, self.char),
+            dyn_keys={S.DEF_PCT},
+        )
 
 
 @register_relic
@@ -601,8 +757,9 @@ class InertSalsotto(_Set):
 
     def setup(self) -> None:
         bonus = {f"{S.DMG_PCT}:{DmgTag.ULT}": self.p(2, 2), f"{S.DMG_PCT}:{DmgTag.FUA}": self.p(2, 2)}
-        self.passive("Inert Salsotto 2pc", {}, dyn=_threshold(S.CRIT_RATE, self.p(2, 1), bonus, self.char),
-                     dyn_keys=set(bonus))
+        self.passive(
+            "Inert Salsotto 2pc", {}, dyn=_threshold(S.CRIT_RATE, self.p(2, 1), bonus, self.char), dyn_keys=set(bonus)
+        )
 
 
 @register_relic
@@ -610,8 +767,12 @@ class Talia(_Set):
     set_id = "307"
 
     def setup(self) -> None:
-        self.passive("Talia 2pc", {}, dyn=_threshold("spd", self.p(2, 1), {S.BREAK_EFFECT: self.p(2, 2)}, self.char),
-                     dyn_keys={S.BREAK_EFFECT})
+        self.passive(
+            "Talia 2pc",
+            {},
+            dyn=_threshold("spd", self.p(2, 1), {S.BREAK_EFFECT: self.p(2, 2)}, self.char),
+            dyn_keys={S.BREAK_EFFECT},
+        )
 
 
 @register_relic
@@ -629,8 +790,9 @@ class RutilantArena(_Set):
 
     def setup(self) -> None:
         bonus = {f"{S.DMG_PCT}:{DmgTag.BASIC}": self.p(2, 2), f"{S.DMG_PCT}:{DmgTag.SKILL}": self.p(2, 2)}
-        self.passive("Rutilant Arena 2pc", {}, dyn=_threshold(S.CRIT_RATE, self.p(2, 1), bonus, self.char),
-                     dyn_keys=set(bonus))
+        self.passive(
+            "Rutilant Arena 2pc", {}, dyn=_threshold(S.CRIT_RATE, self.p(2, 1), bonus, self.char), dyn_keys=set(bonus)
+        )
 
 
 @register_relic
@@ -638,9 +800,14 @@ class BrokenKeel(_Set):
     set_id = "310"
 
     def setup(self) -> None:
-        self.passive("Broken Keel 2pc", {}, scope=_ally, key="Broken Keel 2pc",
-                     dyn=_threshold(S.EFFECT_RES, self.p(2, 1), {S.CRIT_DMG: self.p(2, 2)}, self.char),
-                     dyn_keys={S.CRIT_DMG})
+        self.passive(
+            "Broken Keel 2pc",
+            {},
+            scope=_ally,
+            key="Broken Keel 2pc",
+            dyn=_threshold(S.EFFECT_RES, self.p(2, 1), {S.CRIT_DMG: self.p(2, 2)}, self.char),
+            dyn_keys={S.CRIT_DMG},
+        )
 
 
 @register_relic
@@ -663,8 +830,12 @@ class Penacony(_Set):
 
     def setup(self) -> None:
         el = self.char.element
-        self.passive("Penacony 2pc", {S.DMG_PCT: self.p(2, 1)}, key=f"Penacony 2pc {el.value}",
-                     scope=lambda e: e.side == Side.ALLY and e is not self.char and getattr(e, "element", None) == el)
+        self.passive(
+            "Penacony 2pc",
+            {S.DMG_PCT: self.p(2, 1)},
+            key=f"Penacony 2pc {el.value}",
+            scope=lambda e: e.side == Side.ALLY and e is not self.char and getattr(e, "element", None) == el,
+        )
 
 
 @register_relic
@@ -672,9 +843,19 @@ class Sigonia(_Set):
     set_id = "313"
 
     def setup(self) -> None:
-        self.on(E.KILL, lambda ev: self.buff(self.char, Modifier(
-            "Sigonia 2pc", stats={S.CRIT_DMG: self.p(2, 2)}, stacking=Stacking.STACK, max_stacks=int(self.p(2, 1)),
-            tick=Tick.NONE)))
+        self.on(
+            E.KILL,
+            lambda ev: self.buff(
+                self.char,
+                Modifier(
+                    "Sigonia 2pc",
+                    stats={S.CRIT_DMG: self.p(2, 2)},
+                    stacking=Stacking.STACK,
+                    max_stacks=int(self.p(2, 1)),
+                    tick=Tick.NONE,
+                ),
+            ),
+        )
 
 
 @register_relic
@@ -695,8 +876,16 @@ class Duran(_Set):
             act = ev.action
             if act.kind != ActionKind.FUA or not isinstance(act.owner, Character):
                 return
-            m = self.buff(self.char, Modifier("Merit", stats={f"{S.DMG_PCT}:{DmgTag.FUA}": self.p(2, 1)},
-                                              stacking=Stacking.STACK, max_stacks=int(self.p(2, 0)), tick=Tick.NONE))
+            m = self.buff(
+                self.char,
+                Modifier(
+                    "Merit",
+                    stats={f"{S.DMG_PCT}:{DmgTag.FUA}": self.p(2, 1)},
+                    stacking=Stacking.STACK,
+                    max_stacks=int(self.p(2, 0)),
+                    tick=Tick.NONE,
+                ),
+            )
             if m.stacks >= self.p(2, 0):
                 self.buff(self.char, hidden("Merit (max)", {S.CRIT_DMG: self.p(2, 2)}))
 
@@ -711,8 +900,10 @@ class Kalpagni(_Set):
         def on_hit(ev: E.Ev) -> None:
             h = ev.hit
             if h.attacker is self.char and h.action is not None and h.target.is_weak_to(Element.FIRE):
-                self.buff(self.char, Modifier("Kalpagni 2pc", stats={S.BREAK_EFFECT: self.p(2, 1)},
-                                              duration=int(self.p(2, 2))))
+                self.buff(
+                    self.char,
+                    Modifier("Kalpagni 2pc", stats={S.BREAK_EFFECT: self.p(2, 1)}, duration=int(self.p(2, 2))),
+                )
 
         self.on(E.AFTER_HIT, on_hit)
 
@@ -732,8 +923,12 @@ class BananAmusementPark(_Set):
     set_id = "318"
 
     def setup(self) -> None:
-        self.passive("Banana 2pc", {}, dyn=lambda m, k, e: self.p(2, 1) if any(s.alive for s in self.char.summons) else 0.0,
-                     dyn_keys={S.CRIT_DMG})
+        self.passive(
+            "Banana 2pc",
+            {},
+            dyn=lambda m, k, e: self.p(2, 1) if any(s.alive for s in self.char.summons) else 0.0,
+            dyn_keys={S.CRIT_DMG},
+        )
 
 
 @register_relic
@@ -741,8 +936,12 @@ class BoneCollection(_Set):
     set_id = "319"
 
     def setup(self) -> None:
-        self.passive("Bone Collection 2pc", {}, dyn=_threshold("hp", self.p(2, 1), {S.CRIT_DMG: self.p(2, 2)}, self.char),
-                     dyn_keys={S.CRIT_DMG})
+        self.passive(
+            "Bone Collection 2pc",
+            {},
+            dyn=_threshold("hp", self.p(2, 1), {S.CRIT_DMG: self.p(2, 2)}, self.char),
+            dyn_keys={S.CRIT_DMG},
+        )
 
 
 @register_relic
@@ -780,8 +979,14 @@ class Amphoreus(_Set):
     set_id = "323"
 
     def setup(self) -> None:
-        self.passive("Amphoreus 2pc", {}, scope=_ally, key="Amphoreus 2pc",
-                     dyn=lambda m, k, e: self.p(2, 1) if _memosprite_of(self.char) else 0.0, dyn_keys={S.SPD_PCT})
+        self.passive(
+            "Amphoreus 2pc",
+            {},
+            scope=_ally,
+            key="Amphoreus 2pc",
+            dyn=lambda m, k, e: self.p(2, 1) if _memosprite_of(self.char) else 0.0,
+            dyn_keys={S.SPD_PCT},
+        )
 
 
 @register_relic
@@ -797,7 +1002,9 @@ class Tengoku(_Set):
             turn = self.battle.turns
             self.spent[turn] = self.spent.get(turn, 0) - ev.delta
             if self.spent[turn] >= self.p(2, 1):
-                self.buff(self.char, Modifier("Tengoku 2pc", stats={S.CRIT_DMG: self.p(2, 2)}, duration=int(self.p(2, 3))))
+                self.buff(
+                    self.char, Modifier("Tengoku 2pc", stats={S.CRIT_DMG: self.p(2, 2)}, duration=int(self.p(2, 3)))
+                )
 
         self.on(E.SP_CHANGED, on_sp)
 
@@ -807,10 +1014,22 @@ class CityOfConvergingStars(_Set):
     set_id = "326"
 
     def setup(self) -> None:
-        self.on(E.ACTION_START, lambda ev: self.mine(ev.action) and ev.action.kind == ActionKind.FUA and self.buff(
-            self.char, Modifier("City 2pc ATK", stats={S.ATK_PCT: self.p(2, 0)}, duration=int(self.p(2, 1)))))
-        self.on(E.KILL, lambda ev: self.battle.apply(hidden("City 2pc CRIT DMG", {S.CRIT_DMG: self.p(2, 2)}, scope=_ally,
-                                                            key="City 2pc CRIT DMG"), self.char, self.char))
+        self.on(
+            E.ACTION_START,
+            lambda ev: self.mine(ev.action)
+            and ev.action.kind == ActionKind.FUA
+            and self.buff(
+                self.char, Modifier("City 2pc ATK", stats={S.ATK_PCT: self.p(2, 0)}, duration=int(self.p(2, 1)))
+            ),
+        )
+        self.on(
+            E.KILL,
+            lambda ev: self.battle.apply(
+                hidden("City 2pc CRIT DMG", {S.CRIT_DMG: self.p(2, 2)}, scope=_ally, key="City 2pc CRIT DMG"),
+                self.char,
+                self.char,
+            ),
+        )
 
 
 @register_relic

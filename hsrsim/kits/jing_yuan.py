@@ -59,17 +59,31 @@ class JingYuan(Kit):
                 if self.e(4):
                     b.gain_energy(self.char, self.ep(4, 0))
                 if self.e(6) and t.alive:
-                    b.apply(Modifier("Sweep, Souls Slain", stats={S.VULN: self.ep(6, 0)}, kind=ModKind.DEBUFF,
-                                     stacking=Stacking.STACK, max_stacks=int(self.ep(6, 1)), tick=Tick.NONE,
-                                     key="JY E6"), t, self.char)
+                    b.apply(
+                        Modifier(
+                            "Sweep, Souls Slain",
+                            stats={S.VULN: self.ep(6, 0)},
+                            kind=ModKind.DEBUFF,
+                            stacking=Stacking.STACK,
+                            max_stacks=int(self.ep(6, 1)),
+                            tick=Tick.NONE,
+                            key="JY E6",
+                        ),
+                        t,
+                        self.char,
+                    )
         if self.e(6):
             for e in b.alive_enemies():
                 b.remove_named(e, "Sweep, Souls Slain")
         self._set_hits(self.base_hits)
         if self.e(2):
-            self.buff_self(Modifier("Swing, Skies Squashed",
-                                    stats={f"{S.DMG_PCT}:{t}": self.ep(2, 0) for t in ("basic", "skill", "ult")},
-                                    duration=int(self.ep(2, 1))))
+            self.buff_self(
+                Modifier(
+                    "Swing, Skies Squashed",
+                    stats={f"{S.DMG_PCT}:{t}": self.ep(2, 0) for t in ("basic", "skill", "ult")},
+                    duration=int(self.ep(2, 1)),
+                )
+            )
 
     # ------------------------------------------------------------ actions
     def basic(self, target: Enemy | None) -> None:

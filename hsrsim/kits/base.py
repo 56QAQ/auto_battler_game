@@ -196,8 +196,9 @@ class Kit:
         return self.battle.elation.damage(self.char, target, scaling, punchline=punchline, **kw)
 
     # --------------------------------------------------------------- helpers
-    def action(self, kind: ActionKind, skill: str | dict[str, Any] | None = None, target: Entity | None = None,
-               **kw: Any) -> Any:
+    def action(
+        self, kind: ActionKind, skill: str | dict[str, Any] | None = None, target: Entity | None = None, **kw: Any
+    ) -> Any:
         rec = self.sk(skill) if isinstance(skill, str) else skill
         if kind == ActionKind.ULT and "energy" not in kw and not self.battle.cfg.ult_energy_refund:
             kw["energy"] = 0.0
