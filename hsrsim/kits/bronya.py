@@ -14,6 +14,7 @@ from .base import Kit
 @register
 class Bronya(Kit):
     char_id = "1101"
+    ult_targets_ally = True
     default_opts = {"target": None}
 
     def setup(self) -> None:

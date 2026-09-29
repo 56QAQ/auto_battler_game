@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from .. import events as E
 from .. import stats as S
-from ..entities import Enemy
+from ..entities import Enemy, Entity
 from ..enums import ActionKind, Element
 from ..modifiers import Modifier, ModKind, Tick
 from . import register
@@ -51,7 +51,7 @@ class RuanMei(Kit):
         assert target is not None
         self.simple_basic(target)
 
-    def _a6_bonus(self, mod: Modifier, key: str) -> float:
+    def _a6_bonus(self, mod: Modifier, key: str, ent: Entity) -> float:
         if not self.trace(3):
             return 0.0
         over = self.char.stat(S.BREAK_EFFECT) - self.tp(3, 0)

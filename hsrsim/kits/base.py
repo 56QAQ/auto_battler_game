@@ -41,6 +41,8 @@ class Kit:
     char_id: ClassVar[str] = ""
     # default option values; override per kit and via build config "options"
     default_opts: ClassVar[dict[str, Any]] = {}
+    # the Ultimate targets allies (relevant for e.g. Messenger / Watchmaker 4pc)
+    ult_targets_ally: ClassVar[bool] = False
 
     def __init__(self, char: Character, opts: dict[str, Any] | None = None) -> None:
         self.char = char

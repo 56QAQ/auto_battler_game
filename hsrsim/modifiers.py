@@ -52,7 +52,9 @@ class Stacking(str, Enum):
     INDEPENDENT = "independent"  # always a new instance
 
 
-DynFn = Callable[["Modifier", str], float]
+# dyn(mod, key, entity): contribution of ``mod`` to stat ``key`` of ``entity`` (the queried unit;
+# for fields this is any unit in scope, otherwise the holder)
+DynFn = Callable[["Modifier", str, "Entity"], float]
 
 _uid = itertools.count(1)
 
@@ -124,12 +126,14 @@ class Modifier:
         return self.kind == ModKind.BUFF
 
     # ----------------------------------------------------------------- stats
-    def value(self, key: str) -> float:
+    def value(self, key: str, entity: Entity | None = None) -> float:
         v = self.stats.get(key, 0.0)
         if v and self.per_stack:
             v *= self.stacks
         if self.dyn is not None and key in self.dyn_keys:
-            v += self.dyn(self, key)
+            ent = entity if entity is not None else self.holder
+            assert ent is not None
+            v += self.dyn(self, key, ent)
         return v
 
     def touches(self, key: str) -> bool:
@@ -204,9 +208,14 @@ class DotModifier(Modifier):
         )
         self.dot_type = dot_type
         self.damage_fn = damage_fn
+        self.turn_start = False  # True while triggering at the holder's turn start
 
-    def trigger(self, battle: Battle, ratio: float = 1.0) -> float:
-        return self.damage_fn(self, battle, ratio)
+    def trigger(self, battle: Battle, ratio: float = 1.0, turn_start: bool = False) -> float:
+        self.turn_start = turn_start
+        try:
+            return self.damage_fn(self, battle, ratio)
+        finally:
+            self.turn_start = False
 
 
 def buff(name: str, stats: dict[str, float], duration: int | None = None, **kw: Any) -> Modifier:

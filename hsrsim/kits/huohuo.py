@@ -18,6 +18,7 @@ from .base import Kit
 @register
 class Huohuo(Kit):
     char_id = "1217"
+    ult_targets_ally = True
 
     def setup(self) -> None:
         if self.char.enhanced:

@@ -66,7 +66,7 @@ def make_break_dot(
             base = F.SHOCK_MULT * lvl
         else:  # wind shear
             base = F.WIND_SHEAR_MULT * lvl * mod.stacks
-        d = b.special_damage(
+        return b.special_damage(
             attacker,
             target,
             element,
@@ -75,8 +75,6 @@ def make_break_dot(
             label=f"Break DoT ({dot_type})",
             credited=credited,
         )
-        b.events.emit(E.DOT_TRIGGERED, mod=mod, target=target, damage=d)
-        return d
 
     is_ws = dot_type == "wind_shear"
     return DotModifier(

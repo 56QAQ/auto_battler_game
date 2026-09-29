@@ -1,0 +1,27 @@
+# Super Break team vs three elites (AoE / break output)
+scenario:
+  preset: aoe
+  count: 3
+  cycles: 5
+  weaknesses: [Imaginary, Ice]   # Firefly implants Fire weakness herself
+  enemy: {level: 95, hp: 1.0e+12, toughness: 160, spd: 150}
+team:
+  - character: Firefly
+    light_cone: Whereabouts Should Dreams Rest
+    relics: {Iron Cavalry Against the Scourge: 4, Forge of the Kalpagni Lantern: 2}
+    main_stats: {body: atk%, feet: spd, sphere: atk%, rope: be}
+    substats: {be: 10r, spd: 8r, atk%: 2r}
+  - character: Trailblazer (Harmony)
+    light_cone: Memories of the Past
+    relics: {Iron Cavalry Against the Scourge: 4, "Talia: Kingdom of Banditry": 2}
+    main_stats: {body: hp%, feet: spd, sphere: hp%, rope: be}
+    substats: {be: 10r, spd: 8r}
+  - character: Ruan Mei
+    light_cone: Past Self in Mirror
+    relics: {Thief of Shooting Meteor: 4, Sprightly Vonwacq: 2}
+    main_stats: {body: hp%, feet: spd, sphere: hp%, rope: err}
+    substats: {be: 6r, spd: 8r}
+  - character: Huohuo
+    light_cone: Night of Fright
+    main_stats: {body: hp%, feet: spd, sphere: hp%, rope: err}
+    substats: {spd: 10r, hp%: 4r}

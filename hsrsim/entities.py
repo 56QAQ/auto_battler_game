@@ -52,7 +52,7 @@ class Entity:
                 if guard and m.dyn is not None and key in m.dyn_keys:
                     total += m.stats.get(key, 0.0) * (m.stacks if m.per_stack else 1)
                 elif m.touches(key):
-                    total += m.value(key)
+                    total += m.value(key, self)
         finally:
             if not guard:
                 self._computing.discard(key)
@@ -62,7 +62,15 @@ class Entity:
         """Own modifiers (without scope) plus every battle field whose scope covers this entity."""
         own = [m for m in self.modifiers if m.scope is None]
         if self.battle is not None and self.battle.fields:
-            own += [m for m in self.battle.fields if not m.removed and m.scope is not None and m.scope(self)]
+            seen: set[str] = set()
+            for m in self.battle.fields:
+                if m.removed or m.scope is None or not m.scope(self):
+                    continue
+                if m._key is not None:  # explicitly keyed fields ("cannot be stacked") count once
+                    if m._key in seen:
+                        continue
+                    seen.add(m._key)
+                own.append(m)
         return own
 
     def stat(self, key: str, extra: dict[str, float] | None = None) -> float:
@@ -83,7 +91,7 @@ class Entity:
                 out.append(self.base[k])
             for m in self._stat_mods():
                 if m.touches(k):
-                    v = m.value(k)
+                    v = m.value(k, self)
                     if v:
                         out.append(v)
         return out
@@ -309,11 +317,11 @@ class Summon(Entity):
         total = self.base.get(key, 0.0)
         for m in self.modifiers:
             if m.scope is None and m.touches(key):
-                total += m.value(key)
+                total += m.value(key, self)
         if fields and self.battle is not None:
             for m in self.battle.fields:
                 if not m.removed and m.scope is not None and m.scope(self) and m.touches(key):
-                    total += m.value(key)
+                    total += m.value(key, self)
         return total
 
     def raw(self, key: str) -> float:

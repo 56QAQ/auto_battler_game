@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from .. import events as E
 from .. import stats as S
-from ..entities import Character, Enemy
+from ..entities import Character, Enemy, Entity
 from ..enums import ActionKind, DmgTag, Element
 from ..modifiers import Modifier, Tick
 from . import register
@@ -14,6 +14,7 @@ from .base import Kit
 @register
 class Tingyun(Kit):
     char_id = "1202"
+    ult_targets_ally = True
 
     def setup(self) -> None:
         self.blessed: Character | None = None
@@ -55,9 +56,7 @@ class Tingyun(Kit):
         assert target is not None
         self.simple_basic(target)
 
-    def _atk_bonus(self, mod: Modifier, key: str) -> float:
-        holder = mod.holder
-        assert holder is not None
+    def _atk_bonus(self, mod: Modifier, key: str, holder: Entity) -> float:
         return min(self.p("skill", 1) * holder.raw(S.BASE_ATK), self.p("skill", 3) * self.char.atk)
 
     def skill(self, target: Enemy | None) -> None:

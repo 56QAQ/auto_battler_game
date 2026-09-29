@@ -14,6 +14,7 @@ from .base import Kit
 @register
 class Robin(Kit):
     char_id = "1309"
+    ult_targets_ally = True
 
     def setup(self) -> None:
         self.concerto: Modifier | None = None

@@ -1,0 +1,27 @@
+# DoT team: clear two MoC-like waves; the report shows the cycles needed
+scenario:
+  name: two_waves
+  cycles: 30          # cycle cap
+  waves:
+    - - {name: Minion, hp: 400000, toughness: 60, rank: normal, count: 2, weaknesses: [Thunder, Wind]}
+      - {name: Elite, hp: 1500000, toughness: 160, rank: elite, weaknesses: [Thunder, Wind]}
+    - - {name: Minion, hp: 400000, toughness: 60, rank: normal, count: 2, weaknesses: [Thunder, Wind]}
+      - {name: Boss, hp: 4000000, toughness: 240, rank: boss, weaknesses: [Thunder, Wind], res: {Thunder: 0.0}}
+runs: 10
+team:
+  - character: Kafka
+    light_cone: Patience Is All You Need
+    main_stats: {body: atk%, feet: spd, sphere: elemental, rope: atk%}
+    substats: {atk%: 8r, spd: 6r, ehr: 4r}
+  - character: Black Swan
+    light_cone: Reforged Remembrance
+    main_stats: {body: ehr, feet: spd, sphere: elemental, rope: atk%}
+    substats: {atk%: 6r, spd: 6r, ehr: 5r}
+  - character: Ruan Mei
+    light_cone: Memories of the Past
+    main_stats: {body: hp%, feet: spd, sphere: hp%, rope: err}
+    substats: {spd: 10r, be: 4r}
+  - character: Huohuo
+    light_cone: Night of Fright
+    main_stats: {body: hp%, feet: spd, sphere: hp%, rope: err}
+    substats: {spd: 10r, hp%: 4r}

@@ -17,6 +17,7 @@ from .base import Kit
 @register
 class Sparkle(Kit):
     char_id = "1306"
+    ult_targets_ally = True
     default_opts = {"target": None}
 
     def setup(self) -> None:

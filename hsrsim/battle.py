@@ -477,8 +477,9 @@ class Battle:
     def _enemy_turn_start(self, e: Enemy) -> None:
         def dots() -> None:
             for m in [m for m in e.modifiers if isinstance(m, DotModifier) and not m.removed]:
-                if e.alive:
-                    m.trigger(self)
+                if e.alive and not m.removed:
+                    d = m.trigger(self, turn_start=True)
+                    self.events.emit(E.DOT_TRIGGERED, mod=m, target=e, damage=d, turn_start=True, action=None)
             self._reap()
 
         if self.cfg.dot_before_recovery:
@@ -774,6 +775,17 @@ class Battle:
             credited=credited,
             boost_key=S.SUPER_BREAK_DMG_PCT,
         )
+
+    def detonate(self, target: Enemy, ratio: float, *, kinds: Iterable[str] = ("dot",)) -> float:
+        """Make DoTs on ``target`` immediately deal ``ratio`` of their DMG (e.g. Kafka's Skill)."""
+        total = 0.0
+        for m in [m for m in target.modifiers if isinstance(m, DotModifier) and not m.removed]:
+            if any(k in m.tags for k in kinds):
+                d = m.trigger(self, ratio)
+                total += d
+                self.events.emit(E.DOT_TRIGGERED, mod=m, target=target, damage=d, turn_start=False,
+                                 action=self.current_action)
+        return total
 
     @staticmethod
     def super_break_toughness(action: Action, target: Enemy) -> float:
@@ -1100,13 +1112,13 @@ class Battle:
         for e in self.enemies:
             if e.alive and e.hp <= 0:
                 e.alive = False
-                for m in list(e.modifiers):
-                    self.remove_modifier(m)
                 killer = e.last_hit_by
                 self.log(f"{e.name} defeated")
                 if isinstance(killer, Character):
                     self.gain_energy(killer, self.cfg.kill_energy)
-                self.events.emit(E.KILL, target=e, killer=killer)
+                self.events.emit(E.KILL, target=e, killer=killer)  # modifiers still readable here
+                for m in list(e.modifiers):
+                    self.remove_modifier(m)
 
     # ================================================================== misc
     def add_unit(self, unit: Summon, av: float | None = None) -> Summon:
