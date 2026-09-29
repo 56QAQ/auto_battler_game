@@ -119,6 +119,32 @@ def _json_default(o: Any) -> Any:
     return str(o)
 
 
+def cmd_trace(args: argparse.Namespace) -> None:
+    """Print every damage instance with all multiplier layers (to compare with in-game numbers)."""
+    cfg = load_config(args.config)
+    scenario = scenario_from(cfg)
+    if args.cycles:
+        scenario.max_cycles = args.cycles
+    rep = scenario.run(team_from(cfg), seed=args.seed)
+    cols = "base  dmg%  def   res   vuln  mitig brk   weak  crit  final"
+    print(f"{'AV':>7} {'owner':<14} {'source':<34} {'target':<14} {'DMG':>12}   {cols}")
+    shown = 0
+    for r in rep.records:
+        if args.character and args.character.lower() not in r.owner.lower():
+            continue
+        p = r.parts
+        layers = ""
+        if p is not None:
+            layers = (
+                f"{p.base:>9.1f} {p.dmg_boost:.3f} {p.def_mult:.3f} {p.res_mult:.3f} {p.vuln_mult:.3f} "
+                f"{p.mitig_mult:.3f} {p.broken_mult:.2f} {p.weaken_mult:.2f} {p.crit_mult:.3f} {p.extra_mult:.3f}"
+            )
+        print(f"{r.time:7.1f} {r.owner[:14]:<14} {r.label[:34]:<34} {r.target[:14]:<14} {r.amount:12,.1f}   {layers}")
+        shown += 1
+        if shown >= args.limit:
+            break
+
+
 def cmd_stats(args: argparse.Namespace) -> None:
     cfg = load_config(args.config)
     for b in team_from(cfg):
@@ -175,6 +201,13 @@ def main(argv: list[str] | None = None) -> None:
     r.add_argument("-v", "--verbose", action="store_true", help="print the battle log of the first run")
     r.add_argument("--json", help="write the report(s) as JSON")
     r.set_defaults(fn=cmd_run)
+    t = sub.add_parser("trace", help="print damage instances with every multiplier layer")
+    t.add_argument("config")
+    t.add_argument("--character", help="only this owner (substring match)")
+    t.add_argument("--limit", type=int, default=60)
+    t.add_argument("--cycles", type=int, default=0)
+    t.add_argument("--seed", type=int, default=0)
+    t.set_defaults(fn=cmd_trace)
     s = sub.add_parser("stats", help="print the stat sheet of each team member")
     s.add_argument("config")
     s.set_defaults(fn=cmd_stats)

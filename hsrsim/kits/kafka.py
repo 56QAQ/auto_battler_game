@@ -23,7 +23,8 @@ class Kafka(Kit):
         if self.char.enhanced:
             raise NotImplementedError("Kafka enhanced kit is not implemented yet")
         self.fua_ready = True
-        self.on(E.TURN_START, self._turn_start)
+        # M_Kafka_Passive re-arms the follow-up in Kafka's own turn-end phase (OnPhase2)
+        self.on(E.TURN_END, self._rearm)
         self.on(E.ACTION_END, self._talent)
         if self.trace(2):
             self.on(E.KILL, self._a4)
@@ -37,7 +38,7 @@ class Kafka(Kit):
             for e in self.enemies():
                 self.shock(e, p[0])
 
-    def _turn_start(self, ev: E.Ev) -> None:
+    def _rearm(self, ev: E.Ev) -> None:
         if ev.entity is self.char:
             self.fua_ready = True
 

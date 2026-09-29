@@ -12,20 +12,23 @@
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]" pyyaml
 python -m hsrsim run examples/acheron_boss.yaml          # 运行场景
+python -m hsrsim run examples/moc12_elation.yaml         # 当期混沌回忆第 12 层（真实敌人数据）
 python -m hsrsim run examples/kafka_dot_waves.yaml --runs 20   # 多种子取平均（效果命中等随机项）
+python -m hsrsim trace examples/acheron_boss.yaml --character Acheron   # 逐条伤害 + 全部乘区（与游戏对照用）
 python -m hsrsim stats examples/firefly_break_aoe.yaml   # 查看面板
 python -m hsrsim list characters --implemented           # 已实现的角色
 python -m hsrsim info "Jing Yuan"                         # 打印角色技能/行迹/星魂数据
 ```
 
-输出示例（节选）：
+输出示例（节选，`examples/acheron_boss.yaml`，20 个种子平均）：
 
 ```
-Total DMG 612,588  (stopped at 550.0 AV, 5.00 cycles, 1,114 DMG/AV)
-By character:
-  Acheron                     507,205   82.8%
-  Silver Wolf                  73,084   11.9%
-By damage type:  ult / basic / skill / fua / dot / break / super_break / additional ...
+Total DMG mean 612,588  sd 30,034  min 553,741  max 686,459
+Cycles mean 5.00
+  Acheron                      mean        507,205
+  Silver Wolf                  mean         73,084
+  ...
+By damage type:  ult / basic / skill / fua / dot / break / super_break / additional / elation ...
 By source:       Acheron | Rainblade (Crimson Knot) ...
 ```
 
@@ -33,7 +36,8 @@ By source:       Acheron | Rainblade (Crimson Knot) ...
 
 ```yaml
 scenario:
-  preset: boss            # boss（单体）| aoe（多目标）| waves（清波，统计轮次）
+  preset: boss            # boss（单体）| aoe（多目标）| waves（清波）| moc / pf / as（当期真实关卡）
+  # 真实关卡：preset: moc, half: 1（上/下半）, floor: 12, group: 1036（默认最新一期）
   cycles: 5               # 轮次上限：首轮 150 AV，之后每轮 100 AV
   weaknesses: [Thunder]   # Physical Fire Ice Thunder Wind Quantum Imaginary，或 all
   enemy: {level: 95, hp: 1.0e+12, toughness: 240, spd: 150, effect_res: 0.3}

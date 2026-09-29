@@ -108,9 +108,10 @@ class Robin(Kit):
         act = ev.attack
         if act.owner is None or act.owner.side != Side.ALLY or not act.attacked:
             return
+        # the Talent's Energy is not gated by Concerto (MAvatar_Robin_00_Passive, OnListenAfterAttack)
+        gain = self.p("talent", 1) + (self.ep(2, 1) if self.e(2) else 0)
+        self.battle.gain_energy(self.char, gain)
         if not self.in_concerto:
-            gain = self.p("talent", 1) + (self.ep(2, 1) if self.e(2) else 0)
-            self.battle.gain_energy(self.char, gain)
             return
         target = act.attacked[0] if act.attacked[0].alive else self.battle.default_target()
         if target is None:

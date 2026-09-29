@@ -186,7 +186,7 @@ def make_character(build: Build) -> Character:
     for k, v in passives.items():
         base[k] += v
 
-    kit_cls = build.kit or get_kit(data["id"])
+    kit_cls = build.kit or get_kit(data["id"], enhanced=build.enhanced)
     char.kit = kit_cls(char, build.options)
     return char
 

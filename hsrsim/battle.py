@@ -116,6 +116,7 @@ class DamageRecord:
     amount: float
     overkill: float = 0.0
     wave: int = 0
+    parts: F.DamageParts | None = None  # every multiplier layer (for verification against the game)
 
 
 class Action:
@@ -635,7 +636,7 @@ class Battle:
         hit.base = sum(ratio * a.scaling(attr, hit.extra) for attr, ratio in hit.mult.items()) + hit.flat
         hit.parts = self.compute(hit)
         hit.damage = hit.parts.total
-        self.deal(t, hit.damage, hit.credited, a, hit.label, hit.tags, hit.element)
+        self.deal(t, hit.damage, hit.credited, a, hit.label, hit.tags, hit.element, hit.parts)
         self._toughness(hit)
         self.events.emit(E.AFTER_HIT, hit=hit)
         return hit
@@ -701,6 +702,7 @@ class Battle:
         label: str,
         tags: frozenset[str],
         element: Element,
+        parts: F.DamageParts | None = None,
     ) -> DamageRecord:
         before = target.hp
         target.hp -= amount
@@ -718,6 +720,7 @@ class Battle:
             amount,
             overkill,
             self.wave_index,
+            parts,
         )
         if target.side == Side.ENEMY:
             self.records.append(rec)
@@ -872,7 +875,7 @@ class Battle:
         hit.base = base
         hit.parts = self._parts(attacker, target, element, q, ex, base=base * be, boost=boost, broken_mult=broken_mult)
         hit.damage = hit.parts.total
-        self.deal(target, hit.damage, hit.credited, attacker, label, tg, element)
+        self.deal(target, hit.damage, hit.credited, attacker, label, tg, element, hit.parts)
         self.events.emit(E.AFTER_HIT, hit=hit)
         return hit.damage
 
@@ -907,7 +910,7 @@ class Battle:
         hit.base = sum(r * attacker.scaling(k, hit.extra) for k, r in hit.mult.items())
         hit.parts = self.compute(hit)
         hit.damage = hit.parts.total
-        self.deal(target, hit.damage, hit.credited, attacker, label, hit.tags, element)
+        self.deal(target, hit.damage, hit.credited, attacker, label, hit.tags, element, hit.parts)
         self.events.emit(E.AFTER_HIT, hit=hit)
         return hit.damage
 
@@ -949,7 +952,7 @@ class Battle:
         hit.base = sum(r * attacker.scaling(k, hit.extra) for k, r in hit.mult.items()) + hit.flat
         hit.parts = self.compute(hit)
         hit.damage = hit.parts.total
-        self.deal(target, hit.damage, hit.credited, attacker, label, hit.tags, hit.element)
+        self.deal(target, hit.damage, hit.credited, attacker, label, hit.tags, hit.element, hit.parts)
         self.events.emit(E.AFTER_HIT, hit=hit)
         return hit
 

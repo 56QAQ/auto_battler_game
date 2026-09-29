@@ -224,7 +224,7 @@ class ElationSystem:
         hit.base = base
         hit.parts = b._parts(attacker, target, el, q, ex, base=base * mult, boost=1.0, crit=crit)
         hit.damage = hit.parts.total
-        b.deal(target, hit.damage, hit.credited, attacker, label, hit.tags, el)
+        b.deal(target, hit.damage, hit.credited, attacker, label, hit.tags, el, hit.parts)
         if toughness > 0:
             b._toughness(hit)
         b.events.emit(E.AFTER_HIT, hit=hit)
