@@ -39,6 +39,7 @@ class Entity:
         self.slot = 0
         self.last_hit_by: Entity | None = None
         self.data_flags: dict[str, object] = {}
+        self._mods_cache: tuple[int, list[Modifier]] | None = None
         self._computing: set[str] = set()
 
     # ------------------------------------------------------------------ stats
@@ -59,7 +60,18 @@ class Entity:
         return total
 
     def _stat_mods(self) -> list[Modifier]:
-        """Own modifiers (without scope) plus every battle field whose scope covers this entity."""
+        """Own modifiers (without scope) plus every battle field whose scope covers this entity.
+
+        Cached until any modifier in the battle is applied/merged/removed (``battle.mod_version``)."""
+        b = self.battle
+        if b is not None and self._mods_cache is not None and self._mods_cache[0] == b.mod_version:
+            return self._mods_cache[1]
+        own = self._collect_mods()
+        if b is not None:
+            self._mods_cache = (b.mod_version, own)
+        return own
+
+    def _collect_mods(self) -> list[Modifier]:
         own = [m for m in self.modifiers if m.scope is None]
         if self.battle is not None and self.battle.fields:
             seen: set[str] = set()

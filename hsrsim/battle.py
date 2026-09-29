@@ -356,6 +356,7 @@ class Battle:
         self.enemies: list[Enemy] = []
         self.units: list[Summon] = []  # summons, memosprites, countdowns
         self.fields: list[Modifier] = []  # modifiers with a scope (team-wide auras, zones)
+        self.mod_version = 0  # bumped whenever modifiers change (stat caches key on it)
         self.time = 0.0
         self.sp = self.cfg.start_sp
         self.max_sp = self.cfg.max_sp
@@ -959,6 +960,7 @@ class Battle:
     # ============================================================ modifiers
     def apply(self, mod: Modifier, target: Entity, source: Entity | None = None) -> Modifier:
         """Apply a modifier (no hit chance roll). Returns the live instance."""
+        self.mod_version += 1
         mod.holder = target
         mod.source = source if source is not None else mod.source
         mod.battle = self
@@ -991,6 +993,7 @@ class Battle:
     def remove_modifier(self, mod: Modifier) -> None:
         if mod.removed or mod.holder is None:
             return
+        self.mod_version += 1
         mod.removed = True
         holder = mod.holder
         if mod in holder.modifiers:
