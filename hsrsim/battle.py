@@ -616,6 +616,8 @@ class Battle:
         elif act.sp > 0:
             self.gain_sp(act.sp, actor)
         self.events.emit(E.ACTION_START, action=act)
+        if target is not None and target is not actor and target.side == Side.ALLY and actor.side == Side.ALLY:
+            self.events.emit(E.ALLY_TARGETED, action=act, target=target, source=act.owner)
         try:
             yield act
         finally:
@@ -1171,6 +1173,7 @@ class Battle:
         vuln = F.vuln_multiplier(target.stat(S.VULN))
         mit = F.mitigation_multiplier(target.factors(S.MITIGATION, (element.value,)))
         dmg = e.atk * mult * dm * res * vuln * mit
+        self.events.emit(E.BEFORE_ALLY_HIT, attacker=e, target=target, action=action, damage=dmg)
         dmg = self.absorb_shield(target, dmg)
         lost = self.lose_hp(target, dmg, e)
         if isinstance(target, Character):

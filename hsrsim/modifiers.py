@@ -228,3 +228,13 @@ def hidden(name: str, stats: dict[str, float] | None = None, **kw: Any) -> Modif
     """Permanent non-dispellable effect (traces, passives, light cone stats)."""
     kw.setdefault("tick", Tick.NONE)
     return Modifier(name, stats=stats, kind=ModKind.OTHER, dispellable=False, **kw)
+
+
+def is_slowed(entity: Entity) -> bool:
+    """"Slowed": any active debuff that lowers SPD or is tagged ``"slow"``."""
+    for m in entity.modifiers:
+        if m.removed or not m.is_debuff:
+            continue
+        if "slow" in m.tags or m.stats.get("spd%", 0.0) < 0 or m.stats.get("spd_flat", 0.0) < 0:
+            return True
+    return False

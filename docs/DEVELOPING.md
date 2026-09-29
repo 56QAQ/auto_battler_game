@@ -142,7 +142,9 @@ A2/A4/A6 (`n` = 1/2/3, check `self.trace(n)`), `self.ep(n, i)` eidolon parameter
 | Mechanic | How |
 |---|---|
 | Follow-up attack | `self.battle.queue_action(fn, self.char, "label")`; inside `fn` open `self.action(ActionKind.FUA, "talent", target)` |
-| Counter when an ally is attacked | listen `E.ALLY_ATTACKED` (`ev.attacker` enemy, `ev.targets`) |
+| Counter when an ally is attacked | listen `E.ALLY_ATTACKED` (`ev.attacker` enemy, `ev.targets`); `E.BEFORE_ALLY_HIT` fires per hit before shields absorb it |
+| "When targeted by an ally's ability" | listen `E.ALLY_TARGETED` (`ev.action`, `ev.target`) |
+| "Slowed" enemies | `hsrsim.modifiers.is_slowed(enemy)`; tag your own SPD debuffs `"slow"` |
 | Extra turn | `self.battle.queue_extra_turn(self.char)` |
 | Enhanced Basic ATK / Skill (other skill ID) | `rec = self.sk("<skill id>")`; `self.action(ActionKind.BASIC, rec, target, sp=-2)` (explicit SP cost); params: `rec["params"][self.level_of(rec) - 1]` |
 | Resource that replaces Energy (Acheron, Rappa ...) | override `ult_ready()` and `pay_ult_cost()`; set `self.char.max_energy = 0` if the unit has no Energy |
