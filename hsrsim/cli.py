@@ -145,6 +145,42 @@ def cmd_trace(args: argparse.Namespace) -> None:
             break
 
 
+def cmd_compare(args: argparse.Namespace) -> None:
+    """Run every team against every scenario and print a matrix (mean over seeds)."""
+    cfg = load_config(args.config)
+    scenarios = [scenario_from({"scenario": sc, "config": cfg.get("config", {})}) for sc in cfg["scenarios"]]
+    runs = args.runs or int(cfg.get("runs", 1))
+    teams = {name: team_from({"team": members}) for name, members in cfg["teams"].items()}
+    rows: list[dict[str, Any]] = []
+    for tname, team in teams.items():
+        row: dict[str, Any] = {"team": tname}
+        for sc in scenarios:
+            reps = run_many(sc, team, runs, args.seed, False)
+            clear = all(r.battle.cleared_at is not None for r in reps)
+            row[sc.name] = {
+                "total": statistics.fmean(r.total for r in reps),
+                "cycles": statistics.fmean(r.cycles for r in reps),
+                "cleared": clear,
+                "by_character": {
+                    k: statistics.fmean(r.by_owner().get(k, 0.0) for r in reps) for k in reps[0].by_owner()
+                },
+            }
+        rows.append(row)
+    width = max(len(sc.name) for sc in scenarios)
+    head = f"{'team':<28}" + "".join(f"{sc.name[:width]:>{width + 2}}" for sc in scenarios)
+    print(head)
+    for row in rows:
+        cells = []
+        for sc in scenarios:
+            c = row[sc.name]
+            cells.append(f"{c['cycles']:.2f}c" if c["cleared"] else f"{c['total'] / 1e6:.2f}M")
+        print(f"{row['team'][:28]:<28}" + "".join(f"{x:>{width + 2}}" for x in cells))
+    print("\nM = total DMG (millions) within the cycle limit; c = cycles needed to clear")
+    if args.json:
+        Path(args.json).write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"wrote {args.json}")
+
+
 def cmd_stats(args: argparse.Namespace) -> None:
     cfg = load_config(args.config)
     for b in team_from(cfg):
@@ -201,6 +237,12 @@ def main(argv: list[str] | None = None) -> None:
     r.add_argument("-v", "--verbose", action="store_true", help="print the battle log of the first run")
     r.add_argument("--json", help="write the report(s) as JSON")
     r.set_defaults(fn=cmd_run)
+    c = sub.add_parser("compare", help="run several teams against several scenarios (matrix)")
+    c.add_argument("config")
+    c.add_argument("--runs", type=int, default=0)
+    c.add_argument("--seed", type=int, default=0)
+    c.add_argument("--json", help="write the matrix as JSON")
+    c.set_defaults(fn=cmd_compare)
     t = sub.add_parser("trace", help="print damage instances with every multiplier layer")
     t.add_argument("config")
     t.add_argument("--character", help="only this owner (substring match)")
