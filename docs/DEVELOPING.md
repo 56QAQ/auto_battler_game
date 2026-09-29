@@ -20,6 +20,9 @@ comes from the datamined snapshot (`hsrsim/data/gamedata`), so content code enco
 Print everything needed to implement a character (skills with parameters at max level,
 traces, eidolons): `python tools/kitinfo.py "Jing Yuan"` (append `+` for the enhanced kit).
 
+Audit a kit against the game's own ability script (modifier lifetimes / `LifeStepMoment`, events,
+hit splits, gameplay operations): `python tools/ability_summary.py "Jing Yuan" [--grep Passive]`.
+
 ## 2. Stats
 
 Stats are string keys summed additively. A key can carry a qualifier after `:` that

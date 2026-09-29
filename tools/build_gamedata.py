@@ -198,6 +198,7 @@ def main() -> None:
             "path": a["AvatarBaseType"],
             "element": a["DamageType"],
             "max_energy": val(a.get("SPNeed")),
+            "config": a.get("JsonPath", ""),
             "promotions": promotions,
             "skills": [str(s) for s in a["SkillList"]],
             "ranks": [str(r) for r in a["RankIDList"]],
@@ -207,6 +208,7 @@ def main() -> None:
             en_cfg = enhanced[cid]
             characters[cid]["enhanced"] = {
                 "id": en_cfg["EnhancedID"],
+                "config": en_cfg.get("JsonPath", ""),
                 "max_energy": val(en_cfg.get("SPNeed")),
                 "skills": [str(x) for x in en_cfg["SkillList"]],
                 "ranks": [str(x) for x in en_cfg["RankIDList"]],
