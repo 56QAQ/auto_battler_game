@@ -41,6 +41,7 @@ EHR = "ehr"  # effect hit rate
 EFFECT_RES = "effect_res"
 HEAL_PCT = "heal%"
 HEAL_TAKEN = "heal_taken%"
+SHIELD_PCT = "shield%"
 AGGRO = "aggro"
 AGGRO_PCT = "aggro%"
 

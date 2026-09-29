@@ -16,6 +16,7 @@ Anything whose exact in-game order is uncertain is a switch in
 
 from __future__ import annotations
 
+import copy
 import itertools
 import math
 import random
@@ -294,8 +295,21 @@ def _default_tags(kind: ActionKind) -> frozenset[str]:
         ActionKind.ULT: frozenset({DmgTag.ULT}),
         ActionKind.FUA: frozenset({DmgTag.FUA}),
         ActionKind.MEMOSPRITE: frozenset({DmgTag.MEMOSPRITE}),
+        ActionKind.ELATION: frozenset({DmgTag.ELATION}),
         ActionKind.ENEMY: frozenset({DmgTag.ENEMY}),
     }.get(kind, frozenset())
+
+
+@dataclass
+class InfiniteWave:
+    """Pure Fiction style wave: ``on_field`` enemies at a time, replaced from ``pool`` as they die,
+    until ``max_count`` enemies have been spawned (and killed)."""
+
+    pool: list[Enemy]
+    max_count: int
+    on_field: int = 5
+    spawned: int = 0
+    killed: int = 0
 
 
 @dataclass(order=True)
@@ -312,7 +326,7 @@ class Battle:
     def __init__(
         self,
         team: list[Character],
-        waves: list[list[Enemy]],
+        waves: list[list[Enemy] | InfiniteWave],
         config: BattleConfig | None = None,
     ) -> None:
         self.cfg = config or BattleConfig()
@@ -343,7 +357,12 @@ class Battle:
         self.turns = 0
         self.turn_counts: dict[str, int] = {}
         self.cleared_at: float | None = None
+        self.kills = 0
+        self.infinite: InfiniteWave | None = None
         self.verbose = False
+        from .elation import ElationSystem
+
+        self.elation = ElationSystem(self)
 
     # =================================================================== setup
     def log(self, msg: str) -> None:
@@ -816,20 +835,26 @@ class Battle:
         broken_mult: float | None = None,
     ) -> float:
         """Break-type DMG (Break, Super Break, break DoTs): scales with Break Effect, cannot crit,
-        does not benefit from DMG% boosts."""
+        does not benefit from DMG% boosts. BEFORE_HIT/AFTER_HIT fire with a hit whose ``action`` is
+        None, so hit-local modifiers (DEF ignore, vulnerability, RES PEN ...) apply."""
         tg = frozenset(tags)
-        q = (element.value, *tg)
-        ex: dict[str, float] = {}
-        boost = 1.0 + attacker.stat_q(S.BREAK_DMG_PCT, q)
+        hit = Hit(attacker=attacker, target=target, element=element, tags=tg, mult={}, label=label,
+                  owner=credited, can_crit=False)
+        hit.was_broken = target.broken
+        self.events.emit(E.BEFORE_HIT, hit=hit)
+        q, ex = hit.quals, hit.extra
+        boost = 1.0 + attacker.stat_q(S.BREAK_DMG_PCT, q, ex)
         if boost_key:
-            boost += attacker.stat(boost_key)
-        be = 1.0 + attacker.stat(S.BREAK_EFFECT) if use_break_effect else 1.0
-        parts = self._parts(
+            boost += attacker.stat(boost_key, ex)
+        be = 1.0 + attacker.stat(S.BREAK_EFFECT, ex) if use_break_effect else 1.0
+        hit.base = base
+        hit.parts = self._parts(
             attacker, target, element, q, ex, base=base * be, boost=boost, broken_mult=broken_mult
         )
-        dmg = parts.total
-        self.deal(target, dmg, credited or attacker, attacker, label, tg, element)
-        return dmg
+        hit.damage = hit.parts.total
+        self.deal(target, hit.damage, hit.credited, attacker, label, tg, element)
+        self.events.emit(E.AFTER_HIT, hit=hit)
+        return hit.damage
 
     def dot_damage(
         self,
@@ -992,6 +1017,8 @@ class Battle:
     def gain_sp(self, n: int, who: Entity | None = None) -> None:
         before = self.sp
         self.sp = min(self.max_sp, self.sp + n)
+        overflow = max(0, before + n - self.max_sp)
+        self.events.emit(E.SP_RECOVERED, amount=n, overflow=overflow, entity=who)
         if self.sp != before:
             self.events.emit(E.SP_CHANGED, delta=self.sp - before, entity=who)
 
@@ -1000,6 +1027,30 @@ class Battle:
             raise RuntimeError(f"{who} tried to use {n} SP with only {self.sp}")
         self.sp -= n
         self.events.emit(E.SP_CHANGED, delta=-n, entity=who)
+
+    def add_shield(
+        self, target: Entity, value: float, source: Entity, *, duration: int | None = 2, name: str = "Shield",
+        tick: Tick = Tick.HOLDER_TURN_START, key: str | None = None,
+    ) -> Modifier:
+        """Shield absorbing enemy DMG. ``value`` is scaled by the source's Shield effect bonus (``shield%``)."""
+        mod = Modifier(name, duration=duration, tick=tick, kind=ModKind.BUFF, tags={"shield"}, key=key)
+        mod.data["value"] = value * (1.0 + source.stat(S.SHIELD_PCT))
+        return self.apply(mod, target, source)
+
+    def shield_value(self, target: Entity) -> float:
+        return sum(m.data.get("value", 0.0) for m in target.modifiers if "shield" in m.tags and not m.removed)
+
+    def absorb_shield(self, target: Entity, dmg: float) -> float:
+        """Shields absorb DMG in parallel (each absorbs the full hit; the largest decides), as in the game."""
+        shields = [m for m in target.modifiers if "shield" in m.tags and not m.removed]
+        if not shields or dmg <= 0:
+            return dmg
+        biggest = max(m.data.get("value", 0.0) for m in shields)
+        for m in shields:
+            m.data["value"] = m.data.get("value", 0.0) - dmg
+            if m.data["value"] <= 0:
+                self.remove_modifier(m)
+        return max(0.0, dmg - biggest)
 
     def heal(self, target: Entity, amount: float, source: Entity | None = None) -> None:
         before = target.hp
@@ -1055,6 +1106,8 @@ class Battle:
         target = self.pick_aggro_target()
         if target is None:
             return
+        if energy is None:
+            energy = e.hit_energy
         with self.action(e, ActionKind.ENEMY, target=target, label="Attack") as act:
             self.hit_ally(e, target, mult, energy=energy, action=act)
             self.events.emit(E.ALLY_ATTACKED, attacker=e, targets=[target], action=act)
@@ -1074,6 +1127,7 @@ class Battle:
         vuln = F.vuln_multiplier(target.stat(S.VULN))
         mit = F.mitigation_multiplier(target.factors(S.MITIGATION, (element.value,)))
         dmg = e.atk * mult * dm * res * vuln * mit
+        dmg = self.absorb_shield(target, dmg)
         lost = self.lose_hp(target, dmg, e)
         if isinstance(target, Character):
             self.gain_energy(target, self.cfg.enemy_hit_energy if energy is None else energy)
@@ -1087,18 +1141,51 @@ class Battle:
             self.cleared_at = self.time
             self.log("all waves cleared")
             return
-        self.enemies = list(self.waves[self.wave_index])
+        wave = self.waves[self.wave_index]
+        self.infinite = wave if isinstance(wave, InfiniteWave) else None
+        if self.infinite is not None:
+            first = [self._take_from_pool() for _ in range(min(self.infinite.on_field, self.infinite.max_count))]
+            self.enemies = [e for e in first if e is not None]
+        else:
+            self.enemies = list(wave)
         self.queue = [q for q in self.queue if not q.needs_enemies]
         for i, e in enumerate(self.enemies):
-            e.battle = self
-            e.slot = i
-            e.wave = self.wave_index
-            e.hp = e.max_hp
-            e.toughness = e.max_toughness
-            e.gauge = F.AV_BASE
-            self.events.emit(E.ENEMY_SPAWNED, enemy=e)
+            self._spawn(e, i)
         self.log(f"=== wave {self.wave_index + 1}: {', '.join(e.name for e in self.enemies)}")
         self.events.emit(E.WAVE_START, wave=self.wave_index)
+
+    def _take_from_pool(self) -> Enemy | None:
+        inf = self.infinite
+        if inf is None or inf.spawned >= inf.max_count or not inf.pool:
+            return None
+        template = inf.pool[inf.spawned % len(inf.pool)]
+        e = copy.deepcopy(template)
+        e.name = f"{template.name} #{inf.spawned + 1}"
+        inf.spawned += 1
+        return e
+
+    def _spawn(self, e: Enemy, slot: int) -> None:
+        e.battle = self
+        e.slot = slot
+        e.wave = self.wave_index
+        e.alive = True
+        e.hp = e.max_hp
+        e.toughness = e.max_toughness
+        e.gauge = F.AV_BASE * e.initial_delay
+        self.events.emit(E.ENEMY_SPAWNED, enemy=e)
+
+    def _refill(self) -> None:
+        """Pure Fiction: replace defeated enemies from the wave's pool."""
+        inf = self.infinite
+        if inf is None:
+            return
+        for i, e in enumerate(list(self.enemies)):
+            if not e.alive:
+                new = self._take_from_pool()
+                if new is None:
+                    continue
+                self.enemies[i] = new
+                self._spawn(new, i)
 
     def _check_wave(self) -> None:
         if self.enemies and not self.alive_enemies() and not self.finished:
@@ -1119,6 +1206,11 @@ class Battle:
                 self.events.emit(E.KILL, target=e, killer=killer)  # modifiers still readable here
                 for m in list(e.modifiers):
                     self.remove_modifier(m)
+                self.kills += 1
+                if self.infinite is not None:
+                    self.infinite.killed += 1
+        if self.infinite is not None:
+            self._refill()
 
     # ================================================================== misc
     def add_unit(self, unit: Summon, av: float | None = None) -> Summon:

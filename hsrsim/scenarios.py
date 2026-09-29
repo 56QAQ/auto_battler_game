@@ -11,8 +11,9 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
 from typing import Any
 
-from .battle import Battle, BattleConfig
+from .battle import Battle, BattleConfig, InfiniteWave
 from .build import Build, make_character
+from .data import get_data
 from .entities import Enemy
 from .enums import Element, EnemyRank
 from .report import Report
@@ -54,6 +55,18 @@ class EnemySpec:
     rank: str = "elite"
     count: int = 1
     debuff_res: dict[str, float] = field(default_factory=dict)
+    hit_energy: float | None = None
+    initial_delay: float = 1.0
+
+    @classmethod
+    def from_monster(cls, m: dict[str, Any]) -> EnemySpec:
+        """Spec from a datamined endgame monster record (``data.endgame``)."""
+        return cls(
+            name=m["name"], level=m["level"], hp=m["hp"], atk=m["atk"], spd=m["spd"], toughness=m["toughness"],
+            weaknesses=list(m["weaknesses"]), res=dict(m["res"]), default_res=0.0, weak_res=0.0,
+            effect_res=m["effect_res"], rank=m["rank"], debuff_res=dict(m["debuff_res"]),
+            hit_energy=m.get("hit_energy"), initial_delay=m.get("initial_delay", 1.0),
+        )
 
     def make(self) -> list[Enemy]:
         res = {parse_elements([k])[0]: v for k, v in self.res.items()}
@@ -75,22 +88,40 @@ class EnemySpec:
                     effect_res=self.effect_res,
                     rank=EnemyRank(self.rank),
                     debuff_res=self.debuff_res,
+                    hit_energy=self.hit_energy,
+                    initial_delay=self.initial_delay,
                 )
             )
         return out
 
 
 @dataclass
+class InfiniteWaveSpec:
+    """Pure Fiction wave: ``on_field`` enemies at a time drawn from ``pool`` until ``max_count`` spawned."""
+
+    pool: list[EnemySpec]
+    max_count: int
+    on_field: int = 5
+
+
+@dataclass
 class Scenario:
     name: str
-    waves: list[list[EnemySpec]]
+    waves: list[list[EnemySpec] | InfiniteWaveSpec]
     max_cycles: int | None = None
     max_av: float | None = None
     config: dict[str, Any] = field(default_factory=dict)
     description: str = ""
 
-    def make_waves(self) -> list[list[Enemy]]:
-        return [[e for spec in wave for e in spec.make()] for wave in self.waves]
+    def make_waves(self) -> list[list[Enemy] | InfiniteWave]:
+        out: list[list[Enemy] | InfiniteWave] = []
+        for wave in self.waves:
+            if isinstance(wave, InfiniteWaveSpec):
+                pool = [e for spec in wave.pool for e in spec.make()]
+                out.append(InfiniteWave(pool, wave.max_count, wave.on_field))
+            else:
+                out.append([e for spec in wave for e in spec.make()])
+        return out
 
     def run(self, team: list[Build], seed: int = 0, verbose: bool = False, **cfg: Any) -> Report:
         conf = BattleConfig(**{**self.config, **cfg, "seed": seed})
@@ -100,7 +131,13 @@ class Scenario:
         return battle.run(max_av=self.max_av, max_cycles=self.max_cycles)
 
     def with_weakness(self, elements: Iterable[str | Element] | str) -> Scenario:
-        waves = [[replace(s, weaknesses=[e.value for e in parse_elements(elements)]) for s in w] for w in self.waves]
+        els = [e.value for e in parse_elements(elements)]
+        waves: list[list[EnemySpec] | InfiniteWaveSpec] = []
+        for w in self.waves:
+            if isinstance(w, InfiniteWaveSpec):
+                waves.append(replace(w, pool=[replace(s, weaknesses=els) for s in w.pool]))
+            else:
+                waves.append([replace(s, weaknesses=els) for s in w])
         return replace(self, waves=waves)
 
 
@@ -140,8 +177,38 @@ def clear_waves(
     return Scenario("clear_waves", waves, max_cycles=max_cycles, description=clear_waves.__doc__ or "")
 
 
+ENDGAME_CYCLES = {"moc": None, "pf": 4, "as": 4}
+ENDGAME_NAMES = {"moc": "Memory of Chaos", "pf": "Pure Fiction", "as": "Apocalyptic Shadow"}
+
+
+def endgame(mode: str = "moc", group: int | None = None, floor: int | None = None, half: int = 1) -> Scenario:
+    """A real endgame node from the datamined stage data (enemy stats computed exactly).
+
+    ``mode``: "moc" | "pf" | "as"; ``group``: challenge group ID (default: the latest in the data);
+    ``floor``: default the highest; ``half``: 1 or 2 (first/second team).
+    Not modelled: the period's "Memory Turbulence"/buff, enemy AI and special boss phases, PF scoring.
+    """
+    groups = get_data().endgame[mode]
+    g = groups[-1] if group is None else next(x for x in groups if x["group"] == group)
+    fl = g["floors"][-1] if floor is None else next(x for x in g["floors"] if x["floor"] == floor)
+    h = fl["halves"][half - 1]
+    waves: list[list[EnemySpec] | InfiniteWaveSpec] = []
+    for st in h["stages"]:
+        if st.get("infinite"):
+            for w in st["infinite"]:
+                pool = [EnemySpec.from_monster(m) for m in w["monsters"]]
+                waves.append(InfiniteWaveSpec(pool, int(w["max_count"]), int(w["on_field"])))
+        else:
+            waves += [[EnemySpec.from_monster(m) for m in wave] for wave in st["waves"]]
+    cycles = fl.get("cycles") or ENDGAME_CYCLES[mode] or 30
+    name = f"{ENDGAME_NAMES[mode]} {g['group']} floor {fl['floor']} half {half}"
+    desc = f"{g['begin'][:10]} ~ {g['end'][:10]}; weakness hint {', '.join(h['weakness_hint'])}"
+    return Scenario(name, waves, max_cycles=int(cycles), description=desc)
+
+
 PRESETS = {
     "boss": boss_dps,
     "aoe": aoe_dps,
     "waves": clear_waves,
+    "endgame": endgame,
 }

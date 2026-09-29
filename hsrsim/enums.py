@@ -59,6 +59,7 @@ class ActionKind(str, Enum):
     ULT = "ult"
     FUA = "fua"  # follow-up attack / counter
     MEMOSPRITE = "memosprite"  # memosprite / summon turn or skill
+    ELATION = "elation"  # Elation Skill (during an Aha Instant)
     EXTRA = "extra"  # anything else inserted (e.g. talent triggered actions)
     ENEMY = "enemy"
 

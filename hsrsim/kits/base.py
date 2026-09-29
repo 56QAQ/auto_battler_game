@@ -43,6 +43,9 @@ class Kit:
     default_opts: ClassVar[dict[str, Any]] = {}
     # the Ultimate targets allies (relevant for e.g. Messenger / Watchmaker 4pc)
     ult_targets_ally: ClassVar[bool] = False
+    # Elation path: the kit implements elation_skill(punchline); elation_skill_id orders Aha Instants
+    has_elation_skill: ClassVar[bool] = False
+    elation_skill_id: ClassVar[str] = ""
 
     def __init__(self, char: Character, opts: dict[str, Any] | None = None) -> None:
         self.char = char
@@ -152,8 +155,11 @@ class Kit:
         return bool(self.opts.get("ult", True))
 
     def use_ult(self) -> None:
+        before = self.char.energy
         self.pay_ult_cost()
-        self.battle.events.emit(E.ULT_USED, entity=self.char)
+        spent = max(0.0, before - self.char.energy)
+        self.char.data_flags["ult_energy_spent"] = spent
+        self.battle.events.emit(E.ULT_USED, entity=self.char, energy=spent)
         self.ult(self.pick_target())
 
     def pay_ult_cost(self) -> None:
@@ -168,6 +174,26 @@ class Kit:
 
     def ult(self, target: Enemy | None) -> None:
         raise NotImplementedError(f"{self.char.name}: ult")
+
+    def elation_skill(self, punchline: float) -> None:
+        raise NotImplementedError(f"{self.char.name}: elation skill")
+
+    def banger_extra_turns(self) -> int:
+        """Extra turns added to Certified Banger gained by this character (e.g. traces)."""
+        return 0
+
+    # --------------------------------------------------------------- elation
+    def gain_punchline(self, n: int) -> None:
+        self.battle.elation.gain(n, self.char)
+
+    def banger(self) -> int:
+        """Punchline stored in this character's Certified Banger stacks (0 = no Certified Banger)."""
+        return self.battle.elation.certified_banger(self.char)
+
+    def elation_hit(self, target: Enemy, scaling: float, punchline: float, **kw: Any) -> Any:
+        kw.setdefault("label", "Elation DMG")
+        kw.setdefault("credited", self.char)
+        return self.battle.elation.damage(self.char, target, scaling, punchline=punchline, **kw)
 
     # --------------------------------------------------------------- helpers
     def action(self, kind: ActionKind, skill: str | dict[str, Any] | None = None, target: Entity | None = None,

@@ -42,6 +42,12 @@ def scenario_from(cfg: dict[str, Any]) -> Scenario:
     if "waves" in sc:
         waves = [[EnemySpec(**e) for e in wave] for wave in sc["waves"]]
         s = Scenario(sc.get("name", "custom"), waves, max_cycles=sc.get("cycles"), max_av=sc.get("max_av"))
+    elif sc.get("preset") in ("moc", "pf", "as", "endgame"):
+        mode = sc.pop("preset")
+        mode = sc.pop("mode", "moc") if mode == "endgame" else mode
+        s = PRESETS["endgame"](mode, group=sc.get("group"), floor=sc.get("floor"), half=int(sc.get("half", 1)))
+        if "cycles" in sc:
+            s.max_cycles = int(sc["cycles"])
     else:
         preset = sc.pop("preset", "boss")
         kw: dict[str, Any] = {}

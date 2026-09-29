@@ -229,8 +229,12 @@ class Enemy(Entity):
         def_value: float | None = None,
         debuff_res: dict[str, float] | None = None,
         ai: Callable[[Enemy, Battle], None] | None = None,
+        hit_energy: float | None = None,
+        initial_delay: float = 1.0,
     ) -> None:
         super().__init__(name, level)
+        self.hit_energy = hit_energy  # Energy a character gains when hit by this enemy (None: config default)
+        self.initial_delay = initial_delay  # action gauge at spawn = 10000 x initial_delay
         self.base[S.BASE_HP] = hp
         self.base[S.BASE_ATK] = atk
         self.base[S.BASE_DEF] = enemy_base_def(level) if def_value is None else def_value

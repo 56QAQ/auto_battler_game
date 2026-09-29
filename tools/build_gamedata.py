@@ -44,7 +44,39 @@ RAW_TABLES = [
     "RelicSubAffixConfig",
     "AvatarBreakDamage",
     "ElationBasicLevelDamage",
+    "ElationSkill",
 ]
+# enemy / endgame tables (only the stages of recent endgame modes are kept)
+ENEMY_TABLES = [
+    "MonsterConfig",
+    "MonsterTemplateConfig",
+    "MonsterSkillConfig",
+    "HardLevelGroup",
+    "EliteGroup",
+    "StageConfig",
+    "ChallengeGroupConfig",
+    "ChallengeMazeConfig",
+    "ChallengeBossGroupConfig",
+    "ChallengeBossMazeConfig",
+    "ChallengeStoryGroupConfig",
+    "ChallengeStoryMazeConfig",
+    "ScheduleDataChallengeMaze",
+    "ScheduleDataChallengeBoss",
+    "ScheduleDataChallengeStory",
+    "StageInfiniteGroup",
+    "StageInfiniteWaveConfig",
+    "StageInfiniteMonsterGroup",
+]
+RECENT_GROUPS = 3  # per endgame mode
+
+RANKS = {"Minion": "normal", "MinionLv2": "normal", "Elite": "elite", "LittleBoss": "boss", "BigBoss": "boss"}
+DEBUFF_KEYS = {
+    "STAT_CTRL": "cc",
+    "STAT_CTRL_Frozen": "freeze",
+    "STAT_Confine": "imprisonment",
+    "STAT_Entangle": "entanglement",
+}
+
 # "LD" tables hold the collaboration characters (e.g. the Fate/stay night crossover).
 LD_TABLES = [
     "AvatarConfig",
@@ -348,10 +380,108 @@ def main() -> None:
         "elation_level_base": {
             str(r["Level"]): val(r["ElationBasicLevelDamage"]) for r in raw["ElationBasicLevelDamage"]
         },
+        "elation_skill_priority": {str(r["ElationSkillID"]): r["PriorityValue"] for r in raw["ElationSkill"]},
         "relic_main_affix": dict(main_aff),
         "relic_sub_affix": dict(sub_aff),
     }
     dump("tables", tables)
+
+    enemy_raw = {t: fetch(RAW_BASE + t + ".json", cache / "raw" / f"{t}.json") for t in ENEMY_TABLES}
+    dump("endgame", build_endgame(enemy_raw))
+
+
+def build_endgame(raw: dict[str, Any]) -> dict[str, Any]:
+    """Recent Memory of Chaos / Apocalyptic Shadow / Pure Fiction stages with computed enemy stats."""
+    monsters = {m["MonsterID"]: m for m in raw["MonsterConfig"]}
+    templates = {t["MonsterTemplateID"]: t for t in raw["MonsterTemplateConfig"]}
+    hlg = {(h["HardLevelGroup"], h["Level"]): h for h in raw["HardLevelGroup"]}
+    elite = {e["EliteGroup"]: e for e in raw["EliteGroup"]}
+    stages = {s["StageID"]: s for s in raw["StageConfig"]}
+    skills = {s["SkillID"]: s for s in raw["MonsterSkillConfig"]}
+
+    def monster(mid: int, level: int, hl: int, eg: int | None) -> dict[str, Any]:
+        m = monsters[mid]
+        t = templates[m["MonsterTemplateID"]]
+        h = hlg.get((hl, level), {})
+        e = elite.get(eg, {}) if eg else {}
+
+        def mul(field: str, mfield: str) -> float:
+            return float(val(t.get(field), 0) * val(m.get(mfield), 1) * val(h.get(field.replace("Base", "Ratio")), 1)
+                         * val(e.get(field.replace("Base", "Ratio")), 1))
+
+        hits = [val(skills[k].get("SPHitBase"), 0) for k in m.get("SkillList", []) if k in skills]
+        hits = [x for x in hits if x]
+        name = t.get("JsonConfig", "").rsplit("/", 1)[-1]
+        name = name.removeprefix("Monster_").removesuffix(".json").replace("_Config", "")
+        return {
+            "id": mid,
+            "name": name or str(mid),
+            "rank": RANKS.get(t.get("Rank", ""), "normal"),
+            "level": level,
+            "hp": mul("HPBase", "HPModifyRatio"),
+            "atk": mul("AttackBase", "AttackModifyRatio"),
+            "def": mul("DefenceBase", "DefenceModifyRatio"),
+            "spd": mul("SpeedBase", "SpeedModifyRatio"),
+            "toughness": mul("StanceBase", "StanceModifyRatio") / 3.0,  # display units
+            "effect_res": float(val(t.get("StatusResistanceBase"), 0) + val(h.get("StatusResistance"), 0)),
+            "weaknesses": list(m.get("StanceWeakList", [])),
+            "res": {r["DamageType"]: val(r["Value"], 0) for r in m.get("DamageTypeResistance", [])},
+            "debuff_res": {DEBUFF_KEYS.get(r["Key"], r["Key"]): val(r["Value"], 0) for r in m.get("DebuffResist", [])},
+            "hit_energy": max(set(hits), key=hits.count) if hits else 10,
+            "initial_delay": val(t.get("InitialDelayRatio"), 1),
+        }
+
+    def stage(sid: int) -> dict[str, Any] | None:
+        st = stages.get(sid)
+        if st is None:
+            return None
+        lv, hl, eg = st["Level"], st["HardLevelGroup"], st.get("EliteGroup")
+        waves = [[monster(mid, lv, hl, eg) for _, mid in sorted(w.items()) if mid in monsters]
+                 for w in st.get("MonsterList", [])]
+        out: dict[str, Any] = {"stage_id": sid, "level": lv, "waves": waves}
+        infinite = next((c["MNDFOPKBHKP"] for c in st.get("StageConfigData", []) if c.get("BFLIFKBEOPJ") ==
+                         "_StageInfiniteGroup"), None)
+        if infinite:
+            group = next((g for g in raw["StageInfiniteGroup"] if g["WaveGroupID"] == int(infinite)), None)
+            iwaves = {w["InfiniteWaveID"]: w for w in raw["StageInfiniteWaveConfig"]}
+            igroups = {g["InfiniteMonsterGroupID"]: g for g in raw["StageInfiniteMonsterGroup"]}
+            spawn = []
+            for wid in (group or {}).get("WaveIDList", []):
+                w = iwaves[wid]
+                pool = []
+                for gid in w["MonsterGroupIDList"]:
+                    g = igroups[gid]
+                    pool += [monster(mid, lv, hl, g.get("EliteGroup")) for mid in g["MonsterList"] if mid in monsters]
+                spawn.append({"max_count": w["MaxMonsterCount"], "on_field": w["MaxTeammateCount"],
+                              "monsters": pool})
+            out["infinite"] = spawn
+        return out
+
+    def recent(schedule: str, group_table: str, maze_table: str, mode: str) -> list[dict[str, Any]]:
+        # ignore placeholder schedules far in the future (e.g. year 2033 test entries)
+        sched = {s["ID"]: s for s in raw[schedule] if s["BeginTime"][:4] < "2030"}
+        groups = [g for g in raw[group_table] if g.get("ScheduleDataID") in sched]
+        groups.sort(key=lambda g: sched[g["ScheduleDataID"]]["BeginTime"])
+        out = []
+        for g in groups[-RECENT_GROUPS:]:
+            sc = sched[g["ScheduleDataID"]]
+            floors = []
+            for mz in sorted((m for m in raw[maze_table] if m["GroupID"] == g["GroupID"]), key=lambda m: m["Floor"]):
+                halves = []
+                for side in (1, 2):
+                    sts = [stage(sid) for sid in mz.get(f"EventIDList{side}", [])]
+                    halves.append({"weakness_hint": mz.get(f"DamageType{side}", []), "stages": [x for x in sts if x]})
+                floors.append({"id": mz["ID"], "floor": mz["Floor"], "cycles": mz.get("ChallengeCountDown"),
+                               "halves": halves})
+            out.append({"group": g["GroupID"], "mode": mode, "begin": sc["BeginTime"], "end": sc["EndTime"],
+                        "floors": floors})
+        return out
+
+    return {
+        "moc": recent("ScheduleDataChallengeMaze", "ChallengeGroupConfig", "ChallengeMazeConfig", "moc"),
+        "as": recent("ScheduleDataChallengeBoss", "ChallengeBossGroupConfig", "ChallengeBossMazeConfig", "as"),
+        "pf": recent("ScheduleDataChallengeStory", "ChallengeStoryGroupConfig", "ChallengeStoryMazeConfig", "pf"),
+    }
 
 
 if __name__ == "__main__":

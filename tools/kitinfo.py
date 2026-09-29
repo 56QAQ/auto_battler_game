@@ -1,7 +1,9 @@
 """Print everything needed to implement a kit: skills (max level params), traces, eidolons."""
-import json, sys
+import sys
+
 sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parent.parent))
 from hsrsim.data import get_data
+
 gd = get_data()
 for key in sys.argv[1:]:
     enh = key.endswith('+')

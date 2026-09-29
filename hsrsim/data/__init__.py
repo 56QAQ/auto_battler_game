@@ -83,6 +83,11 @@ class GameData:
     def tables(self) -> dict[str, Any]:
         return _load("tables")
 
+    @cached_property
+    def endgame(self) -> dict[str, Any]:
+        """Recent Memory of Chaos ("moc"), Apocalyptic Shadow ("as") and Pure Fiction ("pf") stages."""
+        return _load("endgame")
+
     @property
     def version(self) -> str:
         return str(self.tables["version"]["version"])
