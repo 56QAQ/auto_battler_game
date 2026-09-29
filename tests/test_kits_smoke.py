@@ -4,10 +4,11 @@ import pytest
 
 from hsrsim.build import Build
 from hsrsim.data import get_data
-from hsrsim.kits import load_all
+from hsrsim.kits import ENHANCED_KITS, load_all
 from hsrsim.scenarios import aoe_dps, boss_dps, clear_waves
 
 KITS = sorted(load_all())
+ENHANCED = sorted(ENHANCED_KITS)
 FILLERS = ["Bronya", "Pela", "Huohuo", "Tingyun"]
 
 
@@ -30,3 +31,12 @@ def test_kit_runs(cid, eidolon):
 def test_kit_clears_waves(cid):
     rep = clear_waves(max_cycles=40).run(team_for(cid, 0))
     assert rep.total > 0
+
+
+@pytest.mark.parametrize("cid", ENHANCED)
+@pytest.mark.parametrize("eidolon", [0, 6])
+def test_enhanced_kit_runs(cid, eidolon):
+    for sc in (boss_dps(cycles=4), aoe_dps(cycles=3, count=3)):
+        rep = sc.run(team_for(cid, eidolon, enhanced=True))
+        assert rep.total > 0
+        assert rep.battle.team[0].enhanced
