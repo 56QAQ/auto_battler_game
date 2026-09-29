@@ -134,7 +134,7 @@ class Luka(Kit):
             if target.hp > 0 and target.has_tag("bleed"):
                 # approximation: every Bleed on the target (incl. Break Bleed) is triggered
                 self.battle.detonate(target, self.p("talent", 1), kinds=("bleed",))
-                if self.e(6):
+                if self.e(6):  # approximation: one extra Bleed trigger of ep(6, 0) per Direct Punch hit
                     for _ in range(punches):
                         if target.hp <= 0:
                             break
