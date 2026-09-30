@@ -70,7 +70,9 @@ Modifier(
     covers your next turn).
   * `skip_first_tick=False` for effects flagged `LifeStepImmediately` in the game
     (Bronya ult, Tingyun ult, Welt imprisonment): the current turn counts.
-  * `Tick.HOLDER_TURN_START`: DoTs, break states, "until the start of the next turn".
+  * `Tick.HOLDER_TURN_START`: DoTs, break states, "until the start of the next turn", and every modifier whose
+    script header shows `LifeStepMoment=ModifierPhase1End` (it counts down in the holder's turn-start phase,
+    after DoTs).
   * `Tick.SOURCE_TURN_START`: caster-held zones/auras ("decreases by 1 at the start of X's
     every turn"): Ruan Mei, Robin, Huohuo, Tribbie, Sunday, ...
 * **Fields / auras**: give the modifier a `scope` and apply it to its holder (usually the
@@ -183,7 +185,23 @@ class InTheNight(LightCone):
 
 Relic sets: see `hsrsim/gear/relics.py` (`self.p(pieces, i)`, `self.pieces` is 2 or 4).
 
-## 8. Checks
+## 8. Checking a kit against the game script
+
+`python tools/kitinfo.py <id>` prints the skill texts and parameters; `python tools/ability_summary.py <id>`
+prints the ability script (`--grep X`, `--full`, `--servant` for memosprites, `"<name>+"` for enhanced kits).
+Conventions that recur in audits:
+
+* **Order**: effects the script applies before `DamageByAttackProperty` (buffs, debuffs, stacks, resources) must be
+  applied before the hit in the kit, so the same attack benefits.
+* **Hit splits**: use `splits="data"` when the record has `splits` / `splits_adj` / `splits_aoe`; otherwise take the
+  ratios from the script (`split=` values, `MaxLoopCount=` loops) into a named constant.
+* **Energy**: `ModifySPNew AddValue=` scales with the receiver's ERR (`battle.gain_energy(c, x)`);
+  `FixedAddValue=` does not (`fixed=True`).
+* **Durations**: `LifeStepMoment=ModifierPhase1End` → `Tick.HOLDER_TURN_START` (see §3).
+* **Gates**: `if ... NOT ...` conditions around listeners (e.g. "not transformed") must be reproduced.
+* **Parameters**: `#1` in the description is index 0 of `self.p(...)` / `self.tp(...)` / `self.ep(...)`.
+
+## 9. Checks
 
 ```bash
 PYTHONPATH=. pytest -q
