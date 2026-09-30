@@ -106,6 +106,7 @@ export const KIND_CN = {
 export const PART_CN = {
   base: "基础", dmg_boost: "增伤", def_mult: "防御", res_mult: "抗性", vuln_mult: "易伤", mitig_mult: "减伤",
   broken_mult: "韧性", weaken_mult: "虚弱", crit_mult: "暴击", extra_mult: "最终",
+  elation_mult: "欢愉度", merry_mult: "增笑", punch_mult: "笑点",
 };
 
 export function debounce(fn, ms) {

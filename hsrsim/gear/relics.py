@@ -568,8 +568,15 @@ class MagicalGirl(_Set):
     set_id = "129"
 
     def setup(self) -> None:
+        """4pc: the wearer's (and memosprites') Elation DMG ignores #1 DEF, +#3 per #2 Punchline the team has gained
+        in this battle (up to #4 stacks)."""
         if self.pieces >= 4:
-            self.passive("Magical Girl 4pc", {f"{S.DEF_IGNORE}:{DmgTag.ELATION}": self.p(4, 0)})
+            key = f"{S.DEF_IGNORE}:{DmgTag.ELATION}"
+            self.passive("Magical Girl 4pc", {}, dyn=self._def_ignore, dyn_keys={key})
+
+    def _def_ignore(self, mod: Modifier, key: str, ent: Entity) -> float:
+        stacks = min(int(self.p(4, 3)), int(self.battle.elation.total_gained // self.p(4, 1)))
+        return self.p(4, 0) + stacks * self.p(4, 2)
 
 
 @register_relic

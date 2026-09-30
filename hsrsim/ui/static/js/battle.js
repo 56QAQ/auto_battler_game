@@ -806,7 +806,7 @@ function logView() {
       if (open) {
         for (const hit of r.hits) {
           div.appendChild(h("div.ln" + (hit.crit ? ".crit" : ""), h("span", `${prettify(hit.target)}${hit.label !== e.label ? " · " + tr(hit.label) : ""}`), hit.crit ? "暴击" : "", hit.tough ? h("span.dim", `削韧 ${hit.tough}`) : null, h("span.amt", fmtInt(hit.amount))));
-          if (hit.parts) div.appendChild(h("div.parts", Object.entries(hit.parts).filter(([k, v]) => k === "base" || Math.abs(v - 1) > 1e-6).map(([k, v]) => `${PART_CN[k] || k} ${k === "base" ? fmtInt(v) : "×" + v.toFixed(3)}`).join("  ")));
+          if (hit.parts) div.appendChild(h("div.parts", partsText(hit.parts)));
         }
         for (const x of r.extra) div.appendChild(logLine(x.line));
       }
@@ -815,6 +815,17 @@ function logView() {
   }
   if (!groups.length) box.appendChild(h("div.muted", "还没有记录"));
   return box;
+}
+
+function partsText(p) {
+  return Object.entries(p)
+    .filter(([k, v]) => k !== "punchline" && (k === "base" || Math.abs(v - 1) > 1e-6))
+    .map(([k, v]) => {
+      if (k === "base") return `${PART_CN[k]} ${fmtInt(v)}`;
+      const s = `${PART_CN[k] || k} ×${v.toFixed(3)}`;
+      return k === "punch_mult" ? `${s}（计入 ${+(p.punchline || 0).toFixed(1)} 点）` : s;
+    })
+    .join("  ");
 }
 
 function logLine(e) {

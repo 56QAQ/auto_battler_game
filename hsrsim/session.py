@@ -332,6 +332,10 @@ class _Worker:
                         "weaken_mult",
                         "crit_mult",
                         "extra_mult",
+                        "elation_mult",
+                        "merry_mult",
+                        "punch_mult",
+                        "punchline",
                     )
                 }
             add(entry)

@@ -21,6 +21,7 @@ knowledge are configurable here):
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 from . import events as E
@@ -257,9 +258,14 @@ class ElationSystem:
                 crit = 1.0 + cd if hit.crit else 1.0
             else:
                 crit = 1.0 + min(1.0, max(0.0, cr)) * cd
-        mult = (1.0 + elation) * (1.0 + merry) * punchline_multiplier(punchline)
         hit.base = base
-        hit.parts = b._parts(attacker, target, el, q, ex, base=base * mult, boost=1.0, crit=crit)
+        hit.parts = replace(
+            b._parts(attacker, target, el, q, ex, base=base, boost=1.0, crit=crit),
+            elation_mult=1.0 + elation,
+            merry_mult=1.0 + merry,
+            punch_mult=punchline_multiplier(punchline),
+            punchline=float(punchline),
+        )
         hit.damage = hit.parts.total
         b.deal(target, hit.damage, hit.credited, attacker, label, hit.tags, el, hit.parts)
         if toughness > 0:

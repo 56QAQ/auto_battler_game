@@ -118,3 +118,36 @@ def test_custom_wave_spec_keeps_monster_traits():
 
     e = EnemySpec(**{"name": "TV", "template": "W3_TV_03", "passives": {"SkillP01": [3.0]}}).make()[0]
     assert e.template == "W3_TV_03" and e.passives == {"SkillP01": [3.0]}
+
+
+def test_elation_hit_parts_match_the_reference_formula():
+    """ElationBase(L) x scaling x (1+Elation) x (1+Merrymake) x (1 + 5P/(P+240)) x DEF x RES x Toughness x CRIT."""
+    from hsrsim import stats as S
+    from hsrsim.data import get_data
+    from hsrsim.formulas import def_multiplier
+
+    b, (sw, _) = _battle([Build("Silver Wolf LV.999"), generic_build("Bronya")], [Enemy("Dummy", hp=1e12, level=95)])
+    enemy = b.enemies[0]
+    hit = b.elation.damage(sw, enemy, 0.45, punchline=99, label="probe", can_crit=False)
+    p = hit.parts
+    assert p.base == pytest.approx(get_data().elation_base(sw.level) * 0.45)
+    assert p.elation_mult == pytest.approx(1 + sw.stat(S.ELATION_DMG_PCT))
+    assert p.merry_mult == pytest.approx(1 + sw.stat(S.MERRYMAKE_PCT))
+    assert p.punch_mult == pytest.approx(1 + 5 * 99 / (99 + 240)) and p.punchline == 99
+    assert p.dmg_boost == 1.0  # DMG% boosts do not apply
+    dm = def_multiplier(sw.level, enemy.raw(S.BASE_DEF), def_ignore=sw.stat_q(S.DEF_IGNORE, ("elation",)))
+    expected = p.base * p.elation_mult * p.merry_mult * p.punch_mult * dm * p.res_mult * 0.9
+    assert hit.damage == pytest.approx(expected)
+
+
+def test_magical_girl_4pc_def_ignore_grows_with_punchline_gained():
+    from hsrsim import stats as S
+    from hsrsim.data import get_data
+
+    params = get_data().relic_set("129")["pieces"]["4"]["params"]  # [0.1, 5, 0.01, 10]
+    b, (sw, _) = _battle([Build("Silver Wolf LV.999", relics={"129": 4}), generic_build("Bronya")])
+    key = f"{S.DEF_IGNORE}:elation"
+    gained = b.elation.total_gained
+    assert sw.stat(key) == pytest.approx(params[0] + (gained // params[1]) * params[2])
+    b.elation.gain(200)
+    assert sw.stat(key) == pytest.approx(params[0] + params[3] * params[2])  # capped at 10 stacks

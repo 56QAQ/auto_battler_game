@@ -119,11 +119,19 @@ class DamageParts:
     weaken_mult: float
     crit_mult: float
     extra_mult: float = 1.0
+    # Elation DMG only: (1 + Elation), (1 + Merrymake), the Punchline curve and the Punchline counted
+    elation_mult: float = 1.0
+    merry_mult: float = 1.0
+    punch_mult: float = 1.0
+    punchline: float = 0.0
 
     @property
     def total(self) -> float:
         return (
             self.base
+            * self.elation_mult
+            * self.merry_mult
+            * self.punch_mult
             * self.dmg_boost
             * self.def_mult
             * self.res_mult
