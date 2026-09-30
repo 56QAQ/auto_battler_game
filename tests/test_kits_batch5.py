@@ -47,10 +47,23 @@ def test_jiaoqiu_ashen_roast_stacks_vulnerability_and_ult_zone():
     # stacks set to the highest on the field (2), then +1 Talent stack on every enemy hit
     assert [kit.roast(e) for e in (a, m, c)] == [3, 3, 3]
     assert m.stat(f"{S.VULN}:{DmgTag.ULT}") == pytest.approx(kit.p("ult", 2))
-    # the Ashen Roast DoT at the enemy's turn start: 180% ATK Fire DoT
+    # the Ashen Roast DoT at the enemy's turn start: 180% ATK Fire DoT (cannot CRIT)
+    vuln = m.stat(S.VULN)
     before = len(_recs(b, "Ashen Roast"))
     b.take_turn(m)
-    assert len(_recs(b, "Ashen Roast")) == before + 1
+    dots = _recs(b, "Ashen Roast")
+    assert len(dots) == before + 1
+    boost = 1 + jq.stat_q(S.DMG_PCT, ("Fire", DmgTag.DOT, "burn", "ashen_roast"))
+    expected = (
+        kit.p("talent", 5)
+        * jq.atk
+        * boost
+        * F.def_multiplier(80, F.enemy_base_def(95))
+        * F.res_multiplier(0.2)
+        * F.vuln_multiplier(vuln)
+        * F.NOT_BROKEN_MULT
+    )
+    assert dots[-1].amount == pytest.approx(expected)
 
 
 # ------------------------------------------------------------------- Feixiao
@@ -73,11 +86,11 @@ def test_feixiao_follow_up_once_per_turn_and_ultimate_hits():
 
 # --------------------------------------------------------------------- Yunli
 def test_yunli_parry_turns_enemy_attack_into_intuit_cull():
-    b, (yl, _), (e,) = _battle([Build("1221"), generic_build("Seele")])
+    b, (yl, _), (e,) = _battle([Build("1221"), generic_build("Seele")], start_energy=0.0)
     kit = yl.kit
-    yl.energy = yl.max_energy
+    yl.energy = kit.p("ult", 7)  # the Ultimate costs 120 of her 240 Energy
     kit.use_ult()
-    assert yl.energy == pytest.approx(yl.max_energy - kit.p("ult", 7) + kit.sk("ult")["energy"] * (1 + yl.stat(S.ERR)))
+    assert yl.energy == pytest.approx(kit.sk("ult")["energy"] * (1 + yl.stat(S.ERR)))
     assert kit.in_parry
     b.enemy_basic_attack(e)  # Taunt: the enemy must target Yunli
     b.process_queue()
@@ -89,7 +102,7 @@ def test_yunli_parry_turns_enemy_attack_into_intuit_cull():
 
 
 def test_yunli_counter_without_parry():
-    b, (yl, _), (e,) = _battle([Build("1221"), generic_build("Seele")])
+    b, (yl, _), (e,) = _battle([Build("1221"), generic_build("Seele")], start_energy=0.0)
     yl.base[S.AGGRO] = 1e9
     b.enemy_basic_attack(e)
     b.process_queue()
@@ -133,7 +146,8 @@ def test_moze_departed_charge_and_follow_up():
 
 # ------------------------------------------------------------ March 7th (Hunt)
 def test_march_7th_hunt_shifu_additional_dmg_and_enhanced_basic():
-    b, (m7, seele), (e,) = _battle([Build("1224", traces=False), generic_build("Seele")])
+    no_ult = {"ult": False}
+    b, (m7, seele), (e,) = _battle([Build("1224", traces=False, options=no_ult), generic_build("Seele", options=no_ult)])
     kit = m7.kit
     spd0 = seele.spd
     kit.skill(e)

@@ -103,7 +103,9 @@ class Hysilens(Kit):
             return
         missing = [s for s in STATES if not self._has_state(target, s)]
         state = self.battle.rng.choice(missing or list(STATES))
-        got = self.battle.try_debuff(self._state_dot(target, state, False), target, self.char, chance, debuff_type=state)
+        got = self.battle.try_debuff(
+            self._state_dot(target, state, False), target, self.char, chance, debuff_type=state
+        )
         if got is not None and self.e(1):
             self.battle.try_debuff(
                 self._state_dot(target, state, True), target, self.char, self.ep(1, 1), debuff_type=state

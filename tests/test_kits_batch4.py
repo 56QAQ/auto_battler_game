@@ -106,6 +106,15 @@ def test_aventurine_wager_stacking_and_blind_bet_follow_up():
     assert seele.get_mod("Fortified Wager").data["value"] == pytest.approx(k.p("skill", 3) * base)
 
 
+def test_aventurine_blind_bet_when_the_hit_breaks_the_wager():
+    enemy = Enemy("Brute", hp=1e12, atk=1e7, effect_res=0.0)
+    b, (av,) = _battle([Build("Aventurine", options={"ult": False})], [enemy])
+    assert av.has_mod("Fortified Wager")
+    b.enemy_basic_attack(enemy)
+    assert not av.has_mod("Fortified Wager")  # the hit broke the Shield ...
+    assert av.kit.bet == 1 + int(av.kit.p("talent", 0))  # ... but he held a Wager when attacked
+
+
 # ------------------------------------------------------------------ Dr. Ratio
 def test_dr_ratio_summation_guaranteed_follow_up_and_wisemans_folly():
     b, (ratio, pela) = _battle([Build("Dr. Ratio"), Build("Pela")])

@@ -36,8 +36,10 @@ class Aventurine(Kit):
     def setup(self) -> None:
         self.bet = 0
         self.fua_queued = False
+        self.wager_at_hit: set[int] = set()  # allies holding a Wager when an enemy hit landed on them
         self.bingo_left = int(self.tp(3, 2)) if self.trace(3) else 0
         self.passive("Shot Loaded Right", {S.EFFECT_RES: self.p("talent", 3)}, scope=_has_wager)
+        self.on(E.BEFORE_ALLY_HIT, lambda ev: _has_wager(ev.target) and self.wager_at_hit.add(ev.target.uid))
         self.on(E.ALLY_ATTACKED, self._on_attacked)
         self.on(E.BEFORE_HIT, self._unnerved)
         self.on(E.TURN_START, self._turn_start)
@@ -102,10 +104,10 @@ class Aventurine(Kit):
             self.battle.queue_action(self._fua, self.char, "Aventurine follow-up")
 
     def _on_attacked(self, ev: E.Ev) -> None:
-        # approximation: checked after the enemy hit resolved (a Wager broken by that hit gives no Blind Bet)
         # not modelled: CC resistance while holding a Wager, the Wager's "no HP loss" clause
+        held, self.wager_at_hit = self.wager_at_hit, set()
         for t in ev.targets:
-            if _has_wager(t):
+            if t.uid in held or _has_wager(t):
                 self.add_bet(BET_PER_TRIGGER)
             if t is self.char:
                 self.add_bet(int(self.p("talent", 0)))

@@ -150,6 +150,7 @@ class Blade(Kit):
                 {"atk": lv[1], "hp": lv[3]},
                 {"atk": lv[2], "hp": lv[4]},
                 toughness=(self.toughness(FOREST_ID, 0), self.toughness(FOREST_ID, 2)),
+                splits="data",
             )
         if self.trace(2) and any(h.target.broken for h in hits):
             self.battle.heal(self.char, self.tp(2, 0) * self.char.max_hp + self.tp(2, 1), self.char)

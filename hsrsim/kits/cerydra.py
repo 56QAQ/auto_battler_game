@@ -223,8 +223,10 @@ class Cerydra(Kit):
 
     # --------------------------------------------------------------- actions
     def _skill_target(self) -> Character:
-        return self.merit if self.merit is not None and self.merit.alive and not self.opts.get("target") else (
-            self.main_dps()
+        return (
+            self.merit
+            if self.merit is not None and self.merit.alive and not self.opts.get("target")
+            else (self.main_dps())
         )
 
     def basic(self, target: Enemy | None) -> None:

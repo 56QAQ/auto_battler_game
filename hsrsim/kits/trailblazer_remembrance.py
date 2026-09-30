@@ -59,7 +59,7 @@ class _TrailblazerRemembrance(Kit):
         for e in self.enemies():
             self.battle.delay(e, p[1])
         with self.action(ActionKind.EXTRA, None, label="Memories Back as Echoes (Technique)", energy=0, sp=0) as act:
-            act.aoe(p[2], toughness=20)
+            act.aoe(p[2], toughness=self.toughness("technique"))
 
     # --------------------------------------------------------------- data
     def _lv(self, sid: str) -> list[Any]:
@@ -162,9 +162,6 @@ class _TrailblazerRemembrance(Kit):
             self.charge = 0.0
             stats = {S.CRIT_RATE: self.ep(1, 0)} if self.e(1) else {}
             self.buff(ally, Modifier(SUPPORT, stats=stats, duration=int(lv[1]), key=SUPPORT))
-            for c in self.allies():
-                if c is not ally:
-                    self.battle.remove_named(c, SUPPORT)
         if ally is not mem:
             self.battle.advance(ally, lv[2])
 

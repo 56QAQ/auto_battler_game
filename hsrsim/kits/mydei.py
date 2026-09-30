@@ -59,7 +59,7 @@ class Mydei(Kit):
     def technique(self) -> None:
         p = self.sk("technique")["params"][0]
         with self.action(ActionKind.EXTRA, None, label="Cage of Broken Lance (Technique)", energy=0, sp=0) as act:
-            act.aoe(p[1], stat="hp", toughness=20)
+            act.aoe(p[1], stat="hp", toughness=self.toughness("technique"))
         self.add_charge(p[4])
 
     # -------------------------------------------------------------- Charge
@@ -100,7 +100,7 @@ class Mydei(Kit):
         self.battle.heal(self.char, self.p("talent", 3) * self.char.max_hp, self.char)
 
     def _e2_heal(self, ev: E.Ev) -> None:
-        if ev.entity is not self.char or self.vendetta is None or ev.effective <= 0:
+        if ev.entity is not self.char or ev.effective <= 0:
             return
         gain = min(self.ep(2, 2) - self.e2_tally, ev.effective / self.char.max_hp * 100.0 * self.ep(2, 1))
         if gain > 0:

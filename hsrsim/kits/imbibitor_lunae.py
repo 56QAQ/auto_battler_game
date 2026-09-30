@@ -19,14 +19,12 @@ from ..modifiers import Modifier, Stacking
 from . import register
 from .base import Kit
 
-# Hit splits from the ability config (Avatar_DanHengIL_00_Skill*_Phase02 HitSplitRatio / DamagePercentage factors)
-BASIC_SPLITS = (0.3, 0.7)
-TRANSCENDENCE_SPLITS = (0.33, 0.33, 0.34)
+# Hit splits of Divine Spear / Fulgurant Leap: the ability config scales DamagePercentage per hit instead of
+# using HitSplitRatio, so they are not in the skill data (Basic ATK, Transcendence and the Ultimate use "splits")
 DIVINE_SPEAR_SPLITS = (0.2, 0.2, 0.2, 0.2, 0.2)
 DIVINE_SPEAR_ADJ = (0.0, 0.0, 0.0, 0.5, 0.5)  # adjacent targets from the 4th hit
 FULGURANT_SPLITS = (0.142, 0.142, 0.142, 0.142, 0.142, 0.142, 0.148)
 FULGURANT_ADJ = (0.0, 0.0, 0.0, 0.25, 0.25, 0.25, 0.25)
-ULT_SPLITS = (0.3, 0.3, 0.4)
 OUTROAR_FROM_HIT = 4  # Skill text "starting from the fourth hit, 1 stack of Outroar is gained before every hit"
 E1_EXTRA_STACKS = 1  # E1 text "gains 1 extra stack of Righteous Heart for each hit"
 E2_ADVANCE = 1.0  # E2 text "action advances by 100%"
@@ -120,6 +118,10 @@ class ImbibitorLunae(Kit):
                     act.hit(a, adj, toughness=tough[1], splits=[ar], extra=extra, primary=False)
             self._righteous_heart()  # "After each hit dealt during an attack"
 
+    @staticmethod
+    def _data_splits(rec: dict[str, Any]) -> tuple[float, ...]:
+        return tuple(rec.get("splits") or (1.0,))
+
     # ------------------------------------------------------------- policy
     def budget(self) -> int:
         return self.battle.sp + self.squama
@@ -150,7 +152,8 @@ class ImbibitorLunae(Kit):
     def basic(self, target: Enemy | None) -> None:
         assert target is not None
         with self.action(ActionKind.BASIC, "basic", target) as act:
-            self._segments(act, target, self.p("basic", 0), 0.0, BASIC_SPLITS, None, (self.toughness("basic"), 0.0))
+            splits = self._data_splits(self.sk("basic"))
+            self._segments(act, target, self.p("basic", 0), 0.0, splits, None, (self.toughness("basic"), 0.0))
 
     def skill(self, target: Enemy | None) -> None:
         """Dracore Libre is not an action: it selects the enhanced Basic ATK (strongest affordable)."""
@@ -178,7 +181,7 @@ class ImbibitorLunae(Kit):
             if from_squama:  # "Consuming Squama Sacrosancta is considered equivalent to consuming skill points"
                 self.battle.events.emit(E.SP_CHANGED, delta=-from_squama, entity=self.char, squama=True)
             if level == 1:
-                self._segments(act, target, lv[0], 0.0, TRANSCENDENCE_SPLITS, None, tough)
+                self._segments(act, target, lv[0], 0.0, self._data_splits(rec), None, tough)
             elif level == 2:
                 self._segments(act, target, lv[0], lv[1], DIVINE_SPEAR_SPLITS, DIVINE_SPEAR_ADJ, tough, outroar=True)
             else:
@@ -189,14 +192,15 @@ class ImbibitorLunae(Kit):
     def ult(self, target: Enemy | None) -> None:
         if target is None:
             return
+        splits = self._data_splits(self.sk("ult"))  # adjacent targets are hit with the same splits
         with self.action(ActionKind.ULT, "ult", target) as act:
             self._segments(
                 act,
                 target,
                 self.p("ult", 0),
                 self.p("ult", 1),
-                ULT_SPLITS,
-                ULT_SPLITS,
+                splits,
+                splits,
                 (self.toughness("ult", 0), self.toughness("ult", 2)),
             )
         gain = int(self.p("ult", 2)) + (E2_EXTRA_SQUAMA if self.e(2) else 0)

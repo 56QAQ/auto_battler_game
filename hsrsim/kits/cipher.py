@@ -47,7 +47,7 @@ class Cipher(Kit):
         p = self.sk("technique")["params"][0]
         self.tally_bonus_once = p[1]
         with self.action(ActionKind.EXTRA, None, label="Puss in Boots (Technique)", energy=0, sp=0) as act:
-            act.aoe(p[2], toughness=20)
+            act.aoe(p[2], toughness=self.toughness("technique"))
         self.tally_bonus_once = 0.0
 
     # -------------------------------------------------------------- Patron

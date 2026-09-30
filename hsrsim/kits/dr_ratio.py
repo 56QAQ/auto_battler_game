@@ -40,7 +40,13 @@ class DrRatio(Kit):
         # not modelled: the Special Dimension's Taunt
         for e in self.enemies():
             self.battle.try_debuff(
-                Modifier("Mold of Idolatry", stats={S.SPD_PCT: -p[2]}, duration=int(p[3]), kind=ModKind.DEBUFF),
+                Modifier(
+                    "Mold of Idolatry",
+                    stats={S.SPD_PCT: -p[2]},
+                    duration=int(p[3]),
+                    kind=ModKind.DEBUFF,
+                    tags={"slow"},
+                ),
                 e,
                 self.char,
                 p[1],
