@@ -1172,7 +1172,8 @@ class Battle:
         res = F.res_multiplier(target.stat(f"{S.RES}:{element.value}"))
         vuln = F.vuln_multiplier(target.stat(S.VULN))
         mit = F.mitigation_multiplier(target.factors(S.MITIGATION, (element.value,)))
-        dmg = e.atk * mult * dm * res * vuln * mit
+        weaken = 1.0 - min(F.WEAKEN_MAX, max(0.0, e.stat(S.WEAKEN)))
+        dmg = e.atk * mult * dm * res * vuln * mit * weaken
         self.events.emit(E.BEFORE_ALLY_HIT, attacker=e, target=target, action=action, damage=dmg)
         dmg = self.absorb_shield(target, dmg)
         lost = self.lose_hp(target, dmg, e)
