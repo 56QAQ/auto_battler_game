@@ -90,7 +90,9 @@ VALUE_FIELDS = (
     "Value",
     "Count",
     "Layer",
+    "EventID",
 )
+PRED_LIMIT: int | None = 4  # predicates shown per ``if`` (None with --full)
 
 
 def _value(v: Any) -> Any:
@@ -124,6 +126,9 @@ def _detail(name: str, o: dict[str, Any]) -> str:
         split = "dynamic" if hs.get("IsDynamic") else hs.get("FixedValue", {}).get("Value")
         dtype = (ap.get("DamageType") or {}).get("DamageType")
         detail += f" split={split} type={dtype}"
+    dv = o.get("DynamicValues")
+    if isinstance(dv, dict) and dv:
+        detail += " values={" + ", ".join(f"{k}={_value(v)}" for k, v in dv.items()) + "}"
     tt = o.get("TargetType")
     if isinstance(tt, dict) and tt.get("Alias"):
         detail += f" target={tt['Alias']}"
@@ -140,9 +145,9 @@ def gameplay_ops(o: Any, out: list[str], depth: int = 0) -> None:
         if name == "PredicateTaskList":
             cond: list[str] = []
             gameplay_ops(o.get("Predicate"), cond, 0)
-            out.append(
-                "  " * depth + "if " + " / ".join(c.strip() for c in cond[:4]) + (" ..." if len(cond) > 4 else "")
-            )
+            shown_cond = cond if PRED_LIMIT is None else cond[:PRED_LIMIT]
+            more = " ..." if len(shown_cond) < len(cond) else ""
+            out.append("  " * depth + "if " + " / ".join(c.strip() for c in shown_cond) + more)
             gameplay_ops(o.get("SuccessTaskList"), out, depth + 1)
             if o.get("FailedTaskList"):
                 out.append("  " * depth + "else")
@@ -152,7 +157,9 @@ def gameplay_ops(o: Any, out: list[str], depth: int = 0) -> None:
         if shown:
             out.append("  " * depth + name + _detail(name, o))
         for k, v in o.items():
-            if k in ("TargetType", "AttackProperty") or (k in VALUE_FIELDS and not isinstance(v, list)):
+            if k in ("TargetType", "AttackProperty", "DynamicValues") or (
+                k in VALUE_FIELDS and not isinstance(v, list)
+            ):
                 continue
             gameplay_ops(v, out, depth + (1 if shown else 0))
     elif isinstance(o, list):
@@ -170,6 +177,14 @@ def _print_modifier(name: str, m: dict[str, Any], limit: int | None) -> None:
         f"  Stacking={m.get('Stacking', '-')}  MaxLayer={_value(m.get('MaxLayer', '-'))}"
         f"  StatusType={m.get('StatusType', '-')}"
     )
+    extras = []
+    if m.get("BehaviorFlagList"):
+        extras.append(f"Flags={','.join(map(str, m['BehaviorFlagList']))}")
+    for k in ("LayerAddWhenStack", "UseSnapshotEntity", "Count"):
+        if k in m:
+            extras.append(f"{k}={_value(m[k])}")
+    if extras:
+        print("  " + "  ".join(extras))
     for cb in m.get("_CallbackList", []):
         ops: list[str] = []
         gameplay_ops(cb.get("CallbackConfig", []), ops, 2)
@@ -212,7 +227,10 @@ def main() -> None:
     ap.add_argument("--servant", action="store_true", help="also summarise the memosprite (servant) script")
     ap.add_argument("--file", help="summarise this ability file instead (path inside the data repository)")
     args = ap.parse_args()
+    global PRED_LIMIT
     limit = None if args.full else 30
+    if args.full:
+        PRED_LIMIT = None
     if args.file:
         print(f"# {args.file}")
         summarize(fetch(args.file, args.cache), args.grep, limit)
