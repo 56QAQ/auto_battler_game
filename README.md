@@ -4,7 +4,8 @@
 
 - 所有数值直接来自客户端解包数据（当前 **4.6.0**），公式层逐项验证，见 [可行性研究报告](docs/RESEARCH.md)。
 - 行动值时间轴、战技点/能量、韧性与击破、超击破、DoT、追加攻击、召唤物/忆灵、光环、持续时间语义均按游戏规则实现。
-- 角色逻辑逐个手写（只写逻辑，数字全部读数据）；遗器全套、光锥条件效果、角色套件持续扩充。
+- **全部 98 名角色 + 10 个强化版套件**、170 个光锥条件效果、62 套遗器均已实现；角色逻辑逐个手写（只写逻辑，数字全部读数据），并对照游戏技能脚本（`ConfigAbility`）审校命中拆分、生效时机与参数下标。
+- 近似/未建模之处在代码中以 `# approximation:` / `# not modelled:` 注释逐条标出（约 150 处），汇总见 [docs/RESEARCH.md §5](docs/RESEARCH.md)。
 
 ## 快速开始
 
@@ -18,6 +19,7 @@ python -m hsrsim trace examples/acheron_boss.yaml --character Acheron   # 逐条
 python -m hsrsim stats examples/firefly_break_aoe.yaml   # 查看面板
 python -m hsrsim list characters --implemented           # 已实现的角色
 python -m hsrsim info "Jing Yuan"                         # 打印角色技能/行迹/星魂数据
+python tools/ability_summary.py Acheron --grep Passive    # 查看游戏技能脚本摘要（审校角色逻辑用）
 ```
 
 输出示例（节选，`examples/acheron_boss.yaml`，20 个种子平均）：
