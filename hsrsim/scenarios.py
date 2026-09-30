@@ -131,7 +131,15 @@ class Scenario:
                 pool = [e for spec in wave.pool for e in spec.make()]
                 out.append(InfiniteWave(pool, wave.max_count, wave.on_field))
             else:
-                out.append([e for spec in wave for e in spec.make()])
+                enemies = [e for spec in wave for e in spec.make()]
+                names = [e.name for e in enemies]
+                seen: dict[str, int] = {}
+                for e in enemies:  # tell identical enemies apart ("X A", "X B")
+                    if names.count(e.name) > 1:
+                        k = seen.get(e.name, 0)
+                        seen[e.name] = k + 1
+                        e.name = f"{e.name} {chr(65 + k)}"
+                out.append(enemies)
         return out
 
     def run(self, team: list[Build], seed: int = 0, verbose: bool = False, **cfg: Any) -> Report:

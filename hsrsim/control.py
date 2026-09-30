@@ -48,6 +48,7 @@ class MenuItem:
     kind: str = "basic"  # "basic" | "skill" | "other" (hotkeys: Q = basic, E = skill)
     note: str = ""  # short hint (why it is disabled, what it consumes ...)
     label_cn: str = ""
+    shape: str = ""  # SingleAttack / Blast / AoEAttack / Bounce / ... (the skill record's effect; UI highlighting)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

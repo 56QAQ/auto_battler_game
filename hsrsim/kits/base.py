@@ -169,6 +169,11 @@ class Kit:
         self.battle.events.emit(E.ULT_USED, entity=self.char, energy=spent)
         self.with_target(target, self.ult)
 
+    def ult_resource(self) -> tuple[float, float, str]:
+        """(current, required, label) of what the Ultimate costs, for display. Kits whose Ultimate is not paid
+        with Energy (Acheron's Slashed Dream, Feixiao's Flying Aura, Phainon's Coreflame ...) override this."""
+        return self.char.energy, self.char.max_energy, "能量"
+
     def ult_target_kind(self) -> str:
         """Target kind of the Ultimate (see hsrsim.control)."""
         return target_kind(self.sk("ult"))
@@ -191,6 +196,7 @@ class Kit:
             target=target_kind(rec),
             sp=_sp_delta(rec),
             kind="basic",
+            shape=str(rec.get("effect") or ""),
         )
         base.update(kw)
         return MenuItem(**base)
@@ -207,7 +213,8 @@ class Kit:
             sp=sp,
             kind="skill",
             enabled=ok,
-            note="" if ok else "not enough Skill Points",
+            note="" if ok else "战技点不足",
+            shape=str(rec.get("effect") or ""),
         )
         base.update(kw)
         return MenuItem(**base)

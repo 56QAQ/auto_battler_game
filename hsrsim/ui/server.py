@@ -169,8 +169,34 @@ def catalog() -> dict[str, Any]:
         "main_stats": mains,
         "substats": subs,
         "endgame": endgame_index(),
+        "names": name_table(),
         "elements": ["Physical", "Fire", "Ice", "Thunder", "Wind", "Quantum", "Imaginary"],
     }
+
+
+def name_table() -> dict[str, str]:
+    """EN -> CN names of everything that shows up as a label (abilities, traces, eidolons, gear, characters)."""
+    gd = get_data()
+    out: dict[str, str] = {}
+
+    def add(en: Any, cn: Any) -> None:
+        if isinstance(en, str) and isinstance(cn, str) and en and cn and en not in out:
+            out[en] = cn
+
+    for c in gd.characters.values():
+        add(c["name"], c["name_cn"])
+    for s in gd.skills.values():
+        add(s["name"], s.get("name_cn"))
+    for t in gd.traces.values():
+        add(t.get("name"), t.get("name_cn"))
+    for r in gd.ranks.values():
+        add(r.get("name"), r.get("name_cn"))
+    for lc in gd.light_cones.values():
+        add(lc["name"], lc["name_cn"])
+        add(lc.get("skill"), lc.get("skill_cn"))
+    for rs in gd.relic_sets.values():
+        add(rs["name"], rs["name_cn"])
+    return out
 
 
 def _monster(m: dict[str, Any]) -> dict[str, Any]:

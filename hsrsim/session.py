@@ -290,6 +290,7 @@ class _Worker:
                     "actor": name(a.actor),
                     "kind": a.kind.value,
                     "label": a.label,
+                    "label_cn": (a.skill or {}).get("name_cn", ""),
                     "target": name(a.target),
                     "sp": b.sp,
                 }
@@ -303,6 +304,8 @@ class _Worker:
             p = r.parts
             entry: dict[str, Any] = {
                 "t": "dmg",
+                "tref": ref(e.target),
+                "oref": ref(e.credited),
                 "owner": r.owner,
                 "attacker": r.attacker,
                 "label": r.label,
@@ -344,10 +347,22 @@ class _Worker:
         ev.on(E.AFTER_HIT, on_hit, owner=self)
         ev.on(
             E.BREAK,
-            lambda e: add({"t": "break", "target": name(e.target), "by": name(e.attacker), "element": e.element.value}),
+            lambda e: add(
+                {
+                    "t": "break",
+                    "target": name(e.target),
+                    "tref": ref(e.target),
+                    "by": name(e.attacker),
+                    "element": e.element.value,
+                }
+            ),
             owner=self,
         )
-        ev.on(E.KILL, lambda e: add({"t": "kill", "target": name(e.target), "by": name(e.killer)}), owner=self)
+        ev.on(
+            E.KILL,
+            lambda e: add({"t": "kill", "target": name(e.target), "tref": ref(e.target), "by": name(e.killer)}),
+            owner=self,
+        )
 
         def on_mod(e: E.Ev) -> None:
             m = e.mod
@@ -358,6 +373,7 @@ class _Worker:
                     "t": "mod",
                     "name": m.name,
                     "target": name(e.target),
+                    "tref": ref(e.target),
                     "kind": m.kind.value,
                     "duration": m.duration,
                     "stacks": m.stacks,
@@ -369,7 +385,15 @@ class _Worker:
 
         def on_heal(e: E.Ev) -> None:
             if e.effective > 0:
-                add({"t": "heal", "target": name(e.entity), "amount": round(e.effective, 1), "source": name(e.source)})
+                add(
+                    {
+                        "t": "heal",
+                        "target": name(e.entity),
+                        "tref": ref(e.entity),
+                        "amount": round(e.effective, 1),
+                        "source": name(e.source),
+                    }
+                )
 
         ev.on(E.HEALED, on_heal, owner=self)
 
@@ -548,9 +572,12 @@ def _character(c: Character) -> dict[str, Any]:
     kit = c.kit
     if kit is not None:
         d["ult_ready"] = bool(kit.ult_ready())
+        cur, need, res_label = kit.ult_resource()
+        d["ult_res"] = {"cur": round(float(cur), 2), "max": round(float(need), 2), "label": res_label}
         d["ult_target"] = kit.ult_target_kind()
         ult = kit.sk("ult")
         d["ult_name"] = ult["name"]
+        d["ult_shape"] = str(ult.get("effect") or "")
         d["ult_name_cn"] = ult.get("name_cn", "")
         d["kit"] = _kit_state(kit)
     sheet = stat_sheet(c)
@@ -577,7 +604,13 @@ def _enemy(e: Enemy) -> dict[str, Any]:
 
 def _summon(u: Summon) -> dict[str, Any]:
     d = _unit(u)
-    d.update(kind="summon", owner=u.owner.ref, memosprite=u.is_memosprite, stat_mode=u.stat_mode)
+    owner = getattr(u, "owner", None)
+    d.update(
+        kind="summon" if owner is not None else "aha",  # Elation's Aha belongs to no character
+        owner=owner.ref if owner is not None else "",
+        memosprite=bool(getattr(u, "is_memosprite", False)),
+        stat_mode=getattr(u, "stat_mode", ""),
+    )
     return d
 
 

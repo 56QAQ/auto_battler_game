@@ -16,7 +16,7 @@ hsrsim = "hsrsim.cli:main"
 include = ["hsrsim*"]
 
 [tool.setuptools.package-data]
-hsrsim = ["data/gamedata/*.json", "ui/static/*"]
+hsrsim = ["data/gamedata/*.json", "ui/static/*", "ui/static/*/*"]
 
 [tool.black]
 line-length = 120
