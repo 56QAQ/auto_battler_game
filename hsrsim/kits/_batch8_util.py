@@ -5,12 +5,10 @@ Not a kit: nothing here is registered.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from .. import stats as S
 from ..elation import CERTIFIED_BANGER_TURNS
-from ..entities import Character, Entity
+from ..entities import Entity
 from ..enums import Path
 from ..modifiers import Modifier, ModKind, Stacking
 
@@ -59,22 +57,3 @@ def elation_priority(battle: Battle, c: Entity) -> int:
 def has_elation_skill(c: Entity) -> bool:
     kit = getattr(c, "kit", None)
     return bool(kit is not None and getattr(kit, "has_elation_skill", False))
-
-
-def wrap_energy_overflow(battle: Battle, char: Character, on_overflow: Callable[[float], None]) -> None:
-    """Report Energy that ``char`` would gain beyond Max Energy.
-
-    not modelled by the engine: ``Battle.gain_energy`` silently drops Energy past the cap, so kits with an
-    "overflow Energy" trace wrap it on this battle instance (chained, so several kits can wrap it).
-    """
-    orig = battle.gain_energy
-
-    def gain_energy(c: Character, base: float, fixed: bool = False) -> None:
-        if c is char and c.max_energy > 0:
-            amount = base if fixed else base * (1.0 + c.stat(S.ERR))
-            room = max(0.0, c.max_energy - c.energy)
-            if amount > room:
-                on_overflow(amount - room)
-        orig(c, base, fixed)
-
-    setattr(battle, "gain_energy", gain_energy)  # noqa: B010 - instance-level wrapper

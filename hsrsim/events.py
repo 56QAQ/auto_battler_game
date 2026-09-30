@@ -33,6 +33,7 @@ ULT_USED = "ult_used"  # ev.entity, ev.energy (Energy actually spent)
 SP_CHANGED = "sp_changed"  # ev.delta, ev.entity (who caused it)
 SP_RECOVERED = "sp_recovered"  # ev.amount requested, ev.overflow (lost to the cap), ev.entity
 ENERGY_GAINED = "energy_gained"  # ev.entity, ev.amount
+ENERGY_OVERFLOW = "energy_overflow"  # ev.entity, ev.amount (Energy lost to the Max Energy cap)
 HP_CHANGED = "hp_changed"  # ev.entity, ev.delta, ev.source
 ALLY_ATTACKED = "ally_attacked"  # ev.attacker (enemy), ev.targets (after the hits landed)
 BEFORE_ALLY_HIT = "before_ally_hit"  # ev.attacker (enemy), ev.target, ev.action, ev.damage (before shields)

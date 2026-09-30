@@ -1051,6 +1051,9 @@ class Battle:
         c.energy = min(c.max_energy, c.energy + amount)
         if c.energy != before:
             self.events.emit(E.ENERGY_GAINED, entity=c, amount=c.energy - before)
+        overflow = before + amount - c.max_energy
+        if overflow > 0:
+            self.events.emit(E.ENERGY_OVERFLOW, entity=c, amount=overflow)
 
     def gain_sp(self, n: int, who: Entity | None = None) -> None:
         before = self.sp

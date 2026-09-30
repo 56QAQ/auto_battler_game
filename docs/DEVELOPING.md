@@ -99,6 +99,7 @@ The callback receives an `Ev`; payload attributes are listed in `hsrsim/events.p
 | `MOD_APPLIED` / `MOD_REMOVED` | `mod target` | "after inflicting a debuff" |
 | `ULT_USED` | `entity` | "when an ally uses Ultimate" (fires before the ult action) |
 | `SP_CHANGED` | `delta entity` | SP consumption |
+| `ENERGY_OVERFLOW` | `entity amount` | Energy lost to the Max Energy cap ("overflow Energy" traces) |
 | `ENERGY_GAINED`, `HP_CHANGED` (`entity delta source`), `ALLY_ATTACKED`, `DOT_TRIGGERED`, `ENEMY_SPAWNED`, `WAVE_START` | | |
 
 `ActionKind`: `BASIC SKILL ULT FUA MEMOSPRITE EXTRA ENEMY`.

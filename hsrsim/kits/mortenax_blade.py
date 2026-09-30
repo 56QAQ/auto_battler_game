@@ -15,7 +15,6 @@ from ..entities import Character, Enemy, Summon
 from ..enums import ActionKind, DmgTag, Path, Side
 from ..modifiers import Modifier, ModKind, hidden
 from . import register
-from ._batch8_util import wrap_energy_overflow
 from .base import Kit
 
 ENH_BASIC_ID = "150708"
@@ -37,7 +36,7 @@ class MortenaxBlade(Kit):
         self.e6_ready = True
         self.nihility_mates = sum(1 for c in self.battle.team if c is not self.char and c.path == Path.NIHILITY)
         if self.trace(1):
-            wrap_energy_overflow(self.battle, self.char, self._on_overflow)
+            self.on(E.ENERGY_OVERFLOW, self._energy_overflow)
         self.on(E.ATTACK_END, self._talent)
         self.on(E.ALLY_ATTACKED, self._a4)
         self.on(E.HP_CHANGED, self._on_hp)
@@ -88,6 +87,10 @@ class MortenaxBlade(Kit):
         self.buff_self(Modifier("Blade's Reach Spares None", stats={S.MITIGATION: p[0]}, duration=int(p[1])))
 
     # ------------------------------------------------------------ Energy
+    def _energy_overflow(self, ev: E.Ev) -> None:
+        if ev.entity is self.char:
+            self._on_overflow(ev.amount)
+
     def _on_overflow(self, amount: float) -> None:
         self.overflow = min(self.tp(1, 1), self.overflow + amount)
 

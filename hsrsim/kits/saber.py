@@ -13,7 +13,6 @@ from ..entities import Character, Enemy
 from ..enums import ActionKind, DmgTag
 from ..modifiers import Modifier, Stacking
 from . import register
-from ._batch8_util import wrap_energy_overflow
 from .base import Kit
 
 RELEASE_ID = "101408"  # Enhanced Basic ATK "Release, the Golden Scepter"
@@ -31,7 +30,7 @@ class Saber(Kit):
         self.ults = 0
         self.overflow = 0.0
         if self.trace(2):
-            wrap_energy_overflow(self.battle, self.char, self._on_overflow)
+            self.on(E.ENERGY_OVERFLOW, self._energy_overflow)
         self.on(E.ULT_USED, self._talent)
         if self.trace(1):
             self.passive("Knight of the Dragon", {S.CRIT_RATE: self.tp(1, 0)})
@@ -75,6 +74,10 @@ class Saber(Kit):
     # ------------------------------------------------------ Core Resonance
     def overflow_cap(self) -> float:
         return self.ep(6, 3) if self.e(6) else self.tp(2, 0)
+
+    def _energy_overflow(self, ev: E.Ev) -> None:
+        if ev.entity is self.char:
+            self._on_overflow(ev.amount)
 
     def _on_overflow(self, amount: float) -> None:
         self.overflow = min(self.overflow_cap(), self.overflow + amount)
