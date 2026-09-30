@@ -1,46 +1,38 @@
 # AGENTS.md
 
-This repository contains a small prototype of a rogue-lite auto‑battler built with **Python 3.12** and **Pygame**. The goal is to provide a PvE rogue‑lite game inspired by *Slay the Spire*, *The Binding of Isaac*, and *Hades*, but featuring *Teamfight Tactics–style auto‑battler combat*. The following notes describe the current layout and development practices.
+This repository contains **hsrsim**, a Honkai: Star Rail combat simulator (pure logic, no art)
+used to measure character damage output in configurable scenarios. Python 3.11+, no runtime
+dependencies (PyYAML optional for YAML configs).
 
-## Module Overview
+## Module overview
 
-| Path        | Role |
-|-------------|------|
-| `ai/`       | Combat behaviours including navigation and target selection. |
-| `assets/`   | CC0 or procedurally generated sprites, fonts and UI elements. |
-| `data/`     | Game constants, enumerations and dictionary based definitions. |
-| `engine/`   | Core gameplay classes (units, items, map) and combat logic. |
-| `states/`   | Finite state machine controlling game phases and input routing. |
-| `ui/`       | Rendering helpers and UI windows. Uses `ui/constants.py` for layout. |
-| `tests/`    | PyTest cases exercising engine and utility functions. |
-| `main.py`   | Application entry point wiring the modules together. |
+| Path | Role |
+|---|---|
+| `hsrsim/battle.py` | Engine: AV timeline, turns, actions/hits, damage, toughness/break, modifiers, SP/energy, waves |
+| `hsrsim/formulas.py` | Pure damage formulas (unit-tested) |
+| `hsrsim/modifiers.py` | Buffs/debuffs/fields/DoTs and duration semantics |
+| `hsrsim/kits/` | Character kits, one module per character (`@register`) |
+| `hsrsim/gear/` | Light cone and relic set conditional effects |
+| `hsrsim/elation.py` / `hsrsim/monsters.py` | Elation path (Punchline, Aha, Certified Banger) / passive traits of datamined enemies |
+| `hsrsim/data/` | Loader + generated data snapshot (`gamedata/*.json`, do not edit by hand) |
+| `tools/` | `build_gamedata.py` (regenerate snapshot), `kitinfo.py`, `lcinfo.py` |
+| `docs/` | `RESEARCH.md` (feasibility + formulas), `mechanics_memo.md`, `DEVELOPING.md` (content API) |
+| `tests/` | PyTest suite |
 
-## Development Guidelines
+## Development guidelines
 
-- Keep the code portable; avoid OS specific APIs.
-- Format using **Black**, **isort** and **ruff**.
-- Provide type hints and run `mypy` on the main packages.
-- Ensure tests pass before submitting a PR.
+- Content code encodes logic only; every number must come from the data (`self.p(...)`, `self.tp(...)`, `self.ep(...)`).
+- Read `docs/DEVELOPING.md` before adding kits/gear; follow the duration semantics described there.
+- Format with **Black** (line length 120), **isort**, **ruff**; type hints everywhere.
+- Mark anything approximated with a `# not modelled:` / `# approximation:` comment.
 
-### Local Run
+## Checks
 
-```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-PYTHONPATH=. python main.py
-```
-
-### Checks
 ```bash
 PYTHONPATH=. pytest -q
+ruff check hsrsim tools tests
 ```
 
-## Pull Requests
-Follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) for PR titles and keep one logical change per PR. Summarise why the change was made and mention test results. Assign the PR to `@project-owner` and request review from `@game-lead`.
+## Pull requests
 
-## Asset Policy
-Graphics are placeholders located in `assets/`. They are either simple shapes or CC0 material so the project can be built without manual asset creation.
-
-## License
-
-All source code is released under the MIT license. Document any third‑party resources in `docs/THIRD_PARTY.md`.
+Conventional Commits for titles, one logical change per PR, mention test results.

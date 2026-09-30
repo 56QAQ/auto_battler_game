@@ -1,4 +1,10 @@
 __pycache__/
-.ruff_cache/
 *.pyc
-1.batch
+.venv/
+.cache/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/

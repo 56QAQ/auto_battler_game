@@ -1,0 +1,20 @@
+# Latest Memory of Chaos floor 12 (from the datamine), first half, Elation team
+scenario:
+  preset: moc        # moc | pf | as
+  half: 1            # 1 or 2
+  # group: 1036      # challenge group ID (default: latest in data)
+  # floor: 12
+runs: 5
+team:
+  - character: Sparxie
+    main_stats: {body: crit_dmg, feet: spd, sphere: atk%, rope: atk%}
+    substats: {crit_rate: 8r, crit_dmg: 10r, atk%: 3r, spd: 3r}
+  - character: Yao Guang
+    main_stats: {body: crit_dmg, feet: spd, sphere: atk%, rope: err}
+    substats: {spd: 10r, crit_dmg: 8r}
+  - character: Robin
+    main_stats: {body: atk%, feet: atk%, sphere: atk%, rope: err}
+    substats: {atk%: 8r, spd: 4r}
+  - character: Huohuo
+    main_stats: {body: hp%, feet: spd, sphere: hp%, rope: err}
+    substats: {spd: 10r, hp%: 4r}

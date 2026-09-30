@@ -1,0 +1,22 @@
+# Several teams x several scenarios. Output: DMG (millions) or cycles to clear.
+runs: 3
+scenarios:
+  - {preset: boss, cycles: 5, weaknesses: all}            # single target, 5 cycles
+  - {preset: aoe, count: 3, cycles: 5, weaknesses: all}   # 3 targets, 5 cycles
+  - {preset: moc, half: 1}                               # latest Memory of Chaos 12, first half (clear speed)
+teams:
+  Acheron / Pela / SW / Huohuo:
+    - {character: Acheron, light_cone: Along the Passing Shore, main_stats: {body: crit_rate, feet: atk%, sphere: elemental, rope: atk%}, substats: {crit_rate: 6r, crit_dmg: 12r, atk%: 3r}}
+    - {character: Pela, main_stats: {body: ehr, feet: spd, sphere: hp%, rope: err}, substats: {spd: 10r, ehr: 5r}}
+    - {character: Silver Wolf, main_stats: {body: ehr, feet: spd, sphere: hp%, rope: err}, substats: {spd: 10r, ehr: 5r}}
+    - {character: Huohuo, main_stats: {body: hp%, feet: spd, sphere: hp%, rope: err}, substats: {spd: 10r}}
+  Kafka+ / Black Swan+ / Sparkle+ / Huohuo+:
+    - {character: Kafka, enhanced: true, light_cone: Patience Is All You Need, main_stats: {body: ehr, feet: spd, sphere: elemental, rope: atk%}, substats: {atk%: 8r, spd: 6r, ehr: 4r}}
+    - {character: Black Swan, enhanced: true, light_cone: Reforged Remembrance, main_stats: {body: ehr, feet: spd, sphere: elemental, rope: atk%}, substats: {atk%: 6r, spd: 6r, ehr: 5r}}
+    - {character: Sparkle, enhanced: true, main_stats: {body: crit_dmg, feet: spd, sphere: hp%, rope: err}, substats: {spd: 10r}}
+    - {character: Huohuo, enhanced: true, main_stats: {body: hp%, feet: spd, sphere: hp%, rope: err}, substats: {spd: 10r}}
+  Sparxie / Yao Guang / Robin / Huohuo:
+    - {character: Sparxie, main_stats: {body: crit_dmg, feet: spd, sphere: atk%, rope: atk%}, substats: {crit_rate: 8r, crit_dmg: 10r, atk%: 3r}}
+    - {character: Yao Guang, main_stats: {body: crit_dmg, feet: spd, sphere: atk%, rope: err}, substats: {spd: 10r, crit_dmg: 8r}}
+    - {character: Robin, main_stats: {body: atk%, feet: atk%, sphere: atk%, rope: err}, substats: {atk%: 8r, spd: 4r}}
+    - {character: Huohuo, main_stats: {body: hp%, feet: spd, sphere: hp%, rope: err}, substats: {spd: 10r}}

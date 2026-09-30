@@ -1,0 +1,32 @@
+# Acheron + two Nihility supports + sustain vs a single boss, 5 cycles (single-target output)
+scenario:
+  preset: boss          # boss | aoe | waves
+  cycles: 5
+  weaknesses: [Thunder] # element names: Physical Fire Ice Thunder Wind Quantum Imaginary (or "all")
+  enemy: {level: 95, hp: 1.0e+12, toughness: 240, spd: 150, effect_res: 0.3}
+config:
+  crit_mode: expected   # expected | random
+  start_energy: 0.5
+runs: 20                # debuffs roll their hit chance: average over 20 seeds
+team:
+  - character: Acheron
+    eidolon: 0
+    light_cone: Along the Passing Shore
+    relics: {Pioneer Diver of Dead Waters: 4, Izumo Gensei and Takama Divine Realm: 2}
+    main_stats: {body: crit_rate, feet: atk%, sphere: elemental, rope: atk%}
+    substats: {crit_rate: 6r, crit_dmg: 12r, atk%: 3r, spd: 3r}
+  - character: Pela
+    light_cone: Resolution Shines As Pearls of Sweat
+    relics: {Messenger Traversing Hackerspace: 4, Broken Keel: 2}
+    main_stats: {body: ehr, feet: spd, sphere: hp%, rope: err}
+    substats: {spd: 10r, ehr: 5r}
+  - character: Silver Wolf
+    light_cone: Before the Tutorial Mission Starts
+    relics: {Genius of Brilliant Stars: 4, Pan-Cosmic Commercial Enterprise: 2}
+    main_stats: {body: ehr, feet: spd, sphere: elemental, rope: err}
+    substats: {spd: 10r, ehr: 5r}
+  - character: Huohuo
+    light_cone: Night of Fright
+    relics: {Longevous Disciple: 4, Fleet of the Ageless: 2}
+    main_stats: {body: hp%, feet: spd, sphere: hp%, rope: err}
+    substats: {spd: 10r, hp%: 4r}
