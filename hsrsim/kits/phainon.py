@@ -11,7 +11,9 @@ Options (``default_opts``):
     ``"creation"`` (never Calamity) or ``"calamity"`` (Calamity whenever Foundation is not used).
   * ``calamity_enemies``: enemy count from which ``"auto"`` prefers Calamity over Creation (default 3).
   * ``ignition_refreshes``: cap on the "Eternal Ignition" refreshes per transformation (Cyrene's "Ode to
-    Worldbearing"); ``None`` (default) = unlimited as in the game, where only a killing blow ends it.
+    Worldbearing"); ``None`` (default) = unlimited as in the ability script: the final hit refreshes the extra turns
+    whenever Khaslana holds ``MServant_CyreneServant_00_AmazingBuff_Phainon_Sub`` (added on every transformation, no
+    counter) and no extra turn is left, so only the final hit of a killing blow (extra turns remaining) ends it.
   * ``wait_for_cyrene``: with Cyrene in the team, hold the Ultimate until her Demiurge has cast its Ode on Phainon
     (default True; the game's auto-battle does the same, ``_M_Cyrene_00_Phainon_ForbidAutoUltraBeforeCyreneUltra``).
 
@@ -25,7 +27,8 @@ sets every teammate's Energy / special resource to its maximum).
 # approximation: the Energy bar is only used to detect "Energy Regeneration from a teammate's ability" (A4): any Energy
 #   gained is discarded, Coreflame is tracked by the kit.
 # approximation: "targeted by an ability" counts single-target ally abilities (ALLY_TARGETED) and enemy attacks.
-# not modelled: Crowd Control immunity; the ability-target rules of the Calamity Counter for enemies that act twice.
+# not modelled: Crowd Control immunity; the ability-target rules of the Calamity Counter for enemies that act twice;
+#   the Ode refresh stopping when Cyrene is downed (the ``_Sub`` modifier is removed on death; allies are immortal).
 """
 
 from __future__ import annotations
@@ -89,6 +92,7 @@ class Phainon(Kit):
         self.ode: list[float] | None = None
         self.lethal = False
         self.a4_turn = -1
+        self.a4_energy_act: Any = None
         self.on(E.ALLY_TARGETED, self._targeted)
         self.on(E.ALLY_ATTACKED, self._attacked)
         self.on(E.ENERGY_GAINED, self._energy)
@@ -175,6 +179,9 @@ class Phainon(Kit):
         self.char.energy = 0.0
         act = self.battle.current_action
         if self.trace(2) and act is not None and act.owner is not self.char and act.owner.side == Side.ALLY:
+            if act is self.a4_energy_act:
+                return  # once per ability (M_Phainon_00_SkillTree02_SubListener resets its _isSkill flag)
+            self.a4_energy_act = act
             self.add_coreflame(self.tp(2, 2))  # A4: Energy Regeneration from a teammate's ability
 
     def _targeted(self, ev: E.Ev) -> None:
@@ -573,7 +580,8 @@ class Phainon(Kit):
         if not self.transformed:
             return
         kt = self._lv(KHASLANA_TALENT)
-        self.battle.heal(self.char, kt[1] * self.char.max_hp, self.char)
+        # "restore HP equal to #2 of Max HP": Skill31_SelectTarget_OnLimbo uses SetHP (not a heal, no healing boosts)
+        self.battle.set_hp(self.char, kt[1] * self.char.max_hp, self.char)
         remaining = len(self.bes)
         for u in self.bes:
             self.battle.remove_unit(u)

@@ -50,6 +50,7 @@ def test_phainon_skill_coreflame_and_targeted_by_teammate():
     before = kit.coreflame
     with b.action(mate, ActionKind.SKILL, target=ph):  # a teammate's ability targets Phainon
         b.gain_energy(ph, 10)  # ... and regenerates his Energy (A4)
+        b.gain_energy(ph, 10)  # A4 triggers once per ability
     assert kit.coreflame == pytest.approx(before + 1 + kit.tp(2, 2))
     mod = ph.get_mod("Pyric Corpus")
     assert mod is not None and mod.stats[S.CRIT_DMG] == pytest.approx(kit.p("talent", 0))
@@ -174,10 +175,12 @@ def test_evernight_dream_consumes_memoria_and_dismisses_evey():
     kit.dream(evey)
     act = acts[-1]
     assert act.actor is evey and act.kind == ActionKind.MEMOSPRITE
-    assert act.hits[0].mult["hp"] == pytest.approx(lv[0] * 20)
+    # the Memoria gained when the ability starts counts: A4 (+#1) and the A2 HP cost of Evey (Talent +#1)
+    points = 20 + kit.tp(2, 0) + kit.p("talent", 0)
+    assert act.hits[0].mult["hp"] == pytest.approx(lv[0] * points)
     assert kit.memosprite() is None  # Evey disappears
     parting = _lv(kit, "1141306")
-    assert ev.spd == pytest.approx(spd0 + (parting[0] + parting[1] * 20) * ev.raw(S.BASE_SPD))
+    assert ev.spd == pytest.approx(spd0 + (parting[0] + parting[1] * points) * ev.raw(S.BASE_SPD))
     assert b.sp == min(b.max_sp, sp0 + 1)  # A2
     assert kit.trigger_armed
 
@@ -231,3 +234,68 @@ def test_cyrene_ultimate_demiurge_and_odes():
     lv = _lv(kit, "1141502")
     mod = mate.get_mod("This Ode, to All Lives")
     assert mod is not None and mod.stats[S.DMG_PCT] == pytest.approx(lv[1]) and mod.duration == int(lv[2])
+
+
+def test_phainon_ode_refreshes_extra_turns_until_a_killing_blow():
+    b, (cy, ph) = _battle([Build("Cyrene"), Build("Phainon")])
+    kit = ph.kit
+    kit.on_cyrene_ode(cy.kit)  # "Ode to Worldbearing"
+    kit.coreflame = kit.p("talent", 3)
+    kit.use_ult()
+    n = int(kit.p("ult", 3))
+    span = F.AV_BASE / (kit.p("ult", 2) * ph.raw(S.BASE_SPD))
+    acts = _actions(b)
+    b.run(max_av=b.time + span + 1.0)
+    # the final hit came, but the extra turns were refreshed (no refresh counter in the script)
+    assert len([a for a in acts if a.label == "Khaslana: Final Hit"]) == 1
+    assert kit.transformed and kit.refreshes == 1 and not cy.alive
+    assert len(kit.bes) == n - 1  # the first refreshed extra turn acts immediately
+    # a killing blow: HP is set to #2 of Max HP (SetHP, no healing boosts), then the final hit ends it
+    kit.passive("Outgoing Healing (test)", {S.HEAL_PCT: 0.5})
+    kt = _lv(kit, "140805")
+    enemy = b.enemies[0]
+    remaining = len(kit.bes)
+    with b.action(enemy, ActionKind.ENEMY, target=ph, label="Attack") as act:
+        b.hit_ally(enemy, ph, 1e9, action=act)
+    assert ph.hp == pytest.approx(kt[1] * ph.max_hp)
+    b.process_queue()
+    final = [a for a in acts if a.label == "Khaslana: Final Hit"][-1]
+    assert final.hits[0].mult["atk"] == pytest.approx(kit.p("ult", 0) * max(0.0, 1 - kt[2] * remaining))
+    assert not kit.transformed and cy.alive  # extra turns were left: no refresh
+
+
+def test_evernight_evey_abilities_cost_hp_and_dream_trigger_timing():
+    b, (ev, _) = _battle([Build("Evernight"), generic_build("Bronya")])
+    kit = ev.kit
+    evey = kit.memosprite()
+    whirl = _lv(kit, "1141301")
+    kit.memoria = 0.0
+    hp0 = evey.hp
+    kit.whirl(evey)
+    # A2 "this unit": Evey's abilities consume 5% of her current HP too (-> Talent Memoria)
+    assert evey.hp == pytest.approx(hp0 * (1 - kit.tp(1, 1)))
+    assert kit.memoria == pytest.approx(kit.p("talent", 0) + kit.tp(2, 0) + whirl[3])
+    # reaching #6 outside Evernight's actions does not make Evey act; her own turn still uses the normal skill
+    evey.gauge = F.AV_BASE
+    kit.memoria = kit.p("talent", 5)
+    kit.gain_memoria(1)
+    assert kit.trigger_armed and evey.gauge == F.AV_BASE
+    acts = _actions(b)
+    kit._evey_turn(evey, b)
+    assert acts[-1].skill["id"] == "1141301" and kit.memosprite() is evey
+    # ... it is checked when Evernight's action ends
+    kit.basic(b.default_target())
+    assert not kit.trigger_armed and evey.gauge == 0
+    kit._evey_turn(evey, b)
+    assert acts[-1].skill["id"] == "1141307" and kit.memosprite() is None
+
+
+def test_cyrene_recollection_overflow_and_e2_counts_herself():
+    b, (cy, ph, mate) = _battle([Build("Cyrene", eidolon=2), Build("Phainon"), generic_build("Bronya")])
+    kit = cy.kit
+    kit.gain_recollection(1000)
+    assert kit.recollection == pytest.approx(kit.p("talent", 3) + kit.p("talent", 2))  # maximum #4 + overflow #3
+    kit.use_ult()
+    assert kit.recollection == pytest.approx(kit.p("talent", 2))  # the overflow is kept
+    # Cyrene herself (Ode to Ego) and Phainon (Ode to Worldbearing) received Demiurge's buff
+    assert kit.zone_ratio() == pytest.approx(kit.p("skill", 0) + 2 * kit.ep(2, 2))

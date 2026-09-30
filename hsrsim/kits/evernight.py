@@ -11,10 +11,12 @@ Options (``default_opts``):
 Cyrene protocol: ``on_cyrene_ode(cyrene)`` ("Ode to Time").
 
 # approximation: the Skill's memosprite CRIT DMG conversion always uses the displayed Skill value (141302 #1); the
-#   variant used while Evey is on the field (141309) carries an undisplayed #1 of 40% at Lv. 10.
+#   variant used while Evey is on the field (141309) carries an undisplayed #1 of 40% at Lv. 10. Both variants add the
+#   same file-level modifier (MAvatar_Evernight_00_Skill02_Buff -> _Buff_Buff, CriticalDamageConvert = dyn) and the
+#   ability summary cannot show which skill's parameter the dynamic value reads.
 # approximation: Evey's "increased chance of getting attacked" is Aggro +(Memosprite Talent #2) (AggroAddedRatio).
 # approximation: "once per target for each received attack" is keyed on the enemy action; every HP consumption
-#   (Skill, A2, Evey's "Dream") counts as a separate HP loss.
+#   (Skill, A2 for Evernight and Evey, Evey's "Dream") counts as a separate HP loss.
 # not modelled: Crowd Control immunity / dispels.
 """
 
@@ -62,6 +64,7 @@ class Evernight(Kit):
         self.ode: list[float] | None = None
         self.on(E.HP_CHANGED, self._on_hp)
         self.on(E.ACTION_START, self._on_action)
+        self.on(E.ACTION_END, lambda ev: ev.action.actor is self.char and self._check_trigger())
         self.on(E.UNIT_ADDED, lambda ev: self._memo_buffs(ev.unit))
         self.on(E.TURN_START, self._turn_start)
         self.passive("Solitude, Drifting, In Murk", {}, dyn=self._memo_talent_dmg, dyn_keys={S.DMG_PCT})
@@ -109,8 +112,13 @@ class Evernight(Kit):
         if self.e(2):
             n += self.ep(2, 0)
         self.memoria += n
+
+    def _check_trigger(self) -> None:
+        """Talent: at #6 Memoria Evey immediately takes action (with "Dream, Dissolving, as Dew"). The game checks
+        when Evernight's action ends (MAvatar_Evernight_00_Passive_Endurance_Control OnActionEnd) and when Evey is
+        summoned (MServant_EvernightServant_00_InsertControl), not on every Memoria gain."""
         evey = self.evey()
-        if self.trigger_armed and evey is not None and self.memoria >= self.p("talent", 5):
+        if self.trigger_armed and evey is not None and self.memoria >= self.p("talent", 5) and self.enemies():
             self.trigger_armed = False  # re-armed after Evey uses "Dream, Dissolving, as Dew"
             self.battle.advance(evey, 1.0)  # "it immediately takes action"
 
@@ -135,8 +143,10 @@ class Evernight(Kit):
         memo = isinstance(act.actor, Summon) and act.actor.is_memosprite and act.actor.side == Side.ALLY
         if not (mine or memo):
             return
-        if mine and self.trace(1):
-            self.battle.lose_hp(self.char, self.tp(1, 1) * self.char.hp, self.char)
+        # A2 "this unit": Evernight (MAvatar_Evernight_00_PointB1_Aura) and Evey (MAvatar_Evernight_00_PointB1_Servant)
+        if self.trace(1) and (mine or act.actor is self.evey()):
+            unit = act.actor
+            self.battle.lose_hp(unit, self.tp(1, 1) * unit.hp, self.char)
             self.buff_self(
                 Modifier("Dark the Night (CRIT DMG)", stats={S.CRIT_DMG: self.tp(1, 2)}, duration=int(self.tp(1, 3)))
             )
@@ -196,12 +206,13 @@ class Evernight(Kit):
             hidden("Solitude, Drifting, In Murk (Aggro)", {S.AGGRO_PCT: self._lv(MEMO_TALENT)[1]}), evey, self.char
         )
         self.battle.advance(evey, 1.0)  # "When summoned, this unit immediately takes action"
+        self._check_trigger()
         return evey
 
     def _evey_turn(self, evey: Summon, battle: Battle) -> None:
         if not self.enemies():
             return
-        if self.memoria >= self._lv(DREAM)[2]:
+        if not self.trigger_armed and self.memoria >= self._lv(DREAM)[2]:  # MServant_..._TriggerNormal maps Dream
             self.dream(evey)
         else:
             self.whirl(evey)
@@ -226,9 +237,9 @@ class Evernight(Kit):
         target = last if last is not None and last.alive else self.pick_target()
         if target is None:
             return
-        points = self.memoria
         extra = {S.DMG_PCT: self.ode[0]} if self.ode is not None else None
         with self.battle.action(evey, ActionKind.MEMOSPRITE, skill=rec, target=target) as act:
+            points = self.memoria  # incl. the Memoria gained when the ability starts (A2 HP cost, A4)
             act.hit(target, lv[0] * points, stat="hp", toughness=float(t[0]), extra=extra)
             for e in self.enemies():
                 if e is not target:
@@ -282,8 +293,8 @@ class Evernight(Kit):
             self.gain_memoria(lv[2] + (lv[4] if self.in_riddle else 0.0))
             if evey is None:
                 self.summon_evey()
-        if self.ode is not None:
-            self.gain_memoria(self.ode[1])
+            if self.ode is not None:  # Ode to Time (OnAfterSkillUse, before the action ends)
+                self.gain_memoria(self.ode[1])
 
     def ult(self, target: Enemy | None) -> None:
         with self.action(ActionKind.ULT, "ult", target) as act:
@@ -312,8 +323,8 @@ class Evernight(Kit):
                         )
                     ),
                 ]
-        if self.ode is not None:
-            self.gain_memoria(self.ode[1])
+            if self.ode is not None:  # Ode to Time (OnAfterSkillUse, before the action ends)
+                self.gain_memoria(self.ode[1])
 
     # ------------------------------------------------------------ eidolons
     def _e1(self, ev: E.Ev) -> None:

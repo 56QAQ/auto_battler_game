@@ -1,10 +1,11 @@
-"""Cyrene (昔涟) — Remembrance / Ice. No Energy: "Recollection" (Talent #4 for the first Ultimate, #5 afterwards, up to
-#3) comes from her Basic ATK / Skill and from teammates acting with "Future". Her Skill Zone makes every ally DMG
-instance deal an extra True DMG instance; the Talent boosts the team's DMG. The Ultimate (once per battle) summons the
-memosprite Demiurge (SPD 0, off the Action Order), gives it an extra turn, fills every teammate's Ultimate, keeps the
-Zone up for the rest of the battle and enhances her Basic ATK; later Ultimates ("Reunion at First Sight") only give
-Demiurge extra turns. On its extra turns Demiurge casts an "Ode" on an ally (character-specific special effects for
-Chrysos Heirs, DMG boost otherwise) or attacks with "Minuet of Blooms and Plumes" ("Ode to Ego" bounces, "Story").
+"""Cyrene (昔涟) — Remembrance / Ice. No Energy: "Recollection" (Talent #4 for the first Ultimate, #5 afterwards; the
+maximum #4 can overflow by #3) comes from her Basic ATK / Skill and from teammates acting with "Future". Her Skill Zone
+makes every ally DMG instance deal an extra True DMG instance; the Talent boosts the team's DMG. The Ultimate (once per
+battle) summons the memosprite Demiurge (SPD 0, off the Action Order), gives it an extra turn, fills every teammate's
+Ultimate, keeps the Zone up for the rest of the battle and enhances her Basic ATK; later Ultimates ("Reunion at First
+Sight") only give Demiurge extra turns. On its extra turns Demiurge casts an "Ode" on an ally (character-specific
+special effects for Chrysos Heirs, DMG boost otherwise) or attacks with "Minuet of Blooms and Plumes" ("Ode to Ego"
+bounces, "Story").
 
 Options (``default_opts``):
   * ``rotation``: ``"auto"`` (Skill when the Zone is missing or about to expire, Basic ATK otherwise; default),
@@ -157,7 +158,8 @@ class Cyrene(Kit):
 
     # --------------------------------------------------------- Recollection
     def rec_cap(self) -> float:
-        return self.p("talent", 2)
+        # "After reaching the maximum (#4), it can overflow by up to #3 points": MaxExtraSpecialSP = #3 on top of it
+        return self.p("talent", 3) + self.p("talent", 2)
 
     def gain_recollection(self, n: float, source: Entity | None = None) -> None:
         if source is not None and source is not self.char and source is not self.demiurge():
@@ -311,6 +313,9 @@ class Cyrene(Kit):
         self.buff_self(hidden("Waiting, In Every Past", {}, dyn=self._waiting_hp, dyn_keys={S.HP_PCT}))
         self.battle.apply(hidden("Waiting, In Every Past", {S.HP_PCT: hp}), demi, self.char)
         demi.hp = demi.max_hp
+        # Cyrene herself receives Demiurge's buff ("Ode to Ego"; the servant's passive adds
+        # MServant_CyreneServant_00_AmazingBuff to its summoner): she counts as an ally for E2
+        self.ode_given.setdefault(self.char.uid, 1)
         return demi
 
     def _waiting_hp(self, mod: Modifier, key: str, ent: Entity) -> float:
