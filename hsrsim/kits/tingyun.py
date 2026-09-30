@@ -1,4 +1,8 @@
-"""Tingyun (停云) — Harmony / Lightning. Benediction (ATK + additional DMG), 50 flat Energy ultimate."""
+"""Tingyun (停云) — Harmony / Lightning. Benediction (ATK + additional DMG), 50 flat Energy ultimate.
+
+approximation: Benediction / Talent Additional DMG hit the first attacked enemy; E4 raises only Benediction's
+multiplier (the Talent's is not confirmed by the data tools).
+"""
 
 from __future__ import annotations
 
@@ -9,6 +13,10 @@ from ..enums import ActionKind, DmgTag, Element
 from ..modifiers import Modifier, Tick
 from . import register
 from .base import Kit
+
+# text-only durations (script: LifeTime=1, LifeStepMoment=ModifierPhase1End -> until the holder's next turn start)
+A2_SPD_TURNS = 1  # A2 "SPD increases by #1% for 1 turn after using Skill"
+E1_SPD_TURNS = 1  # E1 "gains a 20% increase in SPD for 1 turn"
 
 
 @register
@@ -33,7 +41,9 @@ class Tingyun(Kit):
 
     def _turn_start(self, ev: E.Ev) -> None:
         if ev.entity is self.char and self.trace(3):
-            self.battle.gain_energy(self.char, self.tp(3, 0), fixed=True)
+            # MAvatar_Tingyun_Tree03: ModifySPNew AddValue (scaled by Energy Regeneration Rate), unlike the
+            # Ultimate's FixedAddValue
+            self.battle.gain_energy(self.char, self.tp(3, 0))
 
     # ----------------------------------------------------------- policy
     def take_turn(self) -> None:
@@ -56,8 +66,10 @@ class Tingyun(Kit):
         assert target is not None
         self.simple_basic(target)
 
-    def _atk_bonus(self, mod: Modifier, key: str, holder: Entity) -> float:
-        return min(self.p("skill", 1) * holder.raw(S.BASE_ATK), self.p("skill", 3) * self.char.atk)
+    def _atk_bonus(self, ally: Entity) -> float:
+        """ATK +#2% (of the ally's base ATK), capped at #4% of Tingyun's current ATK; the Skill snapshots both at
+        cast (SetDynamicValueByProperty MDF_Target_CurrentAttack / MDF_Tingyun_Attack)."""
+        return min(self.p("skill", 1) * ally.raw(S.BASE_ATK), self.p("skill", 3) * self.char.atk)
 
     def skill(self, target: Enemy | None) -> None:
         ally = self.main_dps()
@@ -69,9 +81,8 @@ class Tingyun(Kit):
                 ally,
                 Modifier(
                     "Benediction",
+                    stats={S.ATK_FLAT: self._atk_bonus(ally)},
                     duration=int(self.p("skill", 2)),
-                    dyn=self._atk_bonus,
-                    dyn_keys={S.ATK_FLAT},
                     key="Benediction",
                 ),
             )
@@ -79,7 +90,10 @@ class Tingyun(Kit):
             if self.trace(1):
                 self.buff_self(
                     Modifier(
-                        "Nourished Joviality", stats={S.SPD_PCT: self.tp(1, 0)}, duration=1, tick=Tick.HOLDER_TURN_START
+                        "Nourished Joviality",
+                        stats={S.SPD_PCT: self.tp(1, 0)},
+                        duration=A2_SPD_TURNS,
+                        tick=Tick.HOLDER_TURN_START,
                     )
                 )
 
@@ -127,7 +141,7 @@ class Tingyun(Kit):
                 Modifier(
                     "Windfall of Lucky Springs",
                     stats={S.SPD_PCT: self.ep(1, 0)},
-                    duration=1,
+                    duration=E1_SPD_TURNS,
                     tick=Tick.HOLDER_TURN_START,
                 ),
             )

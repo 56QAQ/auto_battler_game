@@ -1,4 +1,8 @@
-"""Robin (知更鸟) — Harmony / Physical. Concerto: team-wide action advance, flat ATK, extra hits."""
+"""Robin (知更鸟) — Harmony / Physical. Concerto: team-wide action advance, flat ATK, extra hits.
+
+not modelled: E4 Crowd Control dispel / immunity. approximation: the Concerto Additional DMG hits the first
+attacked enemy once per attack.
+"""
 
 from __future__ import annotations
 
@@ -28,7 +32,11 @@ class Robin(Kit):
             self.battle.advance(self.char, self.tp(1, 0))
 
     def technique(self) -> None:
-        self.battle.gain_energy(self.char, self.sk("technique")["params"][0][1], fixed=True)
+        # "regenerates #2 Energy at the start of each wave" (wave 1 now, later waves on WAVE_START); the script's
+        # ModifySPNew uses AddValue (Energy Regeneration Rate applies), not FixedAddValue
+        energy = self.sk("technique")["params"][0][1]
+        self.battle.gain_energy(self.char, energy)
+        self.on(E.WAVE_START, lambda ev: ev.wave > 0 and self.battle.gain_energy(self.char, energy))
 
     @property
     def in_concerto(self) -> bool:

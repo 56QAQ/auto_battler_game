@@ -1,15 +1,12 @@
-"""Silver Wolf (银狼) — Nihility / Quantum. Weakness implant, RES/DEF shred, random Bugs.
-
-Base kit only (the enhanced kit is not implemented yet).
-"""
+"""Silver Wolf (银狼) — Nihility / Quantum. Weakness implant, RES/DEF shred, random Bugs."""
 
 from __future__ import annotations
 
 from .. import events as E
 from .. import stats as S
 from ..entities import Enemy
-from ..enums import ActionKind, Element
-from ..modifiers import Modifier, ModKind
+from ..enums import ActionKind, Element, EnemyRank
+from ..modifiers import Modifier, ModKind, Tick
 from . import register, register_enhanced
 from .base import Kit
 
@@ -50,9 +47,21 @@ class SilverWolf(Kit):
                     self.char,
                 )
 
+    def technique(self) -> None:
+        """Quantum DMG (#1% ATK) to all enemies, reducing Toughness regardless of Weakness Types."""
+        if self.enemies():
+            with self.action(ActionKind.EXTRA, "technique", label="Silver Wolf Technique", energy=0, sp=0) as act:
+                act.aoe(
+                    self.sk("technique")["params"][0][0],
+                    toughness=self.toughness("technique"),
+                    ignore_weakness=True,
+                )
+
     # ------------------------------------------------------------ bugs
     def bug(self, target: Enemy, chance: float) -> None:
-        kind = self.battle.rng.choice(BUGS)
+        # PassiveSkill_RandomBug: a random Bug among the types the target does not have yet (any type if it has all)
+        missing = [b for b in BUGS if target.get_mod(f"Bug ({b})") is None]
+        kind = self.battle.rng.choice(missing or list(BUGS))
         value = {"ATK": self.p("talent", 0), "DEF": self.p("talent", 1), "SPD": self.p("talent", 2)}[kind]
         key = {"ATK": S.ATK_PCT, "DEF": S.DEF_REDUCTION, "SPD": S.SPD_PCT}[kind]
         stat = value if key == S.DEF_REDUCTION else -value
@@ -95,6 +104,11 @@ class SilverWolf(Kit):
     def skill(self, target: Enemy | None) -> None:
         assert target is not None
         with self.action(ActionKind.SKILL, "skill", target) as act:
+            # A6 counts the debuffs present when the Skill is used, before its own RES shred / implant
+            res = self.p("skill", 5)
+            if self.trace(3) and len(target.debuffs) >= self.tp(3, 0):
+                res += self.tp(3, 1)
+            self._res_down(target, res)
             el = self._implant_element(target)
             if el is not None:
                 self.battle.remove_named(target, "Implanted Weakness")
@@ -109,36 +123,40 @@ class SilverWolf(Kit):
                     self.char,
                     self.p("skill", 1),
                 )
-            res = self.p("skill", 5)
-            if self.trace(3) and len(target.debuffs) >= self.tp(3, 0):
-                res += self.tp(3, 1)
-            self.battle.try_debuff(
-                Modifier(
-                    "Allow Changes?",
-                    stats={S.RES_REDUCTION: res},
-                    duration=int(self.p("skill", 6)),
-                    kind=ModKind.DEBUFF,
-                ),
-                target,
-                self.char,
-                self.p("skill", 4),
-            )
             act.hit(target, self.p("skill", 0), toughness=self.toughness("skill"), splits="data")
+
+    def _res_down(self, target: Enemy, value: float) -> None:
+        self.battle.try_debuff(
+            Modifier(
+                "Allow Changes?",
+                stats={S.RES_REDUCTION: value},
+                duration=int(self.p("skill", 6)),
+                kind=ModKind.DEBUFF,
+                tick=Tick.HOLDER_TURN_START,  # BPSkill_AllDamageTypeResistanceDown: ModifierPhase1End
+            ),
+            target,
+            self.char,
+            self.p("skill", 4),
+        )
+
+    def _def_down(self, target: Enemy) -> None:
+        self.battle.try_debuff(
+            Modifier(
+                "User Banned",
+                stats={S.DEF_REDUCTION: self.p("ult", 2)},
+                duration=int(self.p("ult", 3)),
+                kind=ModKind.DEBUFF,
+                tick=Tick.HOLDER_TURN_START,  # Ultra_DefenceRatioDown: ModifierPhase1End
+            ),
+            target,
+            self.char,
+            self.p("ult", 1),
+        )
 
     def ult(self, target: Enemy | None) -> None:
         assert target is not None
         with self.action(ActionKind.ULT, "ult", target) as act:
-            self.battle.try_debuff(
-                Modifier(
-                    "User Banned",
-                    stats={S.DEF_REDUCTION: self.p("ult", 2)},
-                    duration=int(self.p("ult", 3)),
-                    kind=ModKind.DEBUFF,
-                ),
-                target,
-                self.char,
-                self.p("ult", 1),
-            )
+            self._def_down(target)
             act.hit(target, self.p("ult", 0), toughness=self.toughness("ult"), splits="data")
             n = min(int(self.ep(1, 1)), len(target.debuffs)) if target.alive else 0
             if self.e(1) and n:
@@ -154,6 +172,7 @@ class SilverWolfEnhanced(SilverWolf):
 
     def setup(self) -> None:
         self.on(E.ATTACK_END, self._talent)
+        self.on(E.KILL, self._transfer_implant)
         if self.trace(1):
             self.on(E.BREAK, self._a2)
         if self.trace(2):
@@ -176,11 +195,33 @@ class SilverWolfEnhanced(SilverWolf):
             self.on(E.BEFORE_HIT, self._e6)
 
     def on_battle_start(self) -> None:
-        if self.trace(2):
-            self.battle.gain_energy(self.char, self.tp(2, 0), fixed=True)
+        if self.trace(2):  # ModifySPNew AddValue: scaled by Energy Regeneration Rate
+            self.battle.gain_energy(self.char, self.tp(2, 0))
         if self.e(2):
             for e in self.enemies():
                 self._e2_enter(e)
+
+    def _transfer_implant(self, ev: E.Ev) -> None:
+        """Talent: a defeated enemy's implanted Weakness moves to a surviving enemy without one (Elite+ first)."""
+        mod = next((m for m in ev.target.mods("Implanted Weakness") if m.source is self.char), None)
+        if mod is None:
+            return
+        pool = [
+            e
+            for e in self.enemies()
+            if e is not ev.target and e.hp > 0 and not any(m.source is self.char for m in e.mods("Implanted Weakness"))
+        ]
+        tag = next((t for t in mod.tags if t.startswith("weak:")), None)
+        if not pool or tag is None:
+            return
+        target = min(pool, key=lambda e: e.rank == EnemyRank.NORMAL)
+        el = Element(tag.split(":", 1)[1])
+        stats = {} if target.is_weak_to(el) else {f"{S.RES_REDUCTION}:{el.value}": self.p("skill", 3)}
+        self.battle.apply(
+            Modifier("Implanted Weakness", stats=stats, duration=mod.duration, kind=ModKind.DEBUFF, tags={tag}),
+            target,
+            self.char,
+        )
 
     def _e2_enter(self, e: Enemy) -> None:
         self.battle.apply(
@@ -208,17 +249,7 @@ class SilverWolfEnhanced(SilverWolf):
     def ult(self, target: Enemy | None) -> None:
         with self.action(ActionKind.ULT, "ult", target) as act:
             for e in self.enemies():
-                self.battle.try_debuff(
-                    Modifier(
-                        "User Banned",
-                        stats={S.DEF_REDUCTION: self.p("ult", 2)},
-                        duration=int(self.p("ult", 3)),
-                        kind=ModKind.DEBUFF,
-                    ),
-                    e,
-                    self.char,
-                    self.p("ult", 1),
-                )
+                self._def_down(e)
             act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target, splits="data")
             main = target if target is not None and target.alive else None
             if self.e(1) and main is not None:
@@ -231,6 +262,7 @@ class SilverWolfEnhanced(SilverWolf):
     def skill(self, target: Enemy | None) -> None:  # the enhanced A4/A6 no longer modify the Skill
         assert target is not None
         with self.action(ActionKind.SKILL, "skill", target) as act:
+            self._res_down(target, self.p("skill", 5))  # script order: RES shred, then the implant
             el = self._implant_element(target)
             if el is not None:
                 self.battle.remove_named(target, "Implanted Weakness")
@@ -247,15 +279,4 @@ class SilverWolfEnhanced(SilverWolf):
                     self.char,
                     self.p("skill", 1),
                 )
-            self.battle.try_debuff(
-                Modifier(
-                    "Allow Changes?",
-                    stats={S.RES_REDUCTION: self.p("skill", 5)},
-                    duration=int(self.p("skill", 6)),
-                    kind=ModKind.DEBUFF,
-                ),
-                target,
-                self.char,
-                self.p("skill", 4),
-            )
             act.hit(target, self.p("skill", 0), toughness=self.toughness("skill"), splits="data")

@@ -1,17 +1,17 @@
-"""Sparkle (花火) — Harmony / Quantum. SP battery, CRIT DMG buff + 50% advance, DMG% per SP spent.
-
-Base kit only (the enhanced kit is not implemented yet).
-"""
+"""Sparkle (花火) — Harmony / Quantum. SP battery, CRIT DMG buff + 50% advance, DMG% per SP spent."""
 
 from __future__ import annotations
 
 from .. import events as E
 from .. import stats as S
-from ..entities import Character, Enemy
+from ..entities import Character, Enemy, Entity
 from ..enums import ActionKind, Element
 from ..modifiers import Modifier, ModKind, Stacking, Tick
 from . import register, register_enhanced
 from .base import Kit
+
+E1_CIPHER_EXTRA_TURNS = 1  # base E1 text only: "The Cipher effect ... lasts for 1 extra turn"
+E4_EXTRA_SP = 1  # E4 text only: "recovers 1 more Skill Point ... increases the Max Skill Points by 1"
 
 
 @register
@@ -21,7 +21,7 @@ class Sparkle(Kit):
     default_opts = {"target": None}
 
     def setup(self) -> None:
-        extra = int(self.p("talent", 2)) + (1 if self.e(4) else 0)
+        extra = int(self.p("talent", 2)) + (E4_EXTRA_SP if self.e(4) else 0)
         self.battle.max_sp += extra
         self.on(E.SP_CHANGED, self._on_sp)
         if self.trace(3):
@@ -43,13 +43,7 @@ class Sparkle(Kit):
             return
         for _ in range(-ev.delta):
             for c in self.allies():
-                per = self.p("talent", 1)
-                cipher = c.get_mod("Cipher")
-                if cipher is not None:
-                    per += self.p("ult", 2)
-                stats = {S.DMG_PCT: per}
-                if self.e(2):
-                    stats[S.DEF_IGNORE] = self.ep(2, 0)
+                stats = {S.DEF_IGNORE: self.ep(2, 0)} if self.e(2) else {}
                 self.buff(
                     c,
                     Modifier(
@@ -58,8 +52,16 @@ class Sparkle(Kit):
                         duration=int(self.p("talent", 0)),
                         stacking=Stacking.STACK,
                         max_stacks=int(self.p("talent", 3)),
+                        dyn=self._herring_dmg,
+                        dyn_keys={S.DMG_PCT},
                     ),
                 )
+
+    def _herring_dmg(self, mod: Modifier, key: str, ent: Entity) -> float:
+        """DMG% per stack, +Cipher bonus while the holder has Cipher (the game recomputes the value whenever
+        Cipher is added or removed: OnListenModifierAdd / OnModifierRemove of Skill03_PowerUp)."""
+        per = self.p("talent", 1) + (self.p("ult", 2) if ent.has_mod("Cipher") else 0.0)
+        return per * mod.stacks
 
     # ---------------------------------------------------------- policy
     def take_turn(self) -> None:
@@ -86,15 +88,15 @@ class Sparkle(Kit):
         return v
 
     def _apply_cd_buff(self, ally: Character, value: float) -> None:
-        if self.trace(2):  # extended until the start of the target's next turn
+        if self.trace(2):
+            # extended until the start of the target's next turn (CritDmgAddedRatio02, ModifierPhase1End); this
+            # holds whether or not the target is the current turn owner (turn-start ticks never skip)
             mod = Modifier(
                 "Dreamdiver",
                 stats={S.CRIT_DMG: value},
                 duration=int(self.p("skill", 2)) + 1,
                 tick=Tick.HOLDER_TURN_START,
             )
-            if ally is self.battle.current_turn:
-                mod.duration = int(self.p("skill", 2))
         else:
             mod = Modifier("Dreamdiver", stats={S.CRIT_DMG: value}, duration=int(self.p("skill", 2)))
         self.buff(ally, mod)
@@ -104,8 +106,8 @@ class Sparkle(Kit):
         with self.action(ActionKind.SKILL, "skill", ally):
             value = self._cd_buff_value()
             self._apply_cd_buff(ally, value)
-            if self.e(6):
-                for c in self.allies():
+            if self.e(6):  # "apply to all teammates with Cipher" (AllTeammate: not Sparkle herself)
+                for c in self.teammates():
                     if c is not ally and c.has_mod("Cipher"):
                         self._apply_cd_buff(c, value)
         if ally is not self.char:
@@ -113,20 +115,17 @@ class Sparkle(Kit):
 
     def ult(self, target: Enemy | None) -> None:
         with self.action(ActionKind.ULT, "ult"):
-            self.battle.gain_sp(int(self.p("ult", 1)) + (1 if self.e(4) else 0), self.char)
-            dur = int(self.p("ult", 3)) + (1 if self.e(1) else 0)
+            self.battle.gain_sp(int(self.p("ult", 1)) + (E4_EXTRA_SP if self.e(4) else 0), self.char)
+            dur = int(self.p("ult", 3)) + (E1_CIPHER_EXTRA_TURNS if self.e(1) else 0)
             for c in self.allies():
                 stats = {S.ATK_PCT: self.ep(1, 0)} if self.e(1) else {}
                 self.buff(c, Modifier("Cipher", stats=stats, duration=dur))
-                herring = c.get_mod("Red Herring")
-                if herring is not None:  # existing stacks get the Cipher bonus immediately
-                    herring.stats[S.DMG_PCT] = self.p("talent", 1) + self.p("ult", 2)
             if self.e(6):
                 holders = [c for c in self.allies() if c.has_mod("Dreamdiver")]
                 if holders:
                     value = holders[0].get_mod("Dreamdiver").stats[S.CRIT_DMG]  # type: ignore[union-attr]
-                    for c in self.allies():
-                        if not c.has_mod("Dreamdiver"):
+                    for c in self.teammates():  # spread to teammates with Cipher (AllTeammate)
+                        if not c.has_mod("Dreamdiver") and c.has_mod("Cipher"):
                             self._apply_cd_buff(c, value)
 
 
@@ -135,7 +134,7 @@ class SparkleEnhanced(Sparkle):
     """Enhanced Sparkle: "Figment" stacks raise enemies' DMG taken, SP overflow bank, free Skill (A4)."""
 
     def setup(self) -> None:
-        extra = int(self.p("talent", 2)) + (1 if self.e(4) else 0)
+        extra = int(self.p("talent", 2)) + (E4_EXTRA_SP if self.e(4) else 0)
         self.battle.max_sp += extra
         self.bank = 0
         self.free_skill = False
@@ -162,7 +161,7 @@ class SparkleEnhanced(Sparkle):
     def technique(self) -> None:
         p = self.sk("technique")["params"][0]
         self.battle.gain_sp(int(p[0]), self.char)
-        self.battle.gain_energy(self.char, p[1], fixed=True)
+        self.battle.gain_energy(self.char, p[1])  # Maze_Modifier: ModifySPNew AddValue (scaled by ERR)
 
     def _e1_spd(self) -> None:
         self.buff_self(
@@ -238,8 +237,8 @@ class SparkleEnhanced(Sparkle):
         with self.action(ActionKind.SKILL, "skill", ally, sp=sp):
             value = self._cd_buff_value()
             self._cd_buff(ally, value)
-            if self.e(6):
-                for c in self.allies():
+            if self.e(6):  # "apply to all teammates with Cipher" (AllTeammate: not Sparkle herself)
+                for c in self.teammates():
                     if c is not ally and c.has_mod("Cipher"):
                         self._cd_buff(c, value)
             if self.e(1):
@@ -249,7 +248,7 @@ class SparkleEnhanced(Sparkle):
 
     def ult(self, target: Enemy | None) -> None:
         with self.action(ActionKind.ULT, "ult"):
-            self.battle.gain_sp(int(self.p("ult", 1)) + (1 if self.e(4) else 0), self.char)
+            self.battle.gain_sp(int(self.p("ult", 1)) + (E4_EXTRA_SP if self.e(4) else 0), self.char)
             for c in self.allies():
                 stats = {S.ATK_PCT: self.ep(1, 0)} if self.e(1) else {}
                 self.buff(c, Modifier("Cipher", stats=stats, duration=int(self.p("ult", 3))))
@@ -257,6 +256,6 @@ class SparkleEnhanced(Sparkle):
                 holders = [c for c in self.allies() if c.has_mod("Dreamdiver")]
                 if holders:
                     value = holders[0].get_mod("Dreamdiver").stats[S.CRIT_DMG]  # type: ignore[union-attr]
-                    for c in self.allies():
-                        if not c.has_mod("Dreamdiver"):
+                    for c in self.teammates():  # spread to teammates with Cipher (AllTeammate)
+                        if not c.has_mod("Dreamdiver") and c.has_mod("Cipher"):
                             self._cd_buff(c, value)

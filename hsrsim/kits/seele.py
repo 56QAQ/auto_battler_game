@@ -1,4 +1,8 @@
-"""Seele (希儿) — Hunt / Quantum. Extra turns on kill (Resurgence)."""
+"""Seele (希儿) — Hunt / Quantum. Extra turns on kill (Resurgence).
+
+not modelled: base A2 (lower chance of being attacked at low HP).
+approximation: base E6 Additional DMG is recomputed as 15% x the Ultimate's ATK multiplier.
+"""
 
 from __future__ import annotations
 
@@ -64,7 +68,9 @@ class Seele(Kit):
         with self.action(ActionKind.ULT, "ult", target) as act:
             act.hit(target, self.p("ult", 0), toughness=self.toughness("ult"), splits="data")
         if self.e(6) and target.alive:
-            self.battle.apply(Modifier("Butterfly Flurry", duration=1, kind=ModKind.DEBUFF), target, self.char)
+            self.battle.apply(
+                Modifier("Butterfly Flurry", duration=int(self.ep(6, 1)), kind=ModKind.DEBUFF), target, self.char
+            )
 
     # ------------------------------------------------------------ talent
     def _on_action_end(self, ev: E.Ev) -> None:
@@ -122,6 +128,8 @@ class SeeleEnhanced(Seele):
             self.auto_ready = True
 
     def _nightshade(self, ev: E.Ev) -> None:
+        if ev.killer is not self.char:  # "When defeating an enemy target" (OnTriggerDeath: Seele's own kills)
+            return
         self.buff_self(
             Modifier(
                 "Nightshade",
@@ -145,7 +153,7 @@ class SeeleEnhanced(Seele):
         if not hits:
             return
         self.auto_ready = False
-        target = hits[0]
+        target = min(hits, key=lambda t: t.hp)  # Retarget ParamEntityAttackTargetList.SortByHP
 
         def auto() -> None:
             t = target if target.alive and target.hp > 0 else None

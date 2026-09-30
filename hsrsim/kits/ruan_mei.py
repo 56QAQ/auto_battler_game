@@ -29,7 +29,10 @@ class RuanMei(Kit):
         self.on(E.RECOVERED, lambda ev: ev.enemy.data_flags.pop("rebloom_used", None))
 
     def technique(self) -> None:
-        self._overtone()
+        # "automatically triggers the Skill 1 time without consuming Skill Points": a real Skill action
+        # (TurnInsertAction -> Skill02 ability incl. its Energy), not only the Overtone buff
+        with self.action(ActionKind.SKILL, "skill", sp=0):
+            self._overtone()
 
     def _turn_start(self, ev: E.Ev) -> None:
         if ev.entity is self.char and self.trace(2):
@@ -40,8 +43,8 @@ class RuanMei(Kit):
         target = self.pick_target()
         if target is None:
             return
-        overtone = self.char.get_mod("Overtone")
-        if self.can_skill() and (overtone is None or (overtone.duration or 0) <= 1):
+        # Overtone ticks at the start of her turn: recast only once it has expired (Skill, Basic, Basic)
+        if self.can_skill() and self.char.get_mod("Overtone") is None:
             self.skill(target)
         else:
             self.basic(target)
@@ -91,12 +94,12 @@ class RuanMei(Kit):
         credited = ev.credited
         if credited is None or credited.side != self.char.side:
             return
-        mult = self.p("talent", 1) + (self.ep(6, 1) if self.e(6) else 0.0)
-        self.battle.break_damage(self.char, ev.target, Element.ICE, mult=mult, label="Ruan Mei Talent Break")
-        if self.e(4):
+        if self.e(4):  # Rank04 listens OnBeforeBeingBreak: the Break Effect boost precedes the Talent's Break DMG
             self.buff_self(
                 Modifier("Chatoyant Eclat", stats={S.BREAK_EFFECT: self.ep(4, 0)}, duration=int(self.ep(4, 1)))
             )
+        mult = self.p("talent", 1) + (self.ep(6, 1) if self.e(6) else 0.0)
+        self.battle.break_damage(self.char, ev.target, Element.ICE, mult=mult, label="Ruan Mei Talent Break")
 
     def _e2(self, ev: E.Ev) -> None:
         hit = ev.hit
@@ -124,6 +127,7 @@ class RuanMei(Kit):
             return
         self.battle.remove_modifier(mod)
         e.data_flags["rebloom_used"] = True
+        # approximation: the whole enemy turn is cancelled at PRE_TURN, so DoTs do not trigger on that turn start
         ev.data["cancel"] = True
         self.battle.log(f"Thanatoplum Rebloom triggers on {e.name}")
         self.battle.break_damage(self.char, e, Element.ICE, mult=self.p("ult", 4), label="Thanatoplum Rebloom")
