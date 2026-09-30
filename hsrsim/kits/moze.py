@@ -14,15 +14,11 @@ from .. import stats as S
 from ..battle import Action
 from ..entities import Enemy
 from ..enums import ActionKind, DmgTag, Element, Side
-from ..formulas import AV_BASE
 from ..modifiers import Modifier, ModKind, Tick
 from . import register
 from .base import Kit
 
 PREY = "Prey"
-# approximation: Battle.timeline() keeps every character on the action order, so Departed is modelled by
-# parking Moze's action gauge far away and restoring it when he returns
-DEPARTED_GAUGE = 1e12
 
 
 @register
@@ -37,7 +33,6 @@ class Moze(Kit):
         self.pending_dispel = False
         self.a2_turn = -(10**9)
         self.departed = False
-        self.saved_gauge = 0.0
         self.on(E.ATTACK_END, self._talent)
         self.on(E.KILL, self._on_kill)
         if self.trace(2):
@@ -46,10 +41,7 @@ class Moze(Kit):
             self.on(E.BEFORE_HIT, self._e2)
 
     def _a4_wave(self, ev: E.Ev) -> None:
-        if self.departed:
-            self.saved_gauge = max(0.0, self.saved_gauge - self.tp(2, 1) * AV_BASE)
-        else:
-            self.battle.advance(self.char, self.tp(2, 1))
+        self.battle.advance(self.char, self.tp(2, 1))  # while Departed the (frozen) gauge still moves forward
 
     def on_battle_start(self) -> None:
         if self.e(1):
@@ -70,8 +62,7 @@ class Moze(Kit):
         self.prey = target
         if not self.departed:
             self.departed = True
-            self.saved_gauge = self.char.gauge
-            self.char.gauge = DEPARTED_GAUGE
+            self.char.on_timeline = False  # off the Action Order, gauge frozen
             self.char.targetable = False
 
     def _dispel(self) -> None:
@@ -83,7 +74,7 @@ class Moze(Kit):
         self.pending_dispel = False
         if self.departed:
             self.departed = False
-            self.char.gauge = self.saved_gauge
+            self.char.on_timeline = True
             self.char.targetable = True
             if self.trace(2):
                 self.battle.advance(self.char, self.tp(2, 0))
