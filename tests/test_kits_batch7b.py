@@ -35,13 +35,13 @@ def _lv(kit, sid):
 def test_hyacine_little_ica_after_rain_and_tally_damage():
     b, (hy, bronya) = _battle([Build("Hyacine"), generic_build("Bronya")])
     kit = hy.kit
-    e0 = hy.energy
+    hy.energy = 0.0
     kit.skill(b.default_target())
     ica = kit.memosprite()
     assert ica is not None and ica.name == "Little Ica" and not ica.on_timeline
     assert ica.max_hp == pytest.approx(kit.p("talent", 0) * hy.max_hp)
     summon = _lv(kit, "1140905")  # 15 Energy + 30 on the first summon, plus the Skill's own 30
-    assert hy.energy - e0 == pytest.approx((summon[0] + summon[1] + 30) * (1 + hy.stat(S.ERR)))
+    assert hy.energy == pytest.approx((summon[0] + summon[1] + 30) * (1 + hy.stat(S.ERR)))
     assert kit.tally > 0  # the Skill's healing is tallied
     stacks = ica.get_mod("First Light Heals the World")
     assert stacks is not None and stacks.stacks == int(kit.p("talent", 4))
@@ -49,6 +49,7 @@ def test_hyacine_little_ica_after_rain_and_tally_damage():
     hp_pct, hp_flat = bronya.stat(S.HP_PCT), bronya.stat(S.HP_FLAT)
     hy.energy = hy.max_energy
     kit.use_ult()
+    b.process_queue()  # Little Ica's extra turn after the Ultimate
     assert bronya.stat(S.HP_PCT) - hp_pct == pytest.approx(kit.p("ult", 2))
     assert bronya.stat(S.HP_FLAT) - hp_flat == pytest.approx(kit.p("ult", 3))
     # while "After Rain" lasts, Little Ica takes an extra turn after each of Hyacine's abilities:
@@ -61,10 +62,9 @@ def test_hyacine_little_ica_after_rain_and_tally_damage():
     assert len(memo) == 1
     lv = _lv(kit, "1140901")
     hit = memo[0].hits[0]
-    assert hit.base == pytest.approx(lv[0] * 50_000.0 + 0.0)
+    assert hit.base == pytest.approx(lv[0] * 50_000.0)
     assert hit.element == Element.WIND
-    tally_before_clear = 50_000.0 + sum(0 for _ in ())  # Basic ATK heals nobody at E0
-    assert kit.tally == pytest.approx(tally_before_clear * (1 - lv[1]))
+    assert kit.tally == pytest.approx(50_000.0 * (1 - lv[1]))  # the Basic ATK heals nobody at E0
 
 
 def test_hyacine_ica_talent_heals_allies_that_lost_hp():
@@ -111,9 +111,8 @@ def test_robin_summeretto_songbirds_fever_and_deviated_chords():
     assert seele.stat(S.DEF_IGNORE) == pytest.approx(kit.p("talent", 7) + kit.vibes * kit.p("talent", 8))
     dmg0 = robin.stat(S.DMG_PCT) - (warble[0] + kit.vibes * warble[1])
     assert band.stat(S.DMG_PCT) == pytest.approx(dmg0 + warble[0] + kit.vibes * warble[1])
-    # Robin's own turns are skipped during Fever
-    pre = b.events.emit(E.PRE_TURN, entity=robin, cancel=False)
-    assert pre.data["cancel"]
+    # Robin leaves the Action Order during Fever
+    assert not robin.on_timeline and robin not in b.timeline()
     # Chirrup Quartet: #2% of the band's Max HP to all enemies
     acts = _actions(b)
     kit._band_turn(band, b)

@@ -12,9 +12,12 @@ Options (``default_opts``):
   * ``target``: name of the ally receiving the Ultimate (default: the first other team slot).
 
 # approximation: Robin's Action Gauge is frozen while she is out of the Action Order during "Fever".
-# approximation: E6 "store her Ultimate up to 2 times" is an Energy bank that only catches the overflow of
-#   Energy from her own effects (E6 regeneration, the band's summon and Memosprite Skill Energy).
-# approximation: E2's extra Vibes trigger once per turn (the first Vibe gain caused by an ability).
+# approximation: E6 "store her Ultimate up to 2 times" is an Energy bank filled by the Energy overflow during
+#   "Fever" (used before the regular Energy bar).
+# approximation: "the first healing/Shield in any target's turn" is tracked per providing ally; E2's extra Vibes
+#   trigger once per turn (the first Vibe gain caused by an ability).
+# approximation: Deviated Chords snapshots the Vibes at the time of the gain and is placed on a summon's owner
+#   (summons and memosprites sync their stats from the owner in this engine).
 # not modelled: Crowd Control immunity/dispel, "Special Guest" blocking action advances on other allies.
 """
 
@@ -66,7 +69,6 @@ class RobinSummeretto(Kit):
         self.bank = 0.0  # E6 stored Energy
         self.saved_gauge = 0.0
         self.on(E.TURN_START, self._new_turn)
-        self.on(E.PRE_TURN, self._skip_turn_in_fever)
         self.on(E.ATTACK_END, self._on_attack)
         self.on(E.HEALED, self._on_healed)
         self.on(E.MOD_APPLIED, self._on_mod_applied)
@@ -77,6 +79,8 @@ class RobinSummeretto(Kit):
             self.on(E.DAMAGE_DEALT, self._e1_tally)
         if self.e(2):
             self.passive("A Heart of Still Water", {S.RES_PEN: self.ep(2, 2)}, scope=self.ally_scope)
+        if self.e(6):
+            self.on(E.ENERGY_OVERFLOW, self._e6_bank)
 
     def technique(self) -> None:
         p = self.sk("technique")["params"][0]
@@ -103,13 +107,12 @@ class RobinSummeretto(Kit):
         return lv[0] + self.vibes * lv[1]
 
     def _energy(self, amount: float, fixed: bool = False) -> None:
-        """Energy for Robin; with E6 during "Fever" the overflow is banked (Ultimate stored up to 2 times)."""
-        c = self.char
-        eff = amount if fixed else amount * (1.0 + c.stat(S.ERR))
-        overflow = c.energy + eff - c.max_energy
-        self.battle.gain_energy(c, amount, fixed=fixed)
-        if self.e(6) and self.fever and overflow > 0:
-            self.bank = min(c.max_energy, self.bank + overflow)
+        self.battle.gain_energy(self.char, amount, fixed=fixed)
+
+    def _e6_bank(self, ev: E.Ev) -> None:
+        """E6: during "Fever" the Ultimate can be stored up to 2 times (the overflow is banked)."""
+        if ev.entity is self.char and self.fever:
+            self.bank = min(self.char.max_energy, self.bank + ev.amount)
 
     def pay_ult_cost(self) -> None:
         if self.bank >= self.char.max_energy - 1e-9:
@@ -279,11 +282,6 @@ class RobinSummeretto(Kit):
         self.char.gauge = self.saved_gauge
         self.battle.advance(self.char, self._lv(MEMO_LEAVE)[0])  # "Astride Summer's Nightwind"
 
-    def _skip_turn_in_fever(self, ev: E.Ev) -> None:
-        # the engine's timeline only honours ``on_timeline`` for summons: cancel Robin's turns during "Fever"
-        if ev.entity is self.char and self.fever:
-            ev.data["cancel"] = True
-
     def _countdown_turn(self, unit: Summon, battle: Battle) -> None:
         if self.e(6):
             self._energy(self.ep(6, 1), fixed=True)
@@ -300,7 +298,7 @@ class RobinSummeretto(Kit):
         rec = self.sk(MEMO_SKILL)
         lv = rec["params"][self.level_of(rec) - 1]
         mult = lv[1] * (1.0 + (self.ep(6, 0) if self.e(6) else 0.0))
-        with self.battle.action(sb, ActionKind.MEMOSPRITE, skill=rec, target=target, energy=0.0) as act:
+        with self.battle.action(sb, ActionKind.MEMOSPRITE, skill=rec, target=target) as act:
             act.aoe(mult, stat="hp", toughness=float(rec["toughness"][1]), main_target=target)
             if self.e(1) and self.tally > 0:
                 top = max(self.enemies(), key=lambda e: e.hp, default=None)
@@ -308,7 +306,6 @@ class RobinSummeretto(Kit):
                     ratio = self.ep(1, 0) + self.vibes * self.ep(1, 1)
                     self.battle.true_damage(self.tally, ratio, top, self.char, "Stray Bird of Summer (True DMG)")
                     self.tally -= self.ep(1, 3) * self.tally
-        self._energy(float(rec["energy"]))
 
     def _e1_tally(self, ev: E.Ev) -> None:
         rec = ev.record
