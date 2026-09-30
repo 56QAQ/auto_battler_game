@@ -40,7 +40,8 @@ class SilverWolfLV999(Kit):
         self.box_chance = 1.0
         self.e2_progress = 0.0
         self.in_enh_basic = False
-        self.pending: dict[str, Any] | None = None  # enhanced Basic ATK interrupted by a wave clear
+        self.pending: dict[str, Any] | None = None  # Enhanced Basic ATK ended early (no enemy left): what remains
+        self.resume_queued = False  # its extra turn is already queued
         self.extended_turn = -1
         self.tech = False
         self._mmr_off = False
@@ -59,6 +60,7 @@ class SilverWolfLV999(Kit):
         self.on(E.SP_CHANGED, self._on_sp)
         self.on(E.BEFORE_HIT, self._enh_basic_bonus)
         self.on(E.WAVE_START, self._on_wave)
+        self.on(E.ENEMY_SPAWNED, self._resume)
         if self.e(6):
             self.on(E.ENEMY_SPAWNED, lambda ev: self._absolute_weakness(ev.enemy))
 
@@ -78,7 +80,14 @@ class SilverWolfLV999(Kit):
     def _on_wave(self, ev: E.Ev) -> None:
         if ev.wave > 0 and self.tech:
             self.battle.queue_action(self._technique_box, self.char, "Funky Munch Bean", priority=5)
-        if ev.wave > 0 and self.pending is not None:
+        if ev.wave > 0:
+            self._resume()
+
+    def _resume(self, ev: E.Ev | None = None) -> None:
+        """An interrupted Enhanced Basic ATK: 1 extra turn once attackable enemies appear (a new wave or, in Pure
+        Fiction, enemies entering the field)."""
+        if self.pending is not None and not self.resume_queued and self.char.alive:
+            self.resume_queued = True
             self.battle.queue_extra_turn(self.char)
 
     def _absolute_weakness(self, e: Enemy) -> None:
@@ -201,7 +210,7 @@ class SilverWolfLV999(Kit):
             self._box_hits(act, rec, kind, fixed_p)
 
     def _box_hits(self, act: Any, rec: dict[str, Any], kind: str, fixed_p: float | None) -> None:
-        enemies = self.enemies()
+        enemies = self._alive()
         if not enemies:
             return
         p = self.banger() if fixed_p is None else fixed_p
@@ -217,7 +226,7 @@ class SilverWolfLV999(Kit):
             )
             total += h.damage
         if kind == "sword":
-            alive = [e for e in self.enemies() if e.hp > 0] or self.enemies()
+            alive = self._alive() or enemies
             if alive:
                 t = max(alive, key=lambda e: e.hp)
                 self.battle.true_damage(total, self.p("ult", 4), t, self.char, "Big Flipping Sword (True DMG)")
@@ -290,7 +299,15 @@ class SilverWolfLV999(Kit):
         if self.e(6) and DmgTag.ELATION in h.tags:
             h.add(S.MERRYMAKE_PCT, self.ep(6, 1))
 
+    def _alive(self) -> list[Enemy]:
+        """Enemies that can still be hit (defeated ones stay on the field until the action ends)."""
+        return [e for e in self.enemies() if e.hp > 0]
+
     def enhanced_basic(self, target: Enemy) -> None:
+        """ "Bonus Stage: αWolf Instant": the bounces split into as many segments as there are Top Loot Boxes, each
+        segment followed by one box (1/3 of the bounces -> box -> 1/3 -> box -> 1/3 -> box), then the Final Hit.
+        Whenever an attack finds no surviving enemy the ability ends at once; it is used again from where it stopped
+        (remaining bounces / boxes / Final Hit) in an extra turn once attackable enemies appear."""
         rec = self.sk(ENH_BASIC_ID)
         lv = self._enh_lv()
         total, boxes = int(lv[2]), int(lv[4])
@@ -299,50 +316,66 @@ class SilverWolfLV999(Kit):
             self.extended_turn = self.battle.turns
             self._extend_buffs()
         self.pending = None
+        self.resume_queued = False
         per = lv[0] / total
         tough = rec["toughness"][0] / total
         self.in_enh_basic = True
-        interrupted = False
         try:
             with self.action(ActionKind.BASIC, rec, target, sp=0) as act:
-                segment = math.ceil(total / boxes)
-                while state["bounces"] > 0 or state["boxes"] > 0:
-                    if not [e for e in self.enemies() if e.hp > 0]:
-                        interrupted = True
-                        break
-                    n = min(segment, state["bounces"])
-                    if n > 0:
-                        self._bounces(act, n, per, tough)
-                        state["bounces"] -= n
-                    if state["boxes"] > 0 and [e for e in self.enemies() if e.hp > 0]:
-                        state["boxes"] -= 1
-                        self.loot_box(act)
-                if not interrupted and [e for e in self.enemies() if e.hp > 0]:
-                    enemies = self.enemies()
-                    for e in enemies:
-                        self._enh_hit(act, e, lv[3] / len(enemies), rec["toughness"][1], "αWolf Instant (Final Hit)")
-                    state["final"] = False
-                    self._talent_proc(act)
+                done = self._run_enh_basic(act, state, total, boxes, per, tough, lv, rec)
+                if not done:
+                    # ends here; set before the action closes so enemies spawned when it does resume it
+                    self.pending = state
         finally:
             self.in_enh_basic = False
-        if interrupted or state["final"]:
-            self.pending = state  # resumes with an extra turn when new enemies appear
+        if self.pending is not None:
             return
         self.basics_left -= 1
         if self.basics_left <= 0:
             self._exit_god()
 
-    def _bounces(self, act: Any, n: int, per: float, tough: float) -> None:
-        # approximation: bounces of one segment are grouped per enemy (one hit per enemy with the summed ratio)
-        counts: dict[int, int] = {}
-        pool = [e for e in self.enemies() if e.hp > 0] or self.enemies()
-        for _ in range(n):
-            e = self.battle.rng.choice(pool)
-            counts[id(e)] = counts.get(id(e), 0) + 1
-        for e in pool:
-            k = counts.get(id(e), 0)
-            if k:
-                self._enh_hit(act, e, per * k, tough * k, "αWolf Instant (bounce)")
+    def _run_enh_basic(
+        self,
+        act: Any,
+        state: dict[str, Any],
+        total: int,
+        boxes: int,
+        per: float,
+        tough: float,
+        lv: list[float],
+        rec: dict[str, Any],
+    ) -> bool:
+        """Resolve the remaining parts of the Enhanced Basic ATK. False when it had to end early (no enemy left)."""
+        while state["boxes"] > 0:
+            # bounces before the next box: the segment ends at round(total * k / boxes) bounces
+            k = boxes - state["boxes"] + 1
+            segment_end = round(total * k / boxes)
+            while total - state["bounces"] < segment_end:
+                pool = self._alive()
+                if not pool:
+                    return False
+                self._enh_hit(act, self.battle.rng.choice(pool), per, tough, "αWolf Instant (bounce)")
+                state["bounces"] -= 1
+            if not self._alive():
+                return False
+            state["boxes"] -= 1
+            self.loot_box(act)
+            if not self._alive():
+                return False
+        while state["bounces"] > 0:  # (only if the data has bounces left after the last box)
+            pool = self._alive()
+            if not pool:
+                return False
+            self._enh_hit(act, self.battle.rng.choice(pool), per, tough, "αWolf Instant (bounce)")
+            state["bounces"] -= 1
+        pool = self._alive()
+        if not pool:
+            return False
+        for e in pool:  # Final Hit, split evenly among the enemies still standing
+            self._enh_hit(act, e, lv[3] / len(pool), rec["toughness"][1], "αWolf Instant (Final Hit)")
+        state["final"] = False
+        self._talent_proc(act)
+        return True
 
     def _enh_hit(self, act: Any, e: Enemy, mult: float, tough: float, label: str) -> None:
         p = self.banger()
