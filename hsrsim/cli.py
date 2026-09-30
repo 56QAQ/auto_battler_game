@@ -5,6 +5,7 @@ python -m hsrsim stats examples/seele_boss.yaml
 python -m hsrsim list characters [--implemented]
 python -m hsrsim list lightcones | relics
 python -m hsrsim info Seele
+python -m hsrsim ui [--port 8765]          # interactive web UI
 """
 
 from __future__ import annotations
@@ -223,6 +224,12 @@ def cmd_list(args: argparse.Namespace) -> None:
     print("\n* = conditional effects implemented (everything else: static stats only / no kit)")
 
 
+def cmd_ui(args: argparse.Namespace) -> None:
+    from .ui import serve
+
+    serve(args.host, args.port, open_browser=not args.no_browser)
+
+
 def cmd_info(args: argparse.Namespace) -> None:
     import subprocess
 
@@ -263,6 +270,11 @@ def main(argv: list[str] | None = None) -> None:
     inf = sub.add_parser("info", help="print a character's kit data (skills, traces, eidolons)")
     inf.add_argument("names", nargs="+")
     inf.set_defaults(fn=cmd_info)
+    ui = sub.add_parser("ui", help="interactive web UI: play a battle turn by turn (Ultimate insertion, undo)")
+    ui.add_argument("--host", default="127.0.0.1")
+    ui.add_argument("--port", type=int, default=8765)
+    ui.add_argument("--no-browser", action="store_true", help="do not open a browser window")
+    ui.set_defaults(fn=cmd_ui)
     args = ap.parse_args(argv)
     args.fn(args)
 

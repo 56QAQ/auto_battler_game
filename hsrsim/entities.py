@@ -37,6 +37,7 @@ class Entity:
         self.alive = True
         self.battle: Battle | None = None
         self.slot = 0
+        self.ref = ""  # stable id within a battle ("a0", "e3", "s1"), see hsrsim.control
         self.last_hit_by: Entity | None = None
         self.data_flags: dict[str, object] = {}
         self._mods_cache: tuple[int, list[Modifier]] | None = None

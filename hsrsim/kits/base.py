@@ -16,17 +16,20 @@ Conventions
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from .. import events as E
 from .. import stats as S
-from ..entities import Summon
+from ..control import MenuItem, target_kind
+from ..entities import Character, Enemy, Summon
 from ..enums import ActionKind, DmgTag, Side
 from ..modifiers import Modifier, ModKind, Tick, hidden
 
 if TYPE_CHECKING:
     from ..battle import Action, Battle
-    from ..entities import Character, Enemy, Entity
+    from ..entities import Entity
 
 SKILL_TYPES = {
     "basic": "Normal",
@@ -156,16 +159,98 @@ class Kit:
     def want_ult(self) -> bool:
         return bool(self.opts.get("ult", True))
 
-    def use_ult(self) -> None:
+    def use_ult(self, target: Entity | None = None) -> None:
+        """Cast the Ultimate. ``target``: an enemy (main target) or an ally (ally-targeted Ultimates); default:
+        the kit's own choice."""
         before = self.char.energy
         self.pay_ult_cost()
         spent = max(0.0, before - self.char.energy)
         self.char.data_flags["ult_energy_spent"] = spent
         self.battle.events.emit(E.ULT_USED, entity=self.char, energy=spent)
-        self.ult(self.pick_target())
+        self.with_target(target, self.ult)
+
+    def ult_target_kind(self) -> str:
+        """Target kind of the Ultimate (see hsrsim.control)."""
+        return target_kind(self.sk("ult"))
 
     def pay_ult_cost(self) -> None:
         self.char.energy = 0.0
+
+    # ------------------------------------------------------- manual control
+    def menu(self) -> list[MenuItem]:
+        """Actions available on this character's turn (manual control). Kits with other actions (enhanced
+        forms, extra choices) override this and :meth:`perform`."""
+        return [self.basic_item(), self.skill_item()]
+
+    def basic_item(self, rec: dict[str, Any] | None = None, **kw: Any) -> MenuItem:
+        rec = rec or self.sk("basic")
+        base: dict[str, Any] = dict(
+            id="basic",
+            label=rec["name"],
+            label_cn=rec.get("name_cn", ""),
+            target=target_kind(rec),
+            sp=_sp_delta(rec),
+            kind="basic",
+        )
+        base.update(kw)
+        return MenuItem(**base)
+
+    def skill_item(self, rec: dict[str, Any] | None = None, **kw: Any) -> MenuItem:
+        rec = rec or self.sk("skill")
+        sp = _sp_delta(rec)
+        ok = self.can_skill()
+        base: dict[str, Any] = dict(
+            id="skill",
+            label=rec["name"],
+            label_cn=rec.get("name_cn", ""),
+            target=target_kind(rec),
+            sp=sp,
+            kind="skill",
+            enabled=ok,
+            note="" if ok else "not enough Skill Points",
+        )
+        base.update(kw)
+        return MenuItem(**base)
+
+    def perform(self, item: str, target: Entity | None) -> None:
+        """Execute menu item ``item`` on ``target`` (an enemy, an ally, or None for the default)."""
+        if item == "basic":
+            self.with_target(target, self.basic)
+        elif item == "skill":
+            self.with_target(target, self.skill)
+        else:
+            raise ValueError(f"{self.char.name}: unknown action {item!r}")
+
+    def menu_for(self, unit: Entity) -> list[MenuItem]:
+        """Actions of one of this character's summons on its turn (empty: the summon acts on its own)."""
+        return []
+
+    def perform_for(self, unit: Entity, item: str, target: Entity | None) -> None:
+        raise ValueError(f"{unit.name}: unknown action {item!r}")
+
+    def with_target(self, target: Entity | None, fn: Callable[[Any], Any]) -> Any:
+        """Call ``fn(enemy)`` with the chosen target: an enemy is passed as the main target; an ally becomes the
+        kit's single-target ally for the duration of the call (the ``target`` option read by :meth:`main_dps`)."""
+        if isinstance(target, Enemy) and target.alive:
+            return fn(target)
+        enemy = self.pick_target()
+        if isinstance(target, (Character, Summon)) and target.side == self.char.side:
+            ally = target if isinstance(target, Character) else target.owner
+            with self._ally_target(ally):
+                return fn(enemy)
+        return fn(enemy)
+
+    @contextmanager
+    def _ally_target(self, ally: Character) -> Iterator[None]:
+        old = self.opts.get("target", None)
+        self.opts["target"] = ally.name
+        try:
+            yield
+        finally:
+            if old is None:
+                self.opts.pop("target", None)
+            else:
+                self.opts["target"] = old
 
     # --------------------------------------------------------------- actions
     def basic(self, target: Enemy | None) -> None:
@@ -320,3 +405,11 @@ def tags_of(*t: str) -> frozenset[str]:
 
 
 FUA = DmgTag.FUA
+
+
+def _sp_delta(rec: dict[str, Any]) -> int:
+    need = rec.get("sp_need", -1)
+    add = rec.get("sp_add", 0)
+    need = need[0] if isinstance(need, list) else need
+    add = add[0] if isinstance(add, list) else add
+    return int(add or 0) - (int(need) if need and need > 0 else 0)

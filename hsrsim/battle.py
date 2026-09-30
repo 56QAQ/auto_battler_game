@@ -34,6 +34,7 @@ from .enums import ActionKind, DmgTag, Element, Side
 from .modifiers import DotModifier, Modifier, ModKind, Stacking, Tick
 
 if TYPE_CHECKING:
+    from .control import Controller
     from .report import Report
 
 Mult = float | dict[str, float]
@@ -371,6 +372,10 @@ class Battle:
         for i, c in enumerate(self.team):
             c.slot = i
             c.battle = self
+            c.ref = f"a{i}"
+        self.controller: Controller | None = None  # manual control (hsrsim.control); None = kit policies
+        self._enemy_seq = 0
+        self._unit_seq = 0
         self.waves = waves
         self.wave_index = -1
         self.enemies: list[Enemy] = []
@@ -488,7 +493,7 @@ class Battle:
                 self._advance_time(limit - self.time)
                 break
             self._advance_time(dt)
-            self.ult_window()
+            self.ult_window("before_turn", actor)
             if self.finished:
                 break
             actor = self.next_actor()  # an ult may have changed the order
@@ -519,14 +524,74 @@ class Battle:
         self.events.emit(E.TURN_START, entity=actor, extra=extra_turn)
         self._tick(actor, at_start=True)
         if actor.alive and not self.finished:
-            if isinstance(actor, Character):
+            controlled = self.controller is not None and self._menu_of(actor) is not None
+            if isinstance(actor, Character) and not controlled:
                 self.ult_window()
             if not skip and actor.alive and not self.finished:
-                actor.take_turn(self)
+                if controlled:
+                    self._controlled_turn(actor, extra_turn)
+                else:
+                    actor.take_turn(self)
         self.events.emit(E.TURN_END, entity=actor, extra=extra_turn)
         self._tick(actor, at_start=False)
         self.current_turn = prev
         self._reap()
+
+    # =========================================================== manual control
+    def by_ref(self, ref: str) -> Entity | None:
+        if not ref:
+            return None
+        for e in self._all_entities():
+            if e.ref == ref:
+                return e
+        return None
+
+    def _menu_of(self, actor: Entity) -> list[Any] | None:
+        """Action menu of a unit whose turn a controller decides (None: the unit acts on its own)."""
+        if isinstance(actor, Character):
+            return actor.kit.menu() if actor.kit is not None else None
+        if isinstance(actor, Summon) and actor.owner.kit is not None:
+            items = actor.owner.kit.menu_for(actor)
+            return items or None
+        return None
+
+    def cast_ult(self, caster: Entity | None, target: Entity | None = None) -> bool:
+        """Cast ``caster``'s Ultimate now if it is ready (manual control). Returns True when cast."""
+        if not isinstance(caster, Character) or caster.kit is None or not caster.alive:
+            return False
+        if self.finished or not self.alive_enemies() or not caster.kit.ult_ready():
+            return False
+        caster.kit.use_ult(target)
+        self._reap()
+        return True
+
+    def _controlled_turn(self, actor: Entity, extra_turn: bool) -> None:
+        assert self.controller is not None
+        kit = actor.kit if isinstance(actor, Character) else actor.owner.kit  # type: ignore[attr-defined]
+        assert kit is not None
+        for _ in range(100):
+            if self.finished or not actor.alive or not self.alive_enemies():
+                return
+            d = self.controller.turn(self, actor, extra_turn)
+            if d.kind == "ult":
+                self.cast_ult(self.by_ref(d.who), self.by_ref(d.target))
+                continue
+            if d.kind == "auto":
+                actor.take_turn(self)
+                return
+            if d.kind != "act":
+                return
+            menu = self._menu_of(actor) or []
+            item = next((m for m in menu if m.id == d.item and m.enabled), None)
+            if item is None:
+                raise ValueError(f"{actor.name} cannot use {d.item!r} now")
+            if actor is kit.char:
+                kit.perform(d.item, self.by_ref(d.target))
+            else:
+                kit.perform_for(actor, d.item, self.by_ref(d.target))
+            self._reap()
+            if item.ends_turn:
+                return
 
     def _enemy_turn_start(self, e: Enemy) -> None:
         def dots() -> None:
@@ -580,7 +645,7 @@ class Battle:
         guard = 0
         while not self.finished and guard < 1000:
             guard += 1
-            self.ult_window()
+            self.ult_window("queue", self.queue[0].owner if self.queue else None)
             self._check_wave()
             if self.finished or not self.queue:
                 break
@@ -592,8 +657,21 @@ class Battle:
             item.fn()
             self._reap()
 
-    def ult_window(self) -> None:
-        """Let every ally whose policy wants to cast its Ultimate do so now."""
+    def ult_window(self, where: str = "mid_action", subject: Entity | None = None) -> None:
+        """An Ultimate may be inserted now. With a controller it decides (repeatedly, so several Ultimates can
+        be chained); otherwise every ally whose policy wants to cast its Ultimate does so.
+
+        ``where``: "before_turn" (``subject`` acts next), "queue" (between inserted actions; ``subject`` owns the
+        next queued one, None when the queue is empty) or "mid_action" (inside an action that does not end the
+        turn)."""
+        if self.controller is not None:
+            for _ in range(50):
+                if self.finished or not self.alive_enemies():
+                    return
+                d = self.controller.window(self, where, subject)
+                if d.kind != "ult" or not self.cast_ult(self.by_ref(d.who), self.by_ref(d.target)):
+                    return
+            return
         for _ in range(20):
             casted = False
             for c in self.team:
@@ -1255,6 +1333,8 @@ class Battle:
     def _spawn(self, e: Enemy, slot: int) -> None:
         e.battle = self
         e.slot = slot
+        self._enemy_seq += 1
+        e.ref = f"e{self._enemy_seq}"
         e.wave = self.wave_index
         e.alive = True
         e.hp = e.max_hp
@@ -1304,6 +1384,8 @@ class Battle:
     def add_unit(self, unit: Summon, av: float | None = None) -> Summon:
         unit.battle = self
         unit.slot = 100 + len(self.units)
+        self._unit_seq += 1
+        unit.ref = f"s{self._unit_seq}"
         if av is None:
             unit.gauge = F.AV_BASE
         else:
