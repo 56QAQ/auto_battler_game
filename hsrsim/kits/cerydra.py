@@ -7,6 +7,11 @@ is implemented by wrapping the Peerage holder's ``skill()`` while they hold Mili
 Options:
   target:   name of the ally that receives Military Merit (default: first teammate).
   rotation: "skill" (default, Skill whenever SP allows) or "basic".
+
+# approximation: Coup de Main only wraps the holder kit's ``skill()`` (kits that route their Skill through another
+#   method are not doubled); the copied Skill costs no Skill Points.
+# not modelled: Peerage dispelling Crowd Control debuffs; Military Merit following the active character in the
+#   overworld (the Technique grants it to the Skill target at battle start).
 """
 
 from __future__ import annotations

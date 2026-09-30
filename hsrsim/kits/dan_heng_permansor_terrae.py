@@ -5,6 +5,9 @@ Options:
   target:   name of the ally that becomes the "Bondmate" (default: first teammate).
   rotation: "auto" (default: Skill when there is no Bondmate / the Bondmate has no Shield / SP is plentiful),
             "skill" (Skill whenever SP allows) or "basic".
+
+# not modelled: Souldragon disappearing when DHPT or the Bondmate is knocked down (allies cannot die with
+#   ``allies_immortal``); the Technique's Daze (only the free Skill at battle start is applied).
 """
 
 from __future__ import annotations
@@ -156,8 +159,10 @@ class DanHengPermansorTerrae(Kit):
                 for e in b.alive_enemies():
                     self._bond_additional(e, add_mult, "Souldragon (Bondmate Additional DMG)")
                 if self.trace(3) and b.alive_enemies():
+                    # E2 doubles every Additional DMG the Bondmate deals in this action (the ability script sets
+                    # both the Ultimate's and Sublimity's owner-DMG percentages)
                     top = max(b.alive_enemies(), key=lambda x: x.hp)
-                    self._bond_additional(top, self.tp(3, 0), "Sublimity")
+                    self._bond_additional(top, self.tp(3, 0) * (self.ep(2, 1) if e2 else 1.0), "Sublimity")
                 if self.ode is not None and self.ode_earth_left > 0 and self.bondmate is not None:
                     self.ode_earth_left -= 1
                     flat = self.ode[3] * self._shield_value(self.bondmate)

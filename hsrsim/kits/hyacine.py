@@ -51,6 +51,7 @@ class Hyacine(Kit):
         self.on(E.HP_CHANGED, self._on_hp_changed)
         self.on(E.TURN_START, lambda ev: self._ica_talent())
         self.on(E.ACTION_END, self._on_action_end)
+        self.on(E.MOD_REMOVED, self._on_mod_removed)
         if self.trace(1):
             self.passive("Gloomy Grin", {S.CRIT_RATE: self.tp(1, 0)})  # Little Ica syncs it from Hyacine
         if self.trace(2):
@@ -219,6 +220,13 @@ class Hyacine(Kit):
             # an ability" (the extra turn also counts down Little Ica's Continuous Effects)
             self.battle.queue_action(lambda: self.battle.take_turn(ica, extra_turn=True), ica, "Little Ica")
         self._ica_talent()
+
+    def _on_mod_removed(self, ev: E.Ev) -> None:
+        """When "After Rain" ends, current HP above the reduced Max HP is lost."""
+        if ev.mod.name != AFTER_RAIN or ev.mod.source is not self.char:
+            return
+        for a in self.battle.allies(include_summons=True):
+            a.hp = min(a.hp, a.max_hp)
 
     def _e1(self, ev: E.Ev) -> None:
         """E1: while "After Rain" is active, allies restore HP after attacking."""

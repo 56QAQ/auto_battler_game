@@ -2,6 +2,11 @@
 
 Options:
   rotation: "skill" (default, Skill whenever SP allows) or "basic".
+
+# approximation: the Zone's Physical DoT echoes each DoT instance as it happens, capped per enemy between two
+#   trigger moments (any turn start / any ally attack).
+# not modelled: the Zone being dispelled when Hysilens is knocked down; the Technique's "Soulstruck" (only its
+#   Wind Shear/Bleed/Burn/Shock at battle start is applied).
 """
 
 from __future__ import annotations
