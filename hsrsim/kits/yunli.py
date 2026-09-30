@@ -162,9 +162,7 @@ class Yunli(Kit):
         name = label or ("Intuit: Cull" if cull else "Intuit: Slash")
         # "When Yunli deals DMG via this ability, it's considered as dealing Ultimate DMG"
         # approximation: the Counter itself generates no Energy (only the +15 for being attacked)
-        with self.action(
-            ActionKind.FUA, "ult", t, label=name, tags=(DmgTag.ULT, DmgTag.FUA), energy=0, sp=0
-        ) as act:
+        with self.action(ActionKind.FUA, "ult", t, label=name, tags=(DmgTag.ULT, DmgTag.FUA), energy=0, sp=0) as act:
             act.blast(
                 t,
                 self.p("ult", 0),

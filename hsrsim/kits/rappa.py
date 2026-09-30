@@ -6,6 +6,8 @@ Options:
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from .. import events as E
 from .. import stats as S
 from ..entities import Enemy
@@ -14,8 +16,12 @@ from ..modifiers import Modifier, ModKind, hidden
 from . import register
 from .base import Kit
 
+if TYPE_CHECKING:
+    from ..battle import Action
+
 HIT1, HIT2, HIT3, ENHANCED = "08", "10", "12", "18"  # skill ID suffixes of "Ningu: Demonbane Petalblade"
 ATK_STEP = 100.0  # A6 "for every 100 excess ATK" (literal)
+CHARGE_PER_BREAK = 1  # Talent "Each time the enemy target is Weakness Broken, Rappa gains 1 point of Charge" (literal)
 
 
 @register
@@ -55,7 +61,7 @@ class Rappa(Kit):
 
     def _on_break(self, ev: E.Ev) -> None:
         t = ev.target
-        self.add_charge(1)
+        self.add_charge(CHARGE_PER_BREAK)
         if self.trace(1) and t.rank in (EnemyRank.ELITE, EnemyRank.BOSS):
             self.add_charge(int(self.tp(1, 1)))
             self.battle.gain_energy(self.char, self.tp(1, 0))
@@ -123,11 +129,11 @@ class Rappa(Kit):
         else:
             self.simple_basic(target)
 
-    def _hit(self, act: object, e: Enemy, mult: float, tough: float, ratio: float, primary: bool) -> None:
+    @staticmethod
+    def _hit(act: Action, e: Enemy, mult: float, tough: float, ratio: float, primary: bool) -> None:
+        """Enemies without Imaginary Weakness still take ``ratio`` of the Toughness Reduction."""
         weak = e.is_weak_to(Element.IMAGINARY)
-        act.hit(  # type: ignore[attr-defined]
-            e, mult, toughness=tough if weak else tough * ratio, ignore_weakness=not weak, primary=primary
-        )
+        act.hit(e, mult, toughness=tough if weak else tough * ratio, ignore_weakness=not weak, primary=primary)
 
     def _petalblade(self, target: Enemy) -> None:
         cid = self.char.char_id
@@ -160,6 +166,7 @@ class Rappa(Kit):
         n = self.charge
         self.charge = 0
         mult = self.p("talent", 2) + self.p("talent", 4) * n
+        # approximation: Weakness Break Efficiency also scales this Toughness reduction
         tough = (self.p("talent", 3) + self.p("talent", 5) * n) * (1.0 + self.char.stat(S.BREAK_EFF))
         for e in self.battle.alive_enemies():
             self.battle.reduce_toughness(e, self.char, tough, Element.IMAGINARY)

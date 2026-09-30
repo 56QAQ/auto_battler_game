@@ -63,7 +63,7 @@ class Qingque(Kit):
     def _draw(self, n: int) -> None:
         for _ in range(n):
             self._add_tile(self.battle.rng.randrange(SUITS))
-            if self.e(2):
+            if self.e(2):  # approximation: 1 Energy per tile drawn
                 self.battle.gain_energy(self.char, self.ep(2, 0))
 
     def _toss(self) -> None:
@@ -80,7 +80,7 @@ class Qingque(Kit):
         self.buff_self(Modifier(HIDDEN_HAND, stats={S.ATK_PCT: self.p("talent", 0)}, tick=Tick.NONE))
 
     def _on_turn_start(self, ev: E.Ev) -> None:
-        if not isinstance(ev.entity, Character):
+        if not isinstance(ev.entity, Character):  # approximation: summon/memosprite turns do not draw tiles
             return
         self._draw(1)
         if ev.entity is self.char:
@@ -95,7 +95,8 @@ class Qingque(Kit):
         target = self.pick_target()
         if target is None:
             return
-        # an Ultimate cast at the start of this turn (4 tiles of one suit) enters Hidden Hand right away
+        # approximation: an Ultimate cast at the start of this turn (4 tiles of one suit) enters Hidden Hand
+        # right away instead of waiting for the next turn start
         self._check_hidden_hand()
         if self.opts.get("rotation", "skill") == "skill":
             used = 0
@@ -127,7 +128,7 @@ class Qingque(Kit):
         prm = rec["params"][self.level_of(rec) - 1]
         main_t = self.toughness(ENHANCED_BASIC, 0)
         with self.action(ActionKind.BASIC, rec, target, sp=0) as act:  # "cannot recover Skill Points"
-            act.blast(target, prm[0], prm[1], toughness=(main_t, self.toughness(ENHANCED_BASIC, 2)))
+            act.blast(target, prm[0], prm[1], toughness=(main_t, self.toughness(ENHANCED_BASIC, 2)), splits="data")
         self._self_sufficer(target, prm[0], main_t)
         self.hidden_hand = False
         self.battle.remove_named(self.char, HIDDEN_HAND)
@@ -172,5 +173,5 @@ class Qingque(Kit):
 
     def ult(self, target: Enemy | None) -> None:
         with self.action(ActionKind.ULT, "ult", target) as act:
-            act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target)
+            act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target, splits="data")
         self.hand = [self.battle.rng.randrange(SUITS)] * HAND_MAX

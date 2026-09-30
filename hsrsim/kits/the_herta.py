@@ -118,15 +118,14 @@ class TheHerta(Kit):
         owner = act.owner
         if owner is None or owner.side != Side.ALLY or not act.attacked:
             return
-        if not self.trace(1):
-            return
         hit = [t for t in act.attacked if t.alive]
-        for t in hit:
-            self.add_interp(t, 1)
-        n = len(act.attacked)
-        if self.a4:
-            n = max(n, int(self.tp(2, 1)))
-        self.battle.gain_energy(self.char, self.tp(1, 0) * min(MAX_TARGETS_FOR_ENERGY, n), fixed=True)
+        if self.trace(1):
+            for t in hit:
+                self.add_interp(t, 1)
+            n = len(act.attacked)
+            if self.a4:
+                n = max(n, int(self.tp(2, 1)))
+            self.battle.gain_energy(self.char, self.tp(1, 0) * min(MAX_TARGETS_FOR_ENERGY, n), fixed=True)
         if self.a4 and hit:
             top = max(hit, key=self.stacks)
             eru = isinstance(owner, Character) and owner.path == Path.ERUDITION

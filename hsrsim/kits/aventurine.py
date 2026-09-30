@@ -21,6 +21,7 @@ BET_THRESHOLD = 7  # "Upon reaching 7 points of Blind Bet" (literal in the Talen
 BET_CAP = 10  # '"Blind Bet" is capped at 10 points' (literal)
 BINGO_SHIELD_TURNS = 3  # A6 extra Fortified Wager "lasting for 3 turns" (literal)
 DEF_STEP = 100.0  # A2 "for every 100 of DEF that exceeds ..." (literal)
+BET_PER_TRIGGER = 1  # Talent/A6 "gains 1 point of Blind Bet"; Ultimate "Randomly gains 1 to #1 points" (literal)
 
 
 def _has_wager(e: Entity) -> bool:
@@ -101,9 +102,11 @@ class Aventurine(Kit):
             self.battle.queue_action(self._fua, self.char, "Aventurine follow-up")
 
     def _on_attacked(self, ev: E.Ev) -> None:
+        # approximation: checked after the enemy hit resolved (a Wager broken by that hit gives no Blind Bet)
+        # not modelled: CC resistance while holding a Wager, the Wager's "no HP loss" clause
         for t in ev.targets:
             if _has_wager(t):
-                self.add_bet(1)
+                self.add_bet(BET_PER_TRIGGER)
             if t is self.char:
                 self.add_bet(int(self.p("talent", 0)))
 
@@ -115,7 +118,7 @@ class Aventurine(Kit):
         if not act.attacked or not owner.has_mod(WAGER) or self.bingo_left <= 0:
             return
         self.bingo_left -= 1
-        self.add_bet(1)
+        self.add_bet(BET_PER_TRIGGER)
 
     def _fua(self) -> None:
         self.fua_queued = False
@@ -162,7 +165,7 @@ class Aventurine(Kit):
         with self.action(ActionKind.BASIC, "basic", target) as act:
             act.hit(target, self.p("basic", 0), stat="def", toughness=self.toughness("basic"))
             if self.e(2) and target.alive:
-                self.battle.apply(
+                self.battle.try_debuff(
                     Modifier(
                         "Bounded Rationality",
                         stats={S.RES_REDUCTION: self.ep(2, 1)},
@@ -171,6 +174,7 @@ class Aventurine(Kit):
                     ),
                     target,
                     self.char,
+                    self.ep(2, 0),  # base chance (parameter, not shown in the text)
                 )
 
     def skill(self, target: Enemy | None) -> None:
@@ -180,7 +184,7 @@ class Aventurine(Kit):
     def ult(self, target: Enemy | None) -> None:
         assert target is not None
         with self.action(ActionKind.ULT, "ult", target) as act:
-            self.add_bet(self.battle.rng.randint(1, int(self.p("ult", 0))))
+            self.add_bet(self.battle.rng.randint(BET_PER_TRIGGER, int(self.p("ult", 0))))
             self.battle.apply(
                 Modifier("Unnerved", duration=int(self.p("ult", 3)), kind=ModKind.DEBUFF, key="Unnerved"),
                 target,

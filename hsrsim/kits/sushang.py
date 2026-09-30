@@ -44,6 +44,7 @@ class Sushang(Kit):
 
     def technique(self) -> None:
         mult = self.sk("technique")["params"][0][0]
+        # approximation: the Technique's in-battle DMG does not reduce Toughness
         with self.action(ActionKind.EXTRA, None, label="Cloudfencer Art: Warcry", energy=0, sp=0) as act:
             act.aoe(mult)
 
@@ -92,7 +93,7 @@ class Sushang(Kit):
     def skill(self, target: Enemy | None) -> None:
         assert target is not None
         with self.action(ActionKind.SKILL, "skill", target) as act:
-            act.hit(target, self.p("skill", 0), toughness=self.toughness("skill"))
+            act.hit(target, self.p("skill", 0), toughness=self.toughness("skill"), splits="data")
             self._sword_stance(target, 1.0)
             if self.char.has_mod(ULT_BUFF):
                 for _ in range(ULT_EXTRA_STANCE_CHANCES):
@@ -104,6 +105,6 @@ class Sushang(Kit):
     def ult(self, target: Enemy | None) -> None:
         assert target is not None
         with self.action(ActionKind.ULT, "ult", target) as act:
-            act.hit(target, self.p("ult", 0), toughness=self.toughness("ult"))
+            act.hit(target, self.p("ult", 0), toughness=self.toughness("ult"), splits="data")
         self.buff_self(Modifier(ULT_BUFF, stats={S.ATK_PCT: self.p("ult", 3)}, duration=int(self.p("ult", 1))))
-        self.battle.advance(self.char, 1.0)  # "she immediately takes action"
+        self.battle.advance(self.char, 1.0)  # approximation: "immediately takes action" = 100% Action Advance

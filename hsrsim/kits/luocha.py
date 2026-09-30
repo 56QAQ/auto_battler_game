@@ -68,6 +68,7 @@ class Luocha(Kit):
             )
         )
         if self.e(4):
+            # not modelled: the engine's enemy attacks ignore Weaken (the field is applied for bookkeeping)
             self.buff_self(
                 Modifier(
                     "Heavy Lies the Crown",
@@ -95,6 +96,7 @@ class Luocha(Kit):
         self.battle.heal(ally, amount * (1.0 + self.char.stat(S.HEAL_PCT) + bonus), self.char)
 
     def _skill_effect(self, ally: Character, auto: bool) -> None:
+        # approximation: the low-HP trigger is an inserted Skill action without SP cost (it grants the Skill's Energy)
         kw = {"sp": 0, "label": "Prayer of Abyss Flower (auto)"} if auto else {}
         with self.action(ActionKind.SKILL, "skill", ally, **kw):
             if self.trace(1):
@@ -171,5 +173,5 @@ class Luocha(Kit):
                         self.ep(6, 0),
                         fixed=True,
                     )
-            act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target)
+            act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target, splits="data")
         self._gain_flower()

@@ -1,4 +1,8 @@
-"""Dr. Ratio (真理医生) — Hunt / Imaginary. Debuff-scaling follow-ups, Wiseman's Folly."""
+"""Dr. Ratio (真理医生) — Hunt / Imaginary. Debuff-scaling follow-ups, Wiseman's Folly.
+
+Options:
+  rotation: "skill" (default) Skill whenever SP allows, "basic" never uses the Skill
+"""
 
 from __future__ import annotations
 
@@ -18,7 +22,9 @@ class DrRatio(Kit):
     def setup(self) -> None:
         self.folly_target: Enemy | None = None
         self.folly_left = 0
-        self.summation_max = int(self.tp(1, 2)) + (int(self.ep(1, 0)) if self.e(1) else 0) if self.trace(1) else 0
+        self.summation_max = 0
+        if self.trace(1):
+            self.summation_max = int(self.tp(1, 2)) + (int(self.ep(1, 0)) if self.e(1) else 0)
         self.on(E.ATTACK_END, self._wiseman)
         if self.trace(3):
             self.on(E.BEFORE_HIT, self._deduction)
@@ -31,6 +37,7 @@ class DrRatio(Kit):
 
     def technique(self) -> None:
         p = self.sk("technique")["params"][0]
+        # not modelled: the Special Dimension's Taunt
         for e in self.enemies():
             self.battle.try_debuff(
                 Modifier("Mold of Idolatry", stats={S.SPD_PCT: -p[2]}, duration=int(p[3]), kind=ModKind.DEBUFF),

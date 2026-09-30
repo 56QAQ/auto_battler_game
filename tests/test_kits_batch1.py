@@ -131,9 +131,16 @@ def test_welt_talent_additional_dmg_vs_slowed_and_imprison():
     assert e.gauge == pytest.approx(gauge + kit.p("ult", 1) * F.AV_BASE)
 
 
-def test_welt_enhanced_kit_not_implemented():
-    with pytest.raises(NotImplementedError):
-        boss_dps(cycles=1).run([Build("1004", enhanced=True)])
+def test_welt_enhanced_weightless():
+    rep = boss_dps(cycles=4).run([Build("1004", enhanced=True), Build("Bronya"), Build("Pela"), Build("Huohuo")])
+    b = rep.battle
+    assert b.team[0].enhanced
+    labels = {r.label for r in rep.records}
+    assert "Judgment" in labels  # A4 Additional DMG on Basic ATK / Skill
+    kit = b.team[0].kit
+    boss = b.enemies[0]
+    if any(r.label == "Synthetic Black Hole" for r in rep.records) and boss.has_mod("Weightless"):
+        assert boss.stat("def_reduction") >= kit.p("talent", 1)
 
 
 # ---------------------------------------------------------------------- Arlan

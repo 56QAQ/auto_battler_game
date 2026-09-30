@@ -1,7 +1,8 @@
 """Sunday (星期日) — Harmony / Imaginary. Immediate action + DMG/CRIT Rate Skill, The Beatified (CRIT DMG) ultimate.
 
 Options:
-  target: name of the ally receiving the Skill and Ultimate (default: first other slot)
+  target:   name of the ally receiving the Skill and Ultimate (default: first other slot)
+  rotation: "skill" (default) Skill whenever SP allows, "basic" never uses the Skill
 """
 
 from __future__ import annotations
@@ -15,6 +16,8 @@ from . import register
 from .base import Kit
 
 PERCENT = 100.0  # E6 "every 1% of excess CRIT Rate increases CRIT DMG by 2%": per-percent conversion
+CRIT_RATE_CAP = 1.0  # E6 "... exceeds 100%" (literal)
+BEATIFIED_SP = 1  # Skill "After using Skill on The Beatified, recovers 1 Skill Point" (literal)
 
 
 def _real_summons(ally: Character) -> list[Summon]:
@@ -54,7 +57,7 @@ class Sunday(Kit):
         self.buff(ally, Modifier("The Glorious Mysteries", stats={S.DMG_PCT: p[0]}, duration=int(p[1])))
 
     def _e6_convert(self, mod: Modifier, key: str, ent: Entity) -> float:
-        return max(0.0, ent.stat(S.CRIT_RATE) - 1.0) * PERCENT * self.ep(6, 1)
+        return max(0.0, ent.stat(S.CRIT_RATE) - CRIT_RATE_CAP) * PERCENT * self.ep(6, 1)
 
     def _talent(self, ally: Character) -> None:
         dur = int(self.p("talent", 1)) + (int(self.ep(6, 2)) if self.e(6) else 0)
@@ -115,7 +118,7 @@ class Sunday(Kit):
                     Modifier("Millennium's Quietus", stats={S.DEF_IGNORE: self.ep(1, 1)}, duration=int(self.ep(1, 0))),
                 )
             if ally is not self.char and ally.has_mod("The Beatified"):
-                self.battle.gain_sp(1, self.char)  # "recovers 1 Skill Point" (literal)
+                self.battle.gain_sp(BEATIFIED_SP, self.char)
             self._use_technique(ally)
         if ally is not self.char and ally.path != Path.HARMONY:
             self.battle.advance(ally, self.p("skill", 0))
@@ -133,7 +136,8 @@ class Sunday(Kit):
                 for c in self.allies():
                     if c is not ally:
                         self.battle.remove_named(c, "The Beatified")
-                # snapshot of Sunday's CRIT DMG at cast (summons inherit it from their owner)
+                # approximation: snapshot of Sunday's CRIT DMG at cast (summons inherit it from their owner)
+                # not modelled: The Beatified is dispelled when Sunday is knocked down
                 stats = {S.CRIT_DMG: self.p("ult", 1) * self.char.stat(S.CRIT_DMG) + self.p("ult", 3)}
                 if self.e(2):
                     stats[S.DMG_PCT] = self.ep(2, 0)

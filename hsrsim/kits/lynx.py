@@ -96,10 +96,10 @@ class Lynx(Kit):
     def basic(self, target: Enemy | None) -> None:
         assert target is not None
         with self.action(ActionKind.BASIC, "basic", target) as act:
-            act.hit(target, self.p("basic", 0), stat="hp", toughness=self.toughness("basic"))
+            act.hit(target, self.p("basic", 0), stat="hp", toughness=self.toughness("basic"), splits="data")
 
     def _survival_response(self, ally: Character) -> None:
-        hp = self.char.max_hp  # snapshot of Lynx's Max HP at cast
+        hp = self.char.max_hp  # approximation: Lynx's Max HP is snapshotted at cast
         ratio = self.p("skill", 0) + (self.ep(6, 0) if self.e(6) else 0.0)
         stats = {S.HP_FLAT: ratio * hp + self.p("skill", 1)}
         if ally.path in TANK_PATHS:

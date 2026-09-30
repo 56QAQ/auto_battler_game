@@ -21,7 +21,7 @@ from ..modifiers import Modifier
 from . import register
 from .base import Kit
 
-BASIC_SPLITS = [0.2, 0.2, 0.6]  # hit splits from the ability script (not parameters)
+# Skill hit splits from the ability script (0.34 + a 2x looped 0.33; not in the skill data)
 SKILL_SPLITS = [0.34, 0.33, 0.33]
 BLITZ_ID = "122008"  # "Boltsunder Blitz" (bonus vs Weakness Broken targets)
 WARAXE_ID = "122009"  # "Waraxe Skyward" (bonus vs targets that are not Weakness Broken)
@@ -143,15 +143,13 @@ class Feixiao(Kit):
 
     def basic(self, target: Enemy | None) -> None:
         assert target is not None
-        self.simple_basic(target, splits=BASIC_SPLITS)
+        self.simple_basic(target)
 
     def skill(self, target: Enemy | None) -> None:
         assert target is not None
         with self.action(ActionKind.SKILL, "skill", target) as act:
             if self.trace(3):
-                self.buff_self(
-                    Modifier("Boltcatch", stats={S.ATK_PCT: self.tp(3, 0)}, duration=int(self.tp(3, 1)))
-                )
+                self.buff_self(Modifier("Boltcatch", stats={S.ATK_PCT: self.tp(3, 0)}, duration=int(self.tp(3, 1))))
             act.hit(target, self.p("skill", 0), toughness=self.toughness("skill"), splits=SKILL_SPLITS)
         self._fua(target)  # "immediately launches 1 extra instance of Talent's Follow-Up ATK"
 

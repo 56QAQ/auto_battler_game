@@ -1,6 +1,7 @@
 """Trailblazer (Destruction) (开拓者·毁灭) — Destruction / Physical. Blast Skill, two Ultimate modes, ATK on break.
 
 Options:
+  rotation: "skill" (default) Skill whenever SP allows, "basic" never uses the Skill
   ult_mode: "auto" (default: "Blowout: RIP Home Run" when the target has adjacent enemies, else
             "Blowout: Farewell Hit"), "single" or "blast"
 """

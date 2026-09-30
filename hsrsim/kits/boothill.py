@@ -169,7 +169,7 @@ class Boothill(Kit):
         assert target is not None
         rec = self.sk(self.char.char_id + ENHANCED_BASIC)
         lv = rec["params"][self.level_of(rec) - 1]
-        stacks = self.trickshot  # approximation: stacks gained by breaking with this attack count from the next one
+        stacks = self.trickshot  # read before the attack (ability script: "_enhance_before_attack")
         tough = float(rec["toughness"][0]) * (1.0 + self.p("talent", 3) * stacks)
         self.in_enhanced = True
         try:

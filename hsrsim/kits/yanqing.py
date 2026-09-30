@@ -128,10 +128,8 @@ class Yanqing(Kit):
         if self.battle.cfg.crit_mode == "random":
             return any(h.crit for h in act.hits)
         # approximation (expected-CRIT mode): roll each hit's CRIT Rate once to decide whether a CRIT landed
-        for h in act.hits:
-            if self.battle.rng.random() < h.attacker.stat_q(S.CRIT_RATE, h.quals, h.extra):
-                return True
-        return False
+        rng = self.battle.rng
+        return any(rng.random() < h.attacker.stat_q(S.CRIT_RATE, h.quals, h.extra) for h in act.hits)
 
     def _after_attack(self, ev: E.Ev) -> None:
         act = ev.attack
@@ -147,12 +145,14 @@ class Yanqing(Kit):
         if self.e(1):
             for t in act.attacked:
                 if t.alive and t.has_tag("freeze"):
-                    self.battle.additional_damage(self.char, t, self.ep(1, 0), element=Element.ICE, label="E1 Svelte Saber")
+                    self.battle.additional_damage(
+                        self.char, t, self.ep(1, 0), element=Element.ICE, label="E1 Svelte Saber"
+                    )
         if self.trace(3) and self._crit_landed(act):
             self.buff_self(Modifier("Gentle Blade", stats={S.SPD_PCT: self.tp(3, 0)}, duration=int(self.tp(3, 1))))
-        if act.kind in (ActionKind.BASIC, ActionKind.SKILL, ActionKind.ULT) and self.char.has_mod(SYNC):
-            if self.battle.rng.random() < self.p("talent", 2):
-                self._queue_fua(target)
+        can_fua = act.kind in (ActionKind.BASIC, ActionKind.SKILL, ActionKind.ULT) and self.char.has_mod(SYNC)
+        if can_fua and self.battle.rng.random() < self.p("talent", 2):  # fixed chance
+            self._queue_fua(target)
 
     def _queue_fua(self, target: Enemy) -> None:
         def fua() -> None:

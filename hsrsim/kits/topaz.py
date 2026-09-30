@@ -126,7 +126,7 @@ class Topaz(Kit):
         with self.battle.action(
             unit, ActionKind.FUA, skill=self.sk("talent"), target=t, label="Numby", energy=0, sp=0
         ) as act:
-            act.hit(t, mult, toughness=self.toughness("talent"), extra=self._numby_extra(windfall))
+            act.hit(t, mult, toughness=self.toughness("talent"), extra=self._numby_extra(windfall), splits="data")
         self._after_numby_attack(windfall)
         if self.e(2):
             self.battle.gain_energy(self.char, self.ep(2, 0))
@@ -136,7 +136,7 @@ class Topaz(Kit):
         assert target is not None
         tags = (DmgTag.BASIC, DmgTag.FUA) if self.trace(1) else (DmgTag.BASIC,)
         with self.action(ActionKind.BASIC, "basic", target, tags=tags) as act:
-            act.hit(target, self.p("basic", 0), toughness=self.toughness("basic"))
+            act.hit(target, self.p("basic", 0), toughness=self.toughness("basic"), splits="data")
 
     def skill(self, target: Enemy | None) -> None:
         assert target is not None
@@ -146,7 +146,7 @@ class Topaz(Kit):
         mult = self.p("skill", 0) + (self.p("ult", 0) if windfall else 0.0)
         with self.action(ActionKind.SKILL, "skill", target, tags=(DmgTag.SKILL, DmgTag.FUA)) as act:
             self._set_pod(target)
-            act.hit(target, mult, toughness=self.toughness("skill"), extra=self._numby_extra(windfall))
+            act.hit(target, mult, toughness=self.toughness("skill"), extra=self._numby_extra(windfall), splits="data")
         self._after_numby_attack(windfall)
 
     def want_ult(self) -> bool:

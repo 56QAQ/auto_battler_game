@@ -14,17 +14,15 @@ from __future__ import annotations
 
 from .. import events as E
 from .. import stats as S
-from ..entities import Character, Enemy
+from ..entities import Character, Enemy, Entity
 from ..enums import ActionKind, DmgTag
 from ..modifiers import Modifier, ModKind
 from . import register
 from .base import Kit
 
 NECTAR_BLITZ = "08"  # skill ID suffix of the enhanced Basic ATK "Nectar Blitz"
-
-
-class _Besotted(Modifier):
-    pass
+BESOTTED = "Besotted"
+A4_ADVANCE = 1.0  # A4 "immediately advances action for this unit by 100%" (literal)
 
 
 @register
@@ -51,10 +49,10 @@ class Gallagher(Kit):
         with self.action(ActionKind.EXTRA, None, label="Artisan Elixir (technique)", energy=0, sp=0) as act:
             for e in self.enemies():
                 self.besot(e, int(p[0]))
-            act.aoe(p[1])
+            act.aoe(p[1])  # not modelled: Toughness reduction of the overworld hit
 
     # ------------------------------------------------------------ helpers
-    def _a2(self, mod: Modifier, key: str, ent: object) -> float:
+    def _a2(self, mod: Modifier, key: str, ent: Entity) -> float:
         return min(self.tp(1, 1), self.tp(1, 0) * self.char.stat(S.BREAK_EFFECT))
 
     def heal(self, ally: Character, amount: float) -> None:
@@ -62,8 +60,8 @@ class Gallagher(Kit):
 
     def besot(self, enemy: Enemy, turns: int) -> None:
         self.battle.apply(
-            _Besotted(
-                "Besotted",
+            Modifier(
+                BESOTTED,
                 stats={f"{S.VULN}:{DmgTag.BREAK}": self.p("talent", 0)},
                 duration=turns,
                 kind=ModKind.DEBUFF,
@@ -135,7 +133,7 @@ class Gallagher(Kit):
             act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target)
         self.nectar = True
         if self.trace(2):
-            self.battle.advance(self.char, 1.0)  # "advances action for this unit by 100%" (literal)
+            self.battle.advance(self.char, A4_ADVANCE)
 
     # ------------------------------------------------------------- talent
     def _besotted_heal(self, ev: E.Ev) -> None:
@@ -143,7 +141,7 @@ class Gallagher(Kit):
         owner = act.owner
         if not isinstance(owner, Character):
             return
-        n = sum(1 for t in act.attacked if any(isinstance(m, _Besotted) and not m.removed for m in t.modifiers))
+        n = sum(1 for t in act.attacked if t.has_mod(BESOTTED))
         if not n:
             return
         amount = self.p("talent", 1)

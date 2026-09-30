@@ -58,8 +58,10 @@ class Natasha(Kit):
         if not enemies:
             return
         target = self.battle.rng.choice(enemies)
+        # approximation: the Technique's in-battle DMG does not reduce Toughness
         with self.action(ActionKind.EXTRA, None, target, label="Hypnosis Research", energy=0, sp=0) as act:
             act.hit(target, p[3])
+        # not modelled: the engine's enemy attacks ignore Weaken, the debuff is applied for bookkeeping only
         for e in self.enemies():
             self.battle.try_debuff(
                 Modifier("Weakened (Natasha)", stats={S.WEAKEN: p[1]}, duration=int(p[2]), kind=ModKind.DEBUFF),
@@ -105,7 +107,7 @@ class Natasha(Kit):
         if self.e(6):
             mult["hp"] = self.ep(6, 0)
         with self.action(ActionKind.BASIC, "basic", target) as act:
-            act.hit(target, mult, toughness=self.toughness("basic"))
+            act.hit(target, mult, toughness=self.toughness("basic"), splits="data")
 
     def skill(self, target: Enemy | None) -> None:
         ally = self._heal_target()

@@ -32,6 +32,7 @@ class Yukong(Kit):
     def setup(self) -> None:
         self.keep_rb_this_turn = False
         self.e2_done: set[int] = set()
+        # not modelled: A2 Archerion (resist 1 debuff every 2 turns) - enemies do not inflict debuffs
         if self.trace(2):
             self.passive("Bowmaster", {f"{S.DMG_PCT}:{Element.IMAGINARY.value}": self.tp(2, 0)}, scope=self.ally_scope)
         self.on(E.TURN_END, self._on_turn_end)
@@ -78,7 +79,7 @@ class Yukong(Kit):
 
     def _on_turn_end(self, ev: E.Ev) -> None:
         ent = ev.entity
-        if not isinstance(ent, Character):
+        if not isinstance(ent, Character):  # approximation: summon/memosprite turns do not consume stacks
             return
         if self.trace(3) and self._rb() is not None:
             # approximation: "every time an ally takes action" counted once per ally turn
@@ -108,12 +109,14 @@ class Yukong(Kit):
         assert target is not None
         mult = self.p("basic", 0)
         tough = self.toughness("basic")
+        # approximation: the Talent's cooldown is a 1-turn marker applied in her own turn, so the enhanced Basic
+        # ATK is available every other turn
         talent = not self.char.has_mod(TALENT_CD)
         if talent:
             mult += self.p("talent", 0)
             tough *= 1.0 + self.p("talent", 1)
         with self.action(ActionKind.BASIC, "basic", target) as act:
-            act.hit(target, mult, toughness=tough)
+            act.hit(target, mult, toughness=tough, splits="data")
         if talent:
             self.buff_self(
                 Modifier(TALENT_CD, kind=ModKind.OTHER, duration=int(self.p("talent", 2)), dispellable=False)
@@ -138,7 +141,7 @@ class Yukong(Kit):
                         scope=self.ally_scope,
                     )
                 )
-            act.hit(target, self.p("ult", 0), toughness=self.toughness("ult"))
+            act.hit(target, self.p("ult", 0), toughness=self.toughness("ult"), splits="data")
         if self.e(2):
             self.e2_done.clear()
 

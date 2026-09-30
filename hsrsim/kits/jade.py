@@ -1,7 +1,8 @@
 """Jade (翡翠) — Erudition / Quantum. Debt Collector (SPD + additional DMG), Charge-based AoE follow-ups, Pawned Asset.
 
 Options:
-  target: name of the ally made Debt Collector by the Skill (default: first other slot)
+  target:   name of the ally made Debt Collector by the Skill (default: first other slot)
+  rotation: "skill" (default) Skill whenever no Debt Collector exists and SP allows, "basic" never
 """
 
 from __future__ import annotations
@@ -97,6 +98,7 @@ class Jade(Kit):
         if not act.attacked:
             return
         dc = self.debt_collector()
+        # approximation: only the Debt Collector character's own attacks count (not its summons')
         by_dc = dc is not None and act.actor is dc
         by_jade = act.actor is self.char
         if dc is not None and (by_dc or (by_jade and self.e(6))):
@@ -111,6 +113,7 @@ class Jade(Kit):
             return
         n = len(act.attacked)
         if by_dc and dc is not self.char and self.e(1):
+            # E1: 1 enemy hit -> +#3 Charge, 2 enemies hit -> +#2 Charge (the enemy counts are literal)
             n += {1: int(self.ep(1, 2)), 2: int(self.ep(1, 1))}.get(len(act.attacked), 0)
         self.add_charge(n)
 

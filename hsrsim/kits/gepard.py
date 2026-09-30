@@ -21,7 +21,10 @@ DOWNED_HP = 1.0
 
 
 class GepardFrozen(DotModifier):
-    """Freeze from Gepard's Skill: the target skips its turn and takes Ice Additional DMG at its turn start."""
+    """Freeze from Gepard's Skill: the target skips its turn and takes Ice Additional DMG at its turn start.
+
+    approximation: unlike the Weakness Break Freeze, the target is not action-advanced when it thaws.
+    """
 
     def __init__(self, kit: Gepard, target: Enemy, duration: int) -> None:
         mult = kit.p("skill", 3)
@@ -62,6 +65,7 @@ class GepardFrozen(DotModifier):
 @register
 class Gepard(Kit):
     char_id = "1104"
+    ult_targets_ally = True  # team Shield
     default_opts = {"rotation": "basic"}
 
     def setup(self) -> None:
@@ -100,7 +104,7 @@ class Gepard(Kit):
     def skill(self, target: Enemy | None) -> None:
         assert target is not None
         with self.action(ActionKind.SKILL, "skill", target) as act:
-            act.hit(target, self.p("skill", 0), toughness=self.toughness("skill"))
+            act.hit(target, self.p("skill", 0), toughness=self.toughness("skill"), splits="data")
             if target.alive and target.hp > 0:
                 chance = self.p("skill", 1) + (self.ep(1, 0) if self.e(1) else 0.0)
                 frozen = GepardFrozen(self, target, int(self.p("skill", 2)))

@@ -42,6 +42,7 @@ class Argenti(Kit):
 
     def technique(self) -> None:
         p = self.sk("technique")["params"][0]
+        # not modelled: Daze (enemies are assumed to be attacked into combat)
         with self.action(ActionKind.EXTRA, None, label="Manifesto of Purest Virtue (technique)", energy=0, sp=0) as act:
             act.aoe(p[1])
         self.battle.gain_energy(self.char, p[2])

@@ -28,7 +28,10 @@ class _TrailblazerPreservation(Kit):
         self.on(E.ALLY_ATTACKED, lambda ev: self.char in ev.targets and self.add_magma(1))
         if self.trace(3):
             self.on(E.TURN_START, self._a6_start)
-            self.on(E.TURN_END, lambda ev: ev.entity is self.char and self.battle.remove_named(self.char, "Action Beats Overthinking"))
+            self.on(
+                E.TURN_END,
+                lambda ev: ev.entity is self.char and self.battle.remove_named(self.char, "Action Beats Overthinking"),
+            )
 
     def on_battle_start(self) -> None:
         if self.e(4):
@@ -50,7 +53,9 @@ class _TrailblazerPreservation(Kit):
         if self.e(2):
             value += self.ep(2, 0) * d + self.ep(2, 1)
         for c in self.allies():
-            self.battle.add_shield(c, value, self.char, duration=int(self.p("talent", 1)), name="Treasure of the Architects")
+            self.battle.add_shield(
+                c, value, self.char, duration=int(self.p("talent", 1)), name="Treasure of the Architects"
+            )
 
     def _e6(self) -> None:
         if self.e(6):
@@ -122,7 +127,9 @@ class _TrailblazerPreservation(Kit):
         with self.action(ActionKind.SKILL, "skill"):
             # approximation: the DMG Reduction lasts as long as the Taunt (1 turn); Taunt not modelled
             self.buff_self(
-                Modifier("Ever-Burning Amber", stats={S.MITIGATION: self.p("skill", 0)}, duration=int(self.p("skill", 2)))
+                Modifier(
+                    "Ever-Burning Amber", stats={S.MITIGATION: self.p("skill", 0)}, duration=int(self.p("skill", 2))
+                )
             )
             self.add_magma(1)
             if self.trace(1):
@@ -130,7 +137,9 @@ class _TrailblazerPreservation(Kit):
                     self.buff(
                         c,
                         Modifier(
-                            "The Strong Defend the Weak", stats={S.MITIGATION: self.tp(1, 1)}, duration=int(self.tp(1, 2))
+                            "The Strong Defend the Weak",
+                            stats={S.MITIGATION: self.tp(1, 1)},
+                            duration=int(self.tp(1, 2)),
                         ),
                     )
             self._team_shield()
@@ -138,7 +147,9 @@ class _TrailblazerPreservation(Kit):
     def ult(self, target: Enemy | None) -> None:
         with self.action(ActionKind.ULT, "ult", target) as act:
             act.aoe(
-                {"atk": self.p("ult", 0), "def": self.p("ult", 1)}, toughness=self.toughness("ult", 1), main_target=target
+                {"atk": self.p("ult", 0), "def": self.p("ult", 1)},
+                toughness=self.toughness("ult", 1),
+                main_target=target,
             )
             self._team_shield()
         self.free_enhanced = True
