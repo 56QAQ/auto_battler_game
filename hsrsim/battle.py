@@ -1090,10 +1090,12 @@ class Battle:
         *,
         duration: int | None = 2,
         name: str = "Shield",
-        tick: Tick = Tick.HOLDER_TURN_START,
+        tick: Tick = Tick.HOLDER_TURN_END,
         key: str | None = None,
     ) -> Modifier:
-        """Shield absorbing enemy DMG. ``value`` is scaled by the source's Shield effect bonus (``shield%``)."""
+        """Shield absorbing enemy DMG. ``value`` is scaled by the source's Shield effect bonus (``shield%``).
+        Character shields count down at the end of the holder's turn (default LifeStepMoment of the scripts' shield
+        modifiers: Gepard, March 7th, Aventurine, Trailblazer Preservation, Luocha, Dan Heng PT)."""
         mod = Modifier(name, duration=duration, tick=tick, kind=ModKind.BUFF, tags={"shield"}, key=key)
         mod.data["value"] = value * (1.0 + source.stat(S.SHIELD_PCT))
         return self.apply(mod, target, source)
