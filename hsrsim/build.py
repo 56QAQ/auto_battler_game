@@ -22,7 +22,7 @@ from typing import Any
 from . import stats as S
 from .data import get_data
 from .entities import Character
-from .enums import Element
+from .enums import Element, Path
 from .equipment import LIGHT_CONES, RELIC_SETS, load_gear
 from .kits import get_kit
 from .modifiers import hidden
@@ -214,6 +214,8 @@ def stat_sheet(char: Character) -> dict[str, float]:
         "Effect RES": char.stat(S.EFFECT_RES),
         f"{char.element.value} DMG": char.stat(f"{S.DMG_PCT}:{char.element.value}") + char.stat(S.DMG_PCT),
     }
+    if char.path == Path.ELATION:
+        out["Elation"] = char.stat(S.ELATION_DMG_PCT)  # 欢愉度
     return out
 
 

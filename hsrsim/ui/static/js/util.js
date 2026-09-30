@@ -82,10 +82,11 @@ export const STAT_CN = {
   HP: "生命值", ATK: "攻击力", DEF: "防御力", SPD: "速度", "CRIT Rate": "暴击率", "CRIT DMG": "暴击伤害",
   "Break Effect": "击破特攻", "Energy Regen": "能量恢复效率", "Effect Hit Rate": "效果命中", "Effect RES": "效果抵抗",
   "Break Efficiency": "削韧效率", "Outgoing Healing": "治疗量加成", "All-Type DMG": "全属性伤害",
+  Elation: "欢愉度", Merrymake: "增笑",
 };
 export const PCT_STATS = new Set([
   "CRIT Rate", "CRIT DMG", "Break Effect", "Energy Regen", "Effect Hit Rate", "Effect RES", "Break Efficiency",
-  "Outgoing Healing", "All-Type DMG",
+  "Outgoing Healing", "All-Type DMG", "Elation", "Merrymake",
 ]);
 export function statLabel(k) {
   if (STAT_CN[k]) return STAT_CN[k];

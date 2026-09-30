@@ -300,10 +300,12 @@ function renderStatus() {
   clear(box);
   const sp = h("span.row", { style: { gap: "3px" } });
   for (let i = 0; i < st.max_sp; i++) sp.appendChild(h("span", { style: { width: "10px", height: "10px", transform: "rotate(45deg)", background: i < st.sp ? "var(--gold)" : "transparent", border: "1px solid var(--gold2)", display: "inline-block" } }));
-  box.append(
+  const el = st.elation;
+  put(box,
     h("span.pill", "轮次 ", h("b", `${shownCycle(st)}${st.scenario?.cycles ? " / " + st.scenario.cycles : ""}`), h("span.dim", ` · 行动值 ${st.time.toFixed(1)}`)),
     h("span.pill", "波次 ", h("b", `${st.wave} / ${st.waves}`)),
     h("span.pill", "战技点 ", sp, h("b", `${st.sp}/${st.max_sp}`)),
+    el ? h("span.pill.punch", { title: `笑点：阿哈行动时发动阿哈时刻并消耗全部笑点，计入欢愉技伤害\n欢愉角色 ${el.chars} 名 · 阿哈速度 ${el.aha_spd}${el.aha ? "" : "（未在行动条上）"}\n已发动阿哈时刻 ${el.instants} 次` }, "笑点 ", h("b", String(el.punchline))) : null,
     h("span.pill", "总伤害 ", h("b", fmt(st.total))),
     h("button.btn.small", { title: "撤销上一步 (Z)", disabled: !st.undo, onclick: undo }, "↶ 撤销"),
     autoMenu(),
@@ -473,6 +475,7 @@ function allyCard(a) {
     x.hpt = h("div.bartext"),
     h("div.bar.en", { style: { height: "5px" } }, x.en = h("i")),
     x.ent = h("div.bartext"),
+    x.ela = h("div.ela"),
     x.chips = h("div.chips"),
     x.kit = h("div.kit"),
     x.summ = h("div.summons"),
@@ -498,6 +501,9 @@ function updateAlly(card, a, i) {
   x.ult.classList.toggle("auto", !!store.settings.auto_ult?.[a.ref]);
   x.ult.title = `${nameOfUlt(a)}（${i + 1}）${a.ult_ready ? "：可释放" : ""}\n\n${DESC.get(a.ult_name) || ""}`;
   x.ultk.textContent = a.ult_ready ? String(i + 1) : Math.floor(p) + "%";
+  put(x.ela, ...elationLine(a.elation));
+  x.ela.style.display = a.elation ? "" : "none";
+  x.ela.title = a.elation ? elationTitle(a.elation) : "";
   put(x.chips, ...modChips(a.mods, 6));
   const kit = Object.entries(a.kit || {}).filter(([k, v]) => typeof v !== "boolean" || v).slice(0, 4);
   x.kit.textContent = kit.map(([k, v]) => `${k}: ${typeof v === "number" ? +v.toFixed(2) : v}`).join(" · ");
@@ -509,6 +515,24 @@ function updateAlly(card, a, i) {
   card.classList.toggle("turn", !!p0 && p0.kind === "turn" && (p0.actor === a.ref || sums.some((s) => s.ref === p0.actor)));
   card.classList.toggle("acting", !!p0 && p0.where === "before_turn" && p0.subject === a.ref);
   card.style.opacity = a.alive ? "" : "0.4";
+}
+
+function elationLine(e) {
+  if (!e) return [];
+  return [
+    h("span", "欢愉度 ", h("b", pct(e.elation))),
+    h("span", "好活当赏 ", h("b", String(e.banger))),
+    e.merrymake ? h("span", "增笑 ", h("b", pct(e.merrymake))) : null,
+  ];
+}
+
+function bangerStacks(e) {
+  return e.banger_stacks.map((s) => `${+s.p.toFixed(1)} 点${s.turns == null ? "（常驻）" : `（剩余 ${s.turns} 回合）`}`);
+}
+
+function elationTitle(e) {
+  const stacks = bangerStacks(e);
+  return `欢愉度 ${pct(e.elation)}：提高欢愉伤害\n增笑 ${pct(e.merrymake)}：欢愉伤害额外提高\n好活当赏 ${e.banger} 点` + (stacks.length ? "\n" + stacks.map((s) => "  · " + s).join("\n") : "");
 }
 
 function clickAlly(ref) {
@@ -833,6 +857,18 @@ function detailView() {
   if (u.kind === "char") {
     row("能量", `${u.energy.toFixed(1)} / ${u.max_energy}`);
     for (const [k, v] of Object.entries(u.stats || {})) row(statLabel(k), statValue(k, v));
+    if (u.elation) {
+      if (!("Elation" in (u.stats || {}))) row("欢愉度", pct(u.elation.elation));
+      row("增笑", pct(u.elation.merrymake));
+      row("好活当赏", `${u.elation.banger} 点`);
+      for (const s of bangerStacks(u.elation)) row("", s);
+    }
+  }
+  if (u.kind === "aha" && B.state.elation) {
+    const el = B.state.elation;
+    row("笑点", String(el.punchline));
+    row("欢愉角色", `${el.chars} 名`);
+    row("已发动阿哈时刻", `${el.instants} 次`);
   }
   if (u.kind === "enemy") {
     row("韧性", `${u.toughness.toFixed(1)} / ${u.max_toughness}${u.broken ? "（击破）" : ""}`);

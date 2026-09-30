@@ -32,8 +32,9 @@ from . import stats as S
 from .battle import Battle, BattleConfig
 from .build import Build, make_character, stat_sheet
 from .control import AUTO, CONTINUE, Controller, Decision, MenuItem
+from .elation import ElationSystem
 from .entities import Character, Enemy, Entity, Summon
-from .enums import Element
+from .enums import Element, Path
 from .formulas import AV_BASE
 from .modifiers import ModKind
 from .scenarios import Scenario
@@ -586,7 +587,39 @@ def _character(c: Character) -> dict[str, Any]:
     sheet = stat_sheet(c)
     d["stats"] = {k: round(v, 4) for k, v in sheet.items()}
     d["summons"] = [u.ref for u in c.summons]
+    d["elation"] = _elation_of(c)
     return d
+
+
+def _elation_of(c: Character) -> dict[str, Any] | None:
+    """Elation-path resources of a character: Elation (欢愉度), Merrymake (增笑) and Certified Banger (好活当赏)."""
+    bangers = [m for m in c.modifiers if m.name == "Certified Banger" and not m.removed]
+    if c.path != Path.ELATION and not bangers:
+        return None
+    return {
+        "elation": round(c.stat(S.ELATION_DMG_PCT), 4),
+        "merrymake": round(c.stat(S.MERRYMAKE_PCT), 4),
+        "banger": ElationSystem.certified_banger(c),
+        "banger_stacks": [
+            {"p": round(float(m.data.get("punchline", 0)), 1), "turns": m.duration}
+            for m in bangers
+            if m.data.get("punchline", 0)
+        ],
+    }
+
+
+def _team_elation(b: Battle) -> dict[str, Any] | None:
+    """Team-wide Elation state: Punchline (笑点) and Aha."""
+    el = b.elation
+    if not el.enabled and el.punchline <= 0:
+        return None
+    return {
+        "punchline": el.punchline,
+        "chars": len(el.elation_chars()),
+        "aha": bool(el.aha.on_timeline),
+        "aha_spd": round(el.aha.spd, 1),
+        "instants": el.instants,
+    }
 
 
 def _enemy(e: Enemy) -> dict[str, Any]:
@@ -659,6 +692,7 @@ def serialize(b: Battle, p: Point | None, settings: dict[str, Any]) -> dict[str,
         "order": _order(b),
         "settings": copy.deepcopy(settings),
         # an Ultimate's inserted extra turn is resolving: Ultimates tried now are cast when it is over
+        "elation": _team_elation(b),
         "ult_locked": b.ults_locked,
         "deferred_ults": [c.ref for c, _ in b.deferred_ults],
         "point": None,

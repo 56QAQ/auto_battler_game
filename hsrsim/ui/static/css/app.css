@@ -19,6 +19,7 @@
   --good: #57d68d;
   --bad: #ff6b6b;
   --warn: #ffb547;
+  --punch: #ff7aa8; /* Elation: Punchline / Certified Banger */
   --el-Physical: #c9ced6;
   --el-Fire: #ff6a4d;
   --el-Ice: #71d4ff;
@@ -298,6 +299,9 @@ input[type="checkbox"] { accent-color: var(--gold); }
 .ult.auto > span::after { content: "A"; position: absolute; font-size: 9px; transform: translate(14px, -14px); color: var(--good); }
 @keyframes pulse { 50% { box-shadow: 0 0 26px rgba(242, 207, 106, 0.95); } }
 .acard .kit { font-size: 11px; color: var(--muted); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acard .ela { display: flex; gap: 10px; font-size: 11.5px; color: var(--muted); margin-top: 4px; white-space: nowrap; overflow: hidden; }
+.acard .ela b { color: var(--punch); font-weight: 600; }
+#battle-status .pill.punch b { color: var(--punch); }
 .summons { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 5px; }
 .summons .chip { border-color: rgba(113, 212, 255, 0.4); color: #bfe9ff; }
 

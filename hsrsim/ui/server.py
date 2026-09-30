@@ -196,7 +196,19 @@ def name_table() -> dict[str, str]:
         add(lc.get("skill"), lc.get("skill_cn"))
     for rs in gd.relic_sets.values():
         add(rs["name"], rs["name_cn"])
+    for en, cn in GLOSSARY.items():
+        add(en, cn)
     return out
+
+
+# in-battle terms that are not names of abilities or gear (as the Chinese client words them)
+GLOSSARY = {
+    "Certified Banger": "好活当赏",
+    "Punchline": "笑点",
+    "Aha": "阿哈",
+    "Aha Instant": "阿哈时刻",
+    "Hidden MMR": "隐藏分",
+}
 
 
 def _monster(m: dict[str, Any]) -> dict[str, Any]:

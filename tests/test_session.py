@@ -175,3 +175,26 @@ def test_http_api_end_to_end(server):
 
 def test_catalog_is_light():
     assert len(json.dumps(catalog(), ensure_ascii=False)) < 400_000
+
+
+def test_session_shows_elation_resources():
+    team = [Build("Yao Guang"), Build("Pearl"), Build("Bronya"), Build("Huohuo")]
+    s = Session(boss_dps(cycles=2), team, seed=1)
+    try:
+        st = s.start()
+        el = st["elation"]
+        assert el["chars"] == 2 and el["punchline"] >= 2 and el["aha"]
+        by_name = {a["name"]: a for a in st["allies"]}
+        yao = by_name["Yao Guang"]["elation"]
+        assert yao["banger"] >= 20 and yao["banger_stacks"][0]["turns"] is not None
+        assert by_name["Yao Guang"]["stats"]["Elation"] == pytest.approx(yao["elation"])
+        assert by_name["Pearl"]["elation"]["banger_stacks"][0]["turns"] is None  # Pearl's never expire
+        assert by_name["Bronya"]["elation"] is None and "Elation" not in by_name["Bronya"]["stats"]
+    finally:
+        s.close()
+    s = Session(boss_dps(cycles=1), TEAM, seed=1)
+    try:
+        assert s.start()["elation"] is None  # no Elation character
+    finally:
+        s.close()
+    assert catalog()["names"]["Certified Banger"] == "好活当赏"
