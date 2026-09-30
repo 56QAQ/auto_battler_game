@@ -1,6 +1,7 @@
 """Yunli (云璃) — Destruction / Physical. Counters when attacked; Parry ultimate -> "Intuit: Cull".
 
-Options: ``rotation`` ("skill" default | "basic").
+Options: ``rotation`` ("skill" default | "basic"); ``ult_timing``: "enemy_next" (default: cast the Ultimate
+right before an enemy acts, so Parry catches its attack) | "asap".
 
 The Ultimate consumes 120 of her 240 Energy, grants Parry and Taunts all enemies until the end of the
 next unit's turn. Being attacked during Parry launches "Intuit: Cull" (blast + random bounces); if no
@@ -29,6 +30,7 @@ CULL_SPLITS = [0.12] * 7 + [0.16]
 @register
 class Yunli(Kit):
     char_id = "1221"
+    default_opts = {"ult_timing": "enemy_next"}
 
     def setup(self) -> None:
         self.parry: Modifier | None = None
@@ -66,6 +68,17 @@ class Yunli(Kit):
 
     def pay_ult_cost(self) -> None:
         self.char.energy -= self.p("ult", 7)
+
+    def want_ult(self) -> bool:
+        if not super().want_ult():
+            return False
+        if self.opts.get("ult_timing", "enemy_next") == "asap":
+            return True
+        # hold while one of her Counters is still queued (it would consume the Ultimate's CRIT DMG bonus)
+        if any(q.owner is self.char for q in self.battle.queue):
+            return False
+        # Parry lasts until the end of the next unit's turn: only an enemy acting next turns it into "Intuit: Cull"
+        return isinstance(self.battle.next_actor(), Enemy)
 
     def _on_turn_start(self, ev: E.Ev) -> None:
         # approximation: only character and enemy turns count as "the next ally's or enemy's turn"

@@ -170,17 +170,16 @@ class Jiaoqiu(Kit):
     def skill(self, target: Enemy | None) -> None:
         assert target is not None
         with self.action(ActionKind.SKILL, "skill", target) as act:
-            self.add_roast(target, 1, self.p("skill", 2))
-            self._talent_roast(target)
-            adj = self.battle.adjacent(target)
+            # ability script order: Talent stack on every target hit -> DMG -> the Skill's own stack on the primary
+            for e in [target, *self.battle.adjacent(target)]:
+                self._talent_roast(e)
             act.blast(
                 target,
                 self.p("skill", 0),
                 self.p("skill", 1),
                 toughness=(self.toughness("skill", 0), self.toughness("skill", 2)),
             )
-            for a in adj:
-                self._talent_roast(a)
+            self.add_roast(target, 1, self.p("skill", 2))
 
     def ult(self, target: Enemy | None) -> None:
         with self.action(ActionKind.ULT, "ult", target) as act:

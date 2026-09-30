@@ -2,7 +2,7 @@
 Wilt (DEF shred + Weakness implant) and a Break Efficiency zone.
 
 Options: ``partner``: name of her Dance Partner (default: the teammate with the highest Break Effect
-at battle start); ``rotation``: "skill" (default: Skill when the Zone is missing or about to end) | "basic".
+at battle start); ``rotation``: "skill" (default: Skill when the Zone is missing) | "basic".
 """
 
 from __future__ import annotations
@@ -18,6 +18,8 @@ from .base import Kit
 
 ZONE = "Lick... Enkindled Betrayal (Zone)"
 WILT = "Wilt"
+# A4 "Lament, Lost Soul": "recovers 1 Skill Point" (literal in the trace text, not a trace parameter)
+A4_SP = 1
 
 
 @register
@@ -241,7 +243,7 @@ class TheDahlia(Kit):
                     )
         self.fua_count += 1
         if self.trace(2) and (self.fua_count - 1) % int(self.tp(2, 0)) == 0:
-            self.battle.gain_sp(1, self.char)
+            self.battle.gain_sp(A4_SP, self.char)
         if self.e(6):
             for p in self.dance_partners():
                 self.battle.advance(p, self.ep(6, 1))
@@ -251,8 +253,8 @@ class TheDahlia(Kit):
         target = self.pick_target()
         if target is None:
             return
-        zone_left = self.zone.duration if self.zone_active and self.zone is not None else 0
-        if self.opts.get("rotation", "skill") == "skill" and self.can_skill() and (zone_left or 0) <= 1:
+        # the Zone counts down at the start of her turns, so it covers every action until the turn it expires
+        if self.opts.get("rotation", "skill") == "skill" and self.can_skill() and not self.zone_active:
             self.skill(target)
         else:
             self.basic(target)

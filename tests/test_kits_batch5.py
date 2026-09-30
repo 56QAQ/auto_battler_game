@@ -3,12 +3,13 @@ Fugue, The Dahlia."""
 
 import pytest
 
+from hsrsim import events as E
 from hsrsim import formulas as F
 from hsrsim import stats as S
 from hsrsim.battle import Battle, BattleConfig
 from hsrsim.build import Build, make_character
 from hsrsim.entities import Enemy
-from hsrsim.enums import DmgTag, Element
+from hsrsim.enums import ActionKind, DmgTag, Element
 
 from .helpers import generic_build
 
@@ -40,6 +41,12 @@ def test_jiaoqiu_ashen_roast_stacks_vulnerability_and_ult_zone():
     kit.skill(m)
     # primary: 1 stack from the Skill + 1 from the Talent; adjacent targets: 1 Talent stack
     assert kit.roast(m) == 2 and kit.roast(a) == 1 and kit.roast(c) == 1
+    # ability script order: the Talent stack lands on every target before the DMG, the Skill's own stack after it
+    hits = {r.target: r for r in _recs(b, "Scorch Onslaught")}
+    one_stack = F.vuln_multiplier(kit.p("talent", 1))
+    assert {t: hits[t].parts.vuln_mult for t in (a.name, m.name, c.name)} == pytest.approx(
+        {a.name: one_stack, m.name: one_stack, c.name: one_stack}
+    )
     assert m.stat(S.VULN) == pytest.approx(kit.p("talent", 1) + kit.p("talent", 2))
     assert m.has_tag("burn")  # Ashen Roast counts as Burn
     jq.energy = jq.max_energy
@@ -108,6 +115,25 @@ def test_yunli_counter_without_parry():
     b.process_queue()
     counter = _recs(b, "Counter (Flashforge)")
     assert len(counter) == 1 and DmgTag.FUA in counter[0].tags
+
+
+def test_yunli_ult_waits_until_an_enemy_acts_next():
+    b, (yl, seele), (e,) = _battle([Build("1221"), generic_build("Seele")], start_energy=0.0)
+    kit = yl.kit
+    yl.energy = kit.p("ult", 7)
+    assert kit.ult_ready()
+    b.set_av(yl, 30.0)
+    b.set_av(seele, 10.0)
+    b.set_av(e, 20.0)
+    assert not kit.want_ult()  # Seele acts next: Parry would end on her turn ("Intuit: Slash")
+    b.set_av(e, 5.0)
+    assert kit.want_ult()
+    asap = make_character(Build("1221", options={"ult_timing": "asap"}))
+    b2 = Battle([asap, make_character(generic_build("Seele"))], [_dummies(1)], BattleConfig(start_energy=0.0))
+    b2.start()
+    asap.energy = asap.kit.p("ult", 7)
+    b2.set_av(b2.enemies[0], 500.0)  # an ally acts next
+    assert asap.kit.ult_ready() and asap.kit.want_ult()
 
 
 # ------------------------------------------------------------------- Lingsha
@@ -198,3 +224,18 @@ def test_dahlia_wilt_implants_weakness_and_a6_toughness():
     seele.kit.basic(e)
     b.process_queue()
     assert len(_recs(b, "Who's Afraid of Constance?")) == int(kit.p("talent", 1))
+
+
+def test_dahlia_recasts_zone_only_when_it_expired():
+    b, (dh, _), (e,) = _battle([Build("1321"), generic_build("Seele")], start_energy=0.0)
+    kinds = []
+    b.events.on(E.ACTION_START, lambda ev: ev.action.actor is dh and kinds.append(ev.action.kind))
+    b.sp = b.max_sp
+    for _ in range(4):
+        b.take_turn(dh)  # the Zone lasts 3 turns and counts down at the start of her turns
+    assert [k for k in kinds if k in (ActionKind.SKILL, ActionKind.BASIC)] == [
+        ActionKind.SKILL,
+        ActionKind.BASIC,
+        ActionKind.BASIC,
+        ActionKind.SKILL,
+    ]
