@@ -195,7 +195,7 @@ class Ashveil(Kit):
             return
         self.set_bait(t)
         with self.action(ActionKind.ULT, "ult", t) as act:
-            act.hit(t, self.p("ult", 0), toughness=self.toughness("ult"))
+            act.hit(t, self.p("ult", 0), toughness=self.toughness("ult"), splits="data")
             self.charge = min(int(self.p("talent", 1)), self.charge + int(self.p("ult", 1)))
             if self.trace(1):
                 self.add_gluttony(int(self.tp(1, 1)))

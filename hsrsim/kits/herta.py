@@ -13,9 +13,7 @@ from ..modifiers import Modifier, Stacking
 from . import register
 from .base import Kit
 
-# Skill hit splits from the ability script (Skill02_Phase02: split=0.3 / 0.7 on all enemies; AoE splits are not in the
-# data snapshot). The "HP >= 50%" DMG bonus is checked on each hit (OnBeforeHit).
-SKILL_SPLITS = [0.3, 0.7]
+# The Skill is 2 AoE hits (splits_aoe in the data); the "HP >= 50%" DMG bonus is checked on each hit (OnBeforeHit).
 
 
 @register
@@ -98,7 +96,7 @@ class Herta(Kit):
 
     def skill(self, target: Enemy | None) -> None:
         with self.action(ActionKind.SKILL, "skill", target) as act:
-            act.aoe(self.p("skill", 0), toughness=self.toughness("skill", 1), main_target=target, splits=SKILL_SPLITS)
+            act.aoe(self.p("skill", 0), toughness=self.toughness("skill", 1), main_target=target, splits="data")
 
     def ult(self, target: Enemy | None) -> None:
         with self.action(ActionKind.ULT, "ult", target) as act:

@@ -19,7 +19,6 @@ ENHANCED_BASIC_ID = "122508"
 PRAYER = "Foxian Prayer"
 SCORCH = "Torrid Scorch"
 DEF_DOWN = "Virtue Beckons Bliss (DEF Reduction)"
-ULT_SPLITS = [0.6, 0.1, 0.1, 0.1, 0.1]  # hit splits from the ability script (not parameters)
 
 
 @register
@@ -186,7 +185,7 @@ class Fugue(Kit):
                 toughness=self.toughness("ult", 1),
                 main_target=target,
                 ignore_weakness=True,
-                splits=ULT_SPLITS,
+                splits="data",
             )
         if self.e(2):
             for c in self.allies():

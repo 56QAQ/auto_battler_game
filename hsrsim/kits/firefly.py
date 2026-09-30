@@ -131,7 +131,9 @@ class Firefly(Kit):
             be = min(self.char.stat(S.BREAK_EFFECT), lv[6])
             hits = []
             tough, ign = self._tough(target, rec["toughness"][0])
-            hits += act.hit(target, lv[4] * be + lv[0], toughness=tough, ignore_weakness=ign, extra=extra)
+            hits += act.hit(
+                target, lv[4] * be + lv[0], toughness=tough, ignore_weakness=ign, extra=extra, splits="data"
+            )
             for adj in self.battle.adjacent(target):
                 tough, ign = self._tough(adj, rec["toughness"][2])
                 hits += act.hit(

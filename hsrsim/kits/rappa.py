@@ -22,9 +22,6 @@ if TYPE_CHECKING:
 HIT1, HIT2, HIT3, ENHANCED = "08", "10", "12", "18"  # skill ID suffixes of "Ningu: Demonbane Petalblade"
 ATK_STEP = 100.0  # A6 "for every 100 excess ATK" (literal)
 CHARGE_PER_BREAK = 1  # Talent "Each time the enemy target is Weakness Broken, Rappa gains 1 point of Charge" (literal)
-# Skill hit ratios from the ability script (Avatar_Rappa_00_Skill02_Phase02: two AllDarkTeam hits); the skill
-# record carries none
-SKILL_SPLITS = [0.5, 0.5]
 
 
 @register
@@ -180,7 +177,7 @@ class Rappa(Kit):
 
     def skill(self, target: Enemy | None) -> None:
         with self.action(ActionKind.SKILL, "skill", target) as act:
-            act.aoe(self.p("skill", 0), toughness=self.toughness("skill", 1), main_target=target, splits=SKILL_SPLITS)
+            act.aoe(self.p("skill", 0), toughness=self.toughness("skill", 1), main_target=target, splits="data")
 
     def ult(self, target: Enemy | None) -> None:
         with self.action(ActionKind.ULT, "ult"):

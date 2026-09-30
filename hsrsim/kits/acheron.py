@@ -174,7 +174,14 @@ class Acheron(Kit):
                     break
                 lv = rb["params"][self.level_of(rb) - 1]
                 had_knot = self.knots(t) > 0
-                act.hit(t, lv[0], toughness=rb["toughness"][0], ignore_weakness=True, label="Rainblade")
+                act.hit(
+                    t,
+                    lv[0],
+                    toughness=rb["toughness"][0],
+                    ignore_weakness=True,
+                    label="Rainblade",
+                    splits=rb.get("splits"),
+                )
                 if self.trace(3) and had_knot:
                     self.buff_self(
                         Modifier(
@@ -203,7 +210,12 @@ class Acheron(Kit):
             sr = self.sk("130817")
             lv = sr["params"][self.level_of(sr) - 1]
             act.aoe(
-                lv[0], toughness=sr["toughness"][1], ignore_weakness=True, label="Stygian Resurge", main_target=target
+                lv[0],
+                toughness=sr["toughness"][1],
+                ignore_weakness=True,
+                label="Stygian Resurge",
+                main_target=target,
+                splits=sr.get("splits_aoe"),
             )
             for e in b.alive_enemies():
                 b.remove_named(e, "Crimson Knot")
@@ -236,4 +248,5 @@ class Acheron(Kit):
                 self.p("skill", 1),
                 toughness=(self.toughness("skill", 0), self.toughness("skill", 2)),
                 ignore_weakness=self.e(6),
+                splits="data",
             )
