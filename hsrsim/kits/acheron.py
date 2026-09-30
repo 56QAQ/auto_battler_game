@@ -56,9 +56,7 @@ class Acheron(Kit):
             self.passive("Apocalypse, the Emancipator", {f"{S.RES_PEN}:{DmgTag.ULT}": self.ep(6, 0)})
 
     def on_battle_start(self) -> None:
-        if self.e(4):
-            for e in self.enemies():
-                self._e4(e)
+        # E4 reaches wave-1 enemies through ENEMY_SPAWNED (setup runs before wave 1 spawns)
         if self.trace(1):
             n = int(self.tp(1, 0))
             self._gain(n, knot=False)

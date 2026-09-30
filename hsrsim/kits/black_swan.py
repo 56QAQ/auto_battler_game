@@ -87,6 +87,7 @@ class BlackSwan(Kit):
                 chance *= p[1]
 
     def _a6(self, mod: Modifier, key: str, ent: Entity) -> float:
+        # approximation: live EHR (the game reads it once on entering battle: SetDynamicValueByProperty OnEnterBattle)
         return min(self.tp(3, 1), self.tp(3, 0) * self.char.stat(S.EHR))
 
     def _e1(self, mod: Modifier, key: str, enemy: Entity) -> float:
@@ -104,6 +105,7 @@ class BlackSwan(Kit):
         return int(self.p("talent", 7))
 
     def arcana_mod(self, target: Enemy, stacks: int) -> DotModifier:
+        # approximation: Arcana uses Black Swan's live stats (the game snapshots them: UseSnapshotEntity)
         bs = self.char
 
         def dmg(mod: DotModifier, b: Battle, ratio: float) -> float:
@@ -157,7 +159,7 @@ class BlackSwan(Kit):
 
     def _on_dot(self, ev: E.Ev) -> None:
         t = ev.target
-        if not t.alive:
+        if not t.alive or "dot" not in ev.mod.tags:  # Freeze / Entanglement trigger at turn start but are no DoTs
             return
         if ev.turn_start:
             self.add_arcana(t, 1, self.p("talent", 1))

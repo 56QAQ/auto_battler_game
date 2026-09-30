@@ -118,9 +118,7 @@ class YaoGuang(Kit):
         self.battle.elation.extra_turn(fixed, self.char)
         if self.e(4):
             # needs_enemies=False: the flag must be cleared even if the Aha turn ends the wave
-            self.battle.queue_action(
-                self._unflag_e4, self.char, "Yao Guang E4 unflag", priority=6, needs_enemies=False
-            )
+            self.battle.queue_action(self._unflag_e4, self.char, "Yao Guang E4 unflag", priority=6, needs_enemies=False)
 
     def _flag_e4(self) -> None:
         self.e4_turn = True
@@ -182,6 +180,7 @@ class YaoGuang(Kit):
 
     # ----------------------------------------------------------- talent
     def _great_boon(self, ev: E.Ev) -> None:
+        # Great Boon is dealt (and credited) by the attacking ally, with Yao Guang's Elation as a floor
         act = ev.attack
         owner = act.owner
         if not isinstance(owner, Character) or owner.side != Side.ALLY or not act.attacked:

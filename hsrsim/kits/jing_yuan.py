@@ -35,6 +35,9 @@ class JingYuan(Kit):
         self.add_hits(int(self.sk("technique")["params"][0][0]))
 
     # -------------------------------------------------------- Lightning-Lord
+    # approximation: the per-hit SPD bonus is added to the Lightning-Lord's base SPD (the game stacks SpeedDelta on
+    # the battle event); team-wide SPD fields also reach the Lightning-Lord here.
+    # not modelled: the Lightning-Lord skipping its action while Jing Yuan is under Crowd Control.
     def _set_hits(self, n: int) -> None:
         self.hits = max(self.base_hits, min(int(self.p("talent", 5)), n))
         if self.ll is not None:

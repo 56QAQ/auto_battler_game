@@ -127,6 +127,9 @@ class Sparxie(Kit):
         self.bloom(target, n, lv)
 
     def _engagement(self, lv: list[float]) -> None:
+        # approximation: the gift is drawn with the "straight_fire_chance" option; the game's odds are not in the data
+        # and its pity rule (a guaranteed "Straight Fire" after enough "Unreal Banger", Sparxie_Skill02_MinorPrizeGetNum
+        # / MAvatar_Sparxie_00_Skill02_MustGrandPrize) is not modelled
         if self.battle.rng.random() < float(self.opts["straight_fire_chance"]):
             self.gain_punchline(int(lv[2]))
             self.battle.gain_sp(int(lv[0]), self.char)

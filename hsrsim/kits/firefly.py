@@ -31,6 +31,7 @@ class Firefly(Kit):
             self.passive("Module γ: Core Overload", {}, dyn=self._a6, dyn_keys={S.BREAK_EFFECT})
         self.on(E.ATTACK_END, self._super_break)
 
+    # not modelled: the Talent's HP-based DMG reduction and its debuff dispel (defensive only)
     def on_battle_start(self) -> None:
         floor = self.p("talent", 1) * self.char.max_energy
         if self.char.energy < floor:
@@ -111,7 +112,7 @@ class Firefly(Kit):
         if not self.in_combustion:
             self.simple_basic(target)
             return
-        rec = self.sk("131008")
+        rec = self.sk(f"{self.prefix}08")  # 131008 / enhanced 1131008 (at the variant's own skill level)
         lv = rec["params"][self.level_of(rec) - 1]
         mod = self._enhanced_mod()
         with self.action(ActionKind.BASIC, rec, target) as act:
@@ -130,7 +131,7 @@ class Firefly(Kit):
                 act.hit(target, self.p("skill", 0), toughness=self.toughness("skill"), splits="data")
             self.battle.advance(self.char, self.p("skill", 3))
             return
-        rec = self.sk("131009")
+        rec = self.sk(f"{self.prefix}09")  # 131009 / enhanced 1131009 (at the variant's own skill level)
         lv = rec["params"][self.level_of(rec) - 1]
         mod = self._enhanced_mod()
         sp = 0 if self.e(1) else None

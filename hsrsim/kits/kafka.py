@@ -218,6 +218,7 @@ class KafkaEnhanced(Kafka):
         return
 
     def _talent_enh(self, ev: E.Ev) -> None:
+        # approximation: a multi-target attack marks its first attacked enemy (the game keeps the latest marked one)
         act = ev.attack
         owner = act.owner
         if self.charges <= 0 or owner is self.char or not isinstance(owner, Character) or not act.attacked:
