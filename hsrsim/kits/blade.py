@@ -6,12 +6,16 @@ Ultimate (A2), feeds healing into the tally (A4) and adds Energy to the Talent f
 Options (``default_opts``):
 * ``rotation``: ``"skill"`` (default) enters Hellscape with the Skill whenever it is not active and SP allows
   (the Skill does not end the turn: Forest of Swords follows immediately); ``"basic"`` never uses the Skill.
+
+Manual control: the Skill only enters Hellscape (the turn continues, Ultimates can be inserted); the next choice is
+Forest of Swords (the only action left: the Skill is locked in Hellscape) on a target of the player's choice.
 """
 
 from __future__ import annotations
 
 from .. import events as E
 from .. import stats as S
+from ..control import MenuItem
 from ..entities import Enemy, Entity
 from ..enums import ActionKind
 from ..modifiers import Modifier, ModKind, Stacking, Tick
@@ -179,17 +183,38 @@ class Blade(Kit):
 
     def skill(self, target: Enemy | None) -> None:
         assert target is not None
+        self._hellscape(target)
+        # "Using this Skill does not end the current turn" (Ultimates may be inserted before Forest of Swords)
+        self.battle.ult_window()
+        t = target if target.alive and target.hp > 0 else self.pick_target()
+        if t is not None:
+            self.forest(t)
+
+    def _hellscape(self, target: Enemy | None) -> None:
+        """The Skill proper: enter Hellscape (the turn does not end)."""
         with self.action(ActionKind.SKILL, "skill", target):
             self.consume_hp(self.p("skill", 0))
             stats = self._hellscape_stats()
             # approximation: the Skill's own turn counts (3 Forest of Swords per Skill, community consensus);
             # the game implements the extra action with TurnInsertAction, which the engine has no notion of
             self.buff_self(Modifier("Hellscape", stats=stats, duration=int(self.p("skill", 1)), skip_first_tick=False))
-        # "Using this Skill does not end the current turn" (Ultimates may be inserted before Forest of Swords)
-        self.battle.ult_window()
-        t = target if target.alive and target.hp > 0 else self.pick_target()
-        if t is not None:
-            self.forest(t)
+
+    # ------------------------------------------------------ manual control
+    def menu(self) -> list[MenuItem]:
+        """Hellscape: Forest of Swords replaces the Basic ATK, the Skill is locked. The Skill does not end the turn
+        (manual play: it only enters Hellscape; Forest of Swords is then chosen like a Basic ATK)."""
+        if self.in_hellscape:
+            return [
+                self.basic_item(self.sk(self.forest_id)),
+                self.skill_item(enabled=False, note="【地狱变】状态下无法施放战技"),
+            ]
+        return [self.basic_item(), self.skill_item(ends_turn=False)]
+
+    def perform(self, item: str, target: Entity | None) -> None:
+        if item == "skill":
+            self.with_target(target, self._hellscape)
+            return
+        super().perform(item, target)
 
     def ult(self, target: Enemy | None) -> None:
         if target is None:

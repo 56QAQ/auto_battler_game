@@ -14,6 +14,7 @@ from typing import Any
 
 from .. import events as E
 from .. import stats as S
+from ..control import SELF, MenuItem
 from ..entities import Enemy, Entity
 from ..enums import ActionKind
 from ..modifiers import Modifier, hidden
@@ -162,6 +163,22 @@ class Mydei(Kit):
             self.skill(target)
         else:
             self.basic(target)
+
+    def menu(self) -> list[MenuItem]:
+        """Vendetta: the turn is automatic in the game ("Kingslayer Be King", or "Godslayer Be God" on the extra
+        turn at the Charge threshold); outside it Basic ATK or the HP-costing Skill."""
+        if self.vendetta is None:
+            return super().menu()
+        basic = self.basic_item(enabled=False, note="【血仇】状态下自动施放技能")
+        if self.pending_godslayer:
+            return [basic, self.skill_item(self.sk("140411"), id="godslayer", target=SELF, note="自动施放")]
+        return [basic, self.skill_item(self.sk("140409"), note="自动施放")]
+
+    def perform(self, item: str, target: Entity | None) -> None:
+        if item == "godslayer":
+            self.godslayer()
+            return
+        super().perform(item, target)
 
     # ------------------------------------------------------------- actions
     def basic(self, target: Enemy | None) -> None:

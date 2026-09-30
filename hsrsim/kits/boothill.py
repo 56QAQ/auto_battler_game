@@ -2,6 +2,9 @@
 
 Options:
   rotation: "skill" (default) re-enters Standoff whenever it ends and SP allows; "basic" never uses the Skill
+
+Manual control: the Skill only starts the Standoff (the turn continues, Ultimates can be inserted); the Enhanced
+Basic ATK on the Standoff target is then the only action left.
 """
 
 from __future__ import annotations
@@ -10,6 +13,7 @@ from typing import TYPE_CHECKING
 
 from .. import events as E
 from .. import stats as S
+from ..control import MenuItem
 from ..entities import Enemy, Entity
 from ..enums import ActionKind, Element
 from ..modifiers import Modifier, ModKind, Tick
@@ -212,6 +216,14 @@ class Boothill(Kit):
 
     def skill(self, target: Enemy | None) -> None:
         assert target is not None
+        self._standoff(target)
+        # "After using this Skill, the current turn does not end"
+        if self.in_standoff and not self.battle.finished:
+            self._enhanced_basic()
+
+    def _standoff(self, target: Enemy | None) -> None:
+        """The Skill proper: Boothill and ``target`` enter the Standoff."""
+        assert target is not None
         with self.action(ActionKind.SKILL, "skill", target):
             self._end_standoff()
             mod = _Standoff(
@@ -228,9 +240,23 @@ class Boothill(Kit):
             if self.technique_pending:
                 self.technique_pending = False
                 self.physical_weakness(target, int(self.sk("technique")["params"][0][0]))
-        # "After using this Skill, the current turn does not end"
-        if self.in_standoff and not self.battle.finished:
-            self._enhanced_basic()
+
+    # ------------------------------------------------------ manual control
+    def menu(self) -> list[MenuItem]:
+        """Standoff: the Enhanced Basic ATK (Standoff target only) replaces the Basic ATK, the Skill is locked. The
+        Skill does not end the turn."""
+        if self.in_standoff:
+            return [
+                self.basic_item(self.sk(self.char.char_id + ENHANCED_BASIC), note="只能攻击【绝命对峙】目标"),
+                self.skill_item(enabled=False, note="【绝命对峙】状态下无法施放战技"),
+            ]
+        return [self.basic_item(), self.skill_item(ends_turn=False)]
+
+    def perform(self, item: str, target: Entity | None) -> None:
+        if item == "skill":
+            self.with_target(target, self._standoff)
+            return
+        super().perform(item, target)
 
     def ult(self, target: Enemy | None) -> None:
         t = self.standoff_target if self.in_standoff else target

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from .. import events as E
 from .. import stats as S
+from ..control import MenuItem
 from ..entities import Enemy, Summon
 from ..enums import ActionKind, Element
 from ..modifiers import Modifier, ModKind, hidden
@@ -87,6 +88,13 @@ class Firefly(Kit):
             self.skill(target)
         else:
             self.basic(target)
+
+    def menu(self) -> list[MenuItem]:
+        """Complete Combustion: Enhanced Basic ATK and Enhanced Skill (E1: the Enhanced Skill costs no SP)."""
+        if not self.in_combustion:
+            return super().menu()
+        free = {"sp": 0} if self.e(1) else {}
+        return [self.basic_item(self.sk(f"{self.prefix}08")), self.skill_item(self.sk(f"{self.prefix}09"), **free)]
 
     # ----------------------------------------------------------- helpers
     def _enhanced_mod(self) -> Modifier:

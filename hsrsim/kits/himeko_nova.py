@@ -14,6 +14,10 @@ Options:
 
 Policy: Skill when Navigator's Semaphore is missing or about to expire (and Skill Points allow), else the Assist
 Skill, else Basic ATK.
+
+Manual control: every ally character's menu (Himeko • Nova's own and her teammates', wrapped at battle start) offers
+the Assist Skill ("assist") while that character has a use left. The extra turn from "Hark! The Express's Pulse
+Roars" only offers "End" (Ultimates can be cast before it).
 """
 
 from __future__ import annotations
@@ -23,7 +27,8 @@ from typing import Any, ClassVar
 
 from .. import events as E
 from .. import stats as S
-from ..entities import Character, Enemy
+from ..control import SELF, MenuItem
+from ..entities import Character, Enemy, Entity
 from ..enums import ActionKind, DmgTag
 from ..modifiers import Modifier, Tick
 from . import register
@@ -63,6 +68,8 @@ class HimekoNova(Kit):
         self.ult_only: set[int] = set()
         self.wrapped: set[int] = set()
         self.tech = False
+        self.a4_pending: set[int] = set()  # manual control: the next extra turn of these allies is Ultimate-only
+        self.a4_turn: dict[int, int] = {}  # ally uid -> battle turn of that Ultimate-only extra turn
         stats = {S.CRIT_DMG: self.p("talent", 0), S.RES_PEN: self.p("talent", 1)}
         if self.e(4):
             # approximation: the team-wide RES PEN is permanent (it starts with the first Assist Skill in the game)
@@ -81,6 +88,7 @@ class HimekoNova(Kit):
                 {f"{S.RES_PEN}:Fire": self.ep(6, 0), f"{S.DMG_PCT}:{ASSIST}": self.ep(6, 2)},
             )
         self.on(E.TURN_START, self._turn_start)
+        self.on(E.TURN_START, self._a4_turn_start)
         self.on(E.ULT_USED, self._verdict)
         self.on(E.ATTACK_END, self._decimation)
         self.on(E.WAVE_START, self._on_wave)
@@ -93,6 +101,9 @@ class HimekoNova(Kit):
             if c is not self.char and c.kit is not None and c.uid not in self.wrapped:
                 self.wrapped.add(c.uid)
                 setattr(c.kit, "take_turn", self._wrap_turn(c, c.kit.take_turn))  # noqa: B010
+        for c in self.battle.team:  # manual control: every ally character can use the Assist Skill
+            if c is not self.char and c.kit is not None:
+                self._wrap_menu(c, c.kit)
 
     def technique(self) -> None:
         self.tech = True
@@ -135,6 +146,65 @@ class HimekoNova(Kit):
                 orig()
 
         return turn
+
+    # ------------------------------------------------------ manual control
+    def assist_item(self, user: Character) -> MenuItem:
+        """The Assist Skill as a menu item of ``user`` (any ally character)."""
+        free = user is self.char and self.trace(1)
+        left = self.uses.get(user.uid, 0)
+        ok = self.char.alive and bool(self.enemies()) and (free or left >= 1)
+        if not self.char.alive:
+            note = "姬子•启行不在场"
+        elif free:
+            note = "不消耗助战技次数"
+        else:
+            note = f"剩余{left}次" if ok else "助战技次数不足"
+        return self.skill_item(self.sk(ASSIST_ID), id="assist", kind="other", sp=0, enabled=ok, note=note)
+
+    def _use_assist(self, user: Character, target: Entity | None) -> None:
+        if not (user is self.char and self.trace(1)):
+            self.uses[user.uid] = self.uses.get(user.uid, 0) - 1
+        self.assist(user, target if isinstance(target, Enemy) and target.alive else self.pick_target())
+
+    def menu(self) -> list[MenuItem]:
+        return [self.basic_item(), self.skill_item(), self.assist_item(self.char)]
+
+    def perform(self, item: str, target: Entity | None) -> None:
+        if item == "assist":
+            self._use_assist(self.char, target)
+            return
+        super().perform(item, target)
+
+    def _a4_turn_start(self, ev: E.Ev) -> None:
+        uid = ev.entity.uid
+        if uid in self.a4_pending:
+            self.a4_pending.discard(uid)
+            if ev.extra:
+                self.a4_turn[uid] = self.battle.turns
+
+    def _wrap_menu(self, c: Character, kit: Kit) -> None:
+        """Add the Assist Skill to a teammate's menu (instance attributes, like ``_wrap_turn``)."""
+        orig_menu, orig_perform = kit.menu, kit.perform
+
+        def menu() -> list[MenuItem]:
+            if self.a4_turn.get(c.uid) == self.battle.turns:
+                return [MenuItem("end", "结束回合", target=SELF, kind="other", note="该额外回合仅可施放终结技")]
+            return [*orig_menu(), self.assist_item(c)]
+
+        def perform(item: str, target: Entity | None) -> None:
+            if item == "end":
+                self.a4_turn.pop(c.uid, None)
+                self.ult_only.discard(c.uid)
+                return
+            if item != "assist":
+                orig_perform(item, target)
+                return
+            self._use_assist(c, target)
+            if self.trace(2) and (c.char_id in COMPANIONS or self.e(2)):
+                self.a4_pending.add(c.uid)  # the queued extra turn only allows an Ultimate
+
+        setattr(kit, "menu", menu)  # noqa: B010
+        setattr(kit, "perform", perform)  # noqa: B010
 
     # -------------------------------------------------------------- Assist
     def assist(self, user: Character, target: Enemy | None, launched: bool = False) -> None:

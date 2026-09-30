@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from .. import events as E
 from .. import stats as S
+from ..control import ALLIES, MenuItem
 from ..elation import PUNCHLINE_CHANGED
 from ..entities import Character, Enemy, Entity
 from ..enums import ActionKind, Element, Path, Side
@@ -236,6 +237,21 @@ class Pearl(Kit):
             self.skill(target)
         else:
             self.basic(target)
+
+    def menu(self) -> list[MenuItem]:
+        """Deep Learning: the Basic ATK is enhanced (Render the Great Wave / Imagenate the Starry Night for an Elation
+        Archetype). The Skill heals the whole team."""
+        skill = self.skill_item(target=ALLIES)
+        arch = self.archetype
+        if self.deep_learning and arch is not None:
+            return [self.basic_item(self.sk(IMAGENATE_ID if arch.path == Path.ELATION else RENDER_ID)), skill]
+        return [self.basic_item(), skill]
+
+    def perform(self, item: str, target: Entity | None) -> None:
+        if item == "basic" and self.deep_learning:
+            self.with_target(target, self.enhanced_basic)
+            return
+        super().perform(item, target)
 
     # -------------------------------------------------------------- actions
     def basic(self, target: Enemy | None) -> None:

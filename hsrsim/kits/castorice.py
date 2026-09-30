@@ -8,6 +8,9 @@ Options (``default_opts``):
     repeatedly on its last turn until "Wings Sweep the Ruins", default), ``"always"`` (Breath from the first
     turn) or ``"never"`` (Claw only; Wings Sweep when it leaves).
 
+Manual control: Netherwing's turns are the player's: "Claw Splits the Veil" (ends the turn) or "Breath Scorches the
+Shadow" (the turn continues; once used, only Breath can follow; at 25% HP or less it becomes "Wings Sweep the Ruins").
+
 # not modelled: Netherwing bearing the team's lethal HP loss (allies cannot die with ``allies_immortal``);
 #   A4's Netherwing SPD boost after killing every enemy with Breath; healing amounts ignore E4's bonus.
 """
@@ -18,7 +21,8 @@ from typing import TYPE_CHECKING, Any
 
 from .. import events as E
 from .. import stats as S
-from ..entities import Enemy, Summon
+from ..control import MenuItem
+from ..entities import Enemy, Entity, Summon
 from ..enums import ActionKind, DmgTag, Side
 from ..modifiers import Modifier, Stacking, Tick
 from . import register
@@ -48,6 +52,8 @@ class Castorice(Kit):
         self.ardent = 0
         self.e2_bonus = False
         self.heal_conv: dict[int, float] = {}
+        self.nw_turn_counted = -1  # battle turn whose Netherwing turn was counted
+        self.breath_turn = -1  # manual control: battle turn in which Netherwing used Breath
         self.on(E.HP_CHANGED, self._on_hp)
         self.on(E.TURN_END, self._nw_turn_end)
         if self.trace(1):
@@ -116,6 +122,9 @@ class Castorice(Kit):
 
     def ult_ready(self) -> bool:
         return self.nw() is None and self.newbud >= self.max_newbud() - 1e-6
+
+    def ult_resource(self) -> tuple[float, float, str]:
+        return self.newbud, self.max_newbud(), "新蕊"
 
     def pay_ult_cost(self) -> None:
         self.newbud = 0.0
@@ -230,8 +239,14 @@ class Castorice(Kit):
         self.breaths = 0
         self.ardent = 0
 
+    def _count_nw_turn(self) -> None:
+        """Count Netherwing's turn once (its policy and the manual menu may both act in the same turn)."""
+        if self.nw_turn_counted != self.battle.turns:
+            self.nw_turn_counted = self.battle.turns
+            self.nw_turns += 1
+
     def _nw_turn(self, nw: Summon, battle: Battle) -> None:
-        self.nw_turns += 1
+        self._count_nw_turn()
         policy = self.opts.get("breath", "last_turn")
         final = self.nw_turns >= int(self.p("ult", 1))
         if policy == "always" or (policy == "last_turn" and final):
@@ -245,6 +260,41 @@ class Castorice(Kit):
                 self._breath(nw)
         else:
             self._claw(nw)
+
+    def _wings_now(self, nw: Summon) -> bool:
+        """Breath at or below #5 of Netherwing's Max HP (without E2's Ardent) turns into Wings Sweep the Ruins."""
+        _, lv = self._memo_lv("1140702")
+        return nw.hp <= lv[4] * nw.max_hp and self.ardent <= 0
+
+    def menu_for(self, unit: Entity) -> list[MenuItem]:
+        nw = self.nw()
+        if nw is None or unit is not nw:
+            return []
+        breathed = self.breath_turn == self.battle.turns
+        claw = self.basic_item(self.sk("1140701"), id="claw", enabled=not breathed)
+        if breathed:
+            claw.note = "已发动【燎尽黯泽的焰息】，只能继续发动"
+        if self._wings_now(nw):
+            breath = self.skill_item(self.sk("1140712"), id="breath", enabled=True, note="生命值过低：发动后死龙消失")
+        else:
+            rec = self.sk("1140702" if self.breaths == 0 else "1140710")
+            note = "不消耗生命值（E2）" if self.ardent > 0 else "消耗死龙生命值，回合不结束"
+            breath = self.skill_item(rec, id="breath", ends_turn=False, enabled=True, note=note)
+        return [claw, breath]
+
+    def perform_for(self, unit: Entity, item: str, target: Entity | None) -> None:
+        nw = self.nw()
+        if nw is None or unit is not nw or item not in ("claw", "breath"):
+            super().perform_for(unit, item, target)
+            return
+        self._count_nw_turn()
+        if item == "claw":
+            self._claw(nw)
+        elif self._wings_now(nw):
+            self._wings(nw, "1140712")
+        else:
+            self.breath_turn = self.battle.turns
+            self._breath(nw)
 
     def _nw_turn_end(self, ev: E.Ev) -> None:
         nw = self.nw()
@@ -307,6 +357,11 @@ class Castorice(Kit):
             memo_tags = (DmgTag.SKILL, DmgTag.MEMOSPRITE)
             for e in self.enemies():
                 memo_hit(act, nw, e, 0.0, flat=lv[2] * self.char.max_hp, tags=memo_tags, primary=e is target)
+
+    def menu(self) -> list[MenuItem]:
+        """The Skill costs the team's HP (no SP); it becomes "Boneclaw, Doomdrake's Embrace" with Netherwing."""
+        rec = self.sk("140709") if self.nw() is not None else self.sk("skill")
+        return [self.basic_item(), self.skill_item(rec, note="消耗我方全体当前生命值")]
 
     def ult(self, target: Enemy | None) -> None:
         with self.action(ActionKind.ULT, "ult"):

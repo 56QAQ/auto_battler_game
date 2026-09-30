@@ -5,6 +5,9 @@ Options (``default_opts``):
 * ``rotation``: ``"greedy"`` (default: the strongest enhanced Basic ATK the SP + Squama allow, up to
   ``max_enhance``), ``"full"`` (only ``max_enhance``-level attacks, else the plain Basic ATK) or ``"basic"``.
 * ``max_enhance``: highest enhancement used (1 Transcendence, 2 Divine Spear, 3 Fulgurant Leap; default 3).
+
+Manual control: the menu lists Beneficent Lotus and the three enhancement levels ("enhanced_basic:1..3"), each
+enabled when Skill Points + Squama Sacrosancta cover its cost (Squama is spent first).
 """
 
 from __future__ import annotations
@@ -13,7 +16,8 @@ from typing import Any
 
 from .. import events as E
 from .. import stats as S
-from ..entities import Character, Enemy
+from ..control import MenuItem
+from ..entities import Character, Enemy, Entity
 from ..enums import ActionKind, Element
 from ..modifiers import Modifier, Stacking
 from . import register
@@ -147,6 +151,36 @@ class ImbibitorLunae(Kit):
             self.enhanced_basic(target, level)
         else:
             self.basic(target)
+
+    # ------------------------------------------------------ manual control
+    @staticmethod
+    def _cost(rec: dict[str, Any]) -> int:
+        need = rec["sp_need"]
+        return int(need[0] if isinstance(need, list) else need)
+
+    def menu(self) -> list[MenuItem]:
+        """Dracore Libre is not an action: the enhancement level (1-3) is chosen together with the attack."""
+        items = [self.basic_item()]
+        for level, sid in ENHANCED.items():
+            rec = self.sk(sid)
+            need = self._cost(rec)
+            squama = min(self.squama, need)
+            ok = self.budget() >= need
+            if not ok:
+                note = f"需要{need}点战技点/逆鳞"
+            else:
+                note = f"消耗{squama}逆鳞+{need - squama}战技点" if squama else ""
+            items.append(
+                self.basic_item(rec, id=f"enhanced_basic:{level}", kind="skill", sp=squama - need, enabled=ok, note=note)
+            )
+        return items
+
+    def perform(self, item: str, target: Entity | None) -> None:
+        if item.startswith("enhanced_basic:"):
+            level = int(item.split(":", 1)[1])
+            self.with_target(target, lambda t: self.enhanced_basic(t, level))
+            return
+        super().perform(item, target)
 
     # ------------------------------------------------------------ actions
     def basic(self, target: Enemy | None) -> None:

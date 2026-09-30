@@ -26,6 +26,8 @@ Odes implemented here for kits without the hook: Trailblazer (Remembrance) "Gene
 #   special resources unless they implement ``fill_special_resource``; Demiurge's own effect durations ticking after
 #   its abilities; Crowd Control dispels; the Zone being dispelled when Cyrene is downed (allies are immortal).
 # approximation: "Future" is consumed at the end of the holder's turn.
+# not modelled (manual control): Demiurge's extra turns are inserted actions, not turns, so the player cannot pick
+#   the Ode's target or Minuet; they follow ``ode_targets``.
 """
 
 from __future__ import annotations
@@ -34,6 +36,7 @@ from typing import TYPE_CHECKING, Any
 
 from .. import events as E
 from .. import stats as S
+from ..control import ALLIES, MenuItem
 from ..entities import Character, Enemy, Entity, Summon
 from ..enums import ActionKind, DmgTag, Element, Path, Side
 from ..modifiers import Modifier, Tick, hidden
@@ -179,6 +182,9 @@ class Cyrene(Kit):
     def pay_ult_cost(self) -> None:
         self.recollection = max(0.0, self.recollection - self._ult_cost())
 
+    def ult_resource(self) -> tuple[float, float, str]:
+        return self.recollection, self._ult_cost(), "追忆"
+
     # --------------------------------------------------------------- Future
     def _grant_future(self) -> None:
         for c in self.battle.team:
@@ -248,6 +254,16 @@ class Cyrene(Kit):
             self.skill(target)
         else:
             self.basic(target)
+
+    def menu(self) -> list[MenuItem]:
+        """Ripples of Past Reverie: only the enhanced Basic ATK "To Love and Tomorrow" can be used. The Skill deploys
+        a Zone for the whole team."""
+        if self.rippled:
+            return [
+                self.basic_item(self.sk(ENHANCED_BASIC)),
+                self.skill_item(target=ALLIES, enabled=False, note="【往昔的涟漪】状态下仅能使用强化普攻"),
+            ]
+        return [self.basic_item(), self.skill_item(target=ALLIES)]
 
     # ------------------------------------------------------------- actions
     def basic(self, target: Enemy | None) -> None:

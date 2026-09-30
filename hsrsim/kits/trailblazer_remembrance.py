@@ -6,6 +6,9 @@ Options (``default_opts``):
     Mem's Charge) or ``"basic"``.
   * ``target``: name of the ally that receives "Lemme! Help You!" (default: the first other team slot).
 
+Manual control: below 100% Charge Mem acts on its own ("Baddies! Trouble!"); at 100% its turn is the player's:
+"Baddies! Trouble!" or "Lemme! Help You!" on a chosen ally.
+
 # not modelled: Mem disappearing (allies cannot die with ``allies_immortal``), so "No... Regrets" never triggers;
 #   dispelling Crowd Control from Mem.
 """
@@ -16,6 +19,7 @@ from typing import TYPE_CHECKING, Any
 
 from .. import events as E
 from .. import stats as S
+from ..control import SELF, MenuItem
 from ..entities import Character, Enemy, Entity, Summon
 from ..enums import ActionKind, DmgTag
 from ..modifiers import Modifier, Tick
@@ -144,6 +148,31 @@ class _TrailblazerRemembrance(Kit):
         else:
             self.baddies(mem)
 
+    def menu_for(self, unit: Entity) -> list[MenuItem]:
+        mem = self.mem()
+        if mem is None or unit is not mem or self.charge < 1.0 - 1e-9:
+            return []  # "If the Charge has yet to reach 100%, Mem automatically uses Baddies! Trouble!"
+        return [
+            self.basic_item(self.sk("1800701"), id="baddies"),
+            self.skill_item(self.sk("1800707"), id="lemme", enabled=True, note=""),
+        ]
+
+    def perform_for(self, unit: Entity, item: str, target: Entity | None) -> None:
+        mem = self.mem()
+        if mem is None or unit is not mem or item not in ("baddies", "lemme"):
+            super().perform_for(unit, item, target)
+            return
+        if item == "baddies":
+            self.baddies(mem)
+            return
+        ally: Entity = self.main_dps()
+        if target is mem or (isinstance(target, Character) and target.side == self.char.side and target.alive):
+            ally = target
+        elif isinstance(target, Summon) and target.side == self.char.side:
+            ally = target.owner
+        # not modelled: "Mem's Support" held by Mem itself adds no True DMG (see _support_holder)
+        self.lemme(mem, ally)  # type: ignore[arg-type]  # Mem itself is a valid target in the game
+
     def baddies(self, mem: Summon) -> None:
         rec = self.sk("1800701")
         lv = rec["params"][self.level_of(rec) - 1]
@@ -231,6 +260,14 @@ class _TrailblazerRemembrance(Kit):
             for e in self.enemies():
                 memo_hit(act, mem, e, lv[1], tags=(DmgTag.BASIC, DmgTag.MEMOSPRITE), primary=e is target)
         self.add_charge(lv[2])
+
+    def menu(self) -> list[MenuItem]:
+        """With "Epic" (and Mem on the field) the Joint ATK "Together, We Script Tomorrow!" replaces the Basic ATK.
+        The Skill summons Mem, or heals it and grants Charge when it is on the field."""
+        mem = self.mem()
+        basic = self.basic_item(self.sk(f"{self.char.char_id}08")) if self.epic > 0 and mem is not None else None
+        rec = self.sk(f"{self.char.char_id}09") if mem is not None else self.sk("skill")
+        return [basic or self.basic_item(), self.skill_item(rec, target=SELF)]
 
     def skill(self, target: Enemy | None) -> None:
         mem = self.mem()

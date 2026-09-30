@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any
 from .. import events as E
 from .. import formulas as F
 from .. import stats as S
+from ..control import SELF, MenuItem
 from ..entities import Enemy, Entity, Summon
 from ..enums import ActionKind, DmgTag, Element
 from ..modifiers import Modifier, ModKind, Stacking, Tick, hidden
@@ -249,6 +250,18 @@ class Aglaea(Kit):
             self.skill(target)
         else:
             self.basic(target)
+
+    def menu(self) -> list[MenuItem]:
+        """Supreme Stance: the Joint ATK "Slash by a Thousandfold Kiss" replaces the Basic ATK and the Skill is locked.
+        The Skill summons Garmentmaker, or heals it when it is on the field (no target choice either way)."""
+        gm = self.gm()
+        if self.in_stance and gm is not None:
+            return [
+                self.basic_item(self.sk("140208")),
+                self.skill_item(target=SELF, enabled=False, note="【至高之姿】状态下无法施放战技"),
+            ]
+        rec = self.sk("140209") if gm is not None else self.sk("skill")
+        return [self.basic_item(), self.skill_item(rec, target=SELF)]
 
     # ----------------------------------------------------------- actions
     def basic(self, target: Enemy | None) -> None:

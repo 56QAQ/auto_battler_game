@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from .. import events as E
 from .. import stats as S
+from ..control import MenuItem
 from ..entities import Enemy
 from ..enums import ActionKind, Element, EnemyRank
 from ..modifiers import Modifier, ModKind, hidden
@@ -120,6 +121,15 @@ class Rappa(Kit):
             self.skill(target)
         else:
             self.basic(target)
+
+    def menu(self) -> list[MenuItem]:
+        """Sealform: the Enhanced Basic ATK replaces the Basic ATK; Skill (and Ultimate) cannot be used."""
+        if self.in_seal:
+            return [
+                self.basic_item(self.sk(self.char.char_id + ENHANCED), note=f"【彩墨】{self.ink}"),
+                self.skill_item(enabled=False, note="【结印】状态下无法施放战技"),
+            ]
+        return super().menu()
 
     # ------------------------------------------------------------ actions
     def basic(self, target: Enemy | None) -> None:

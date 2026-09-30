@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from .. import events as E
 from .. import stats as S
+from ..control import MenuItem
 from ..entities import Character, Enemy, Entity
 from ..enums import ActionKind, DmgTag, Side
 from ..modifiers import Modifier
@@ -165,6 +166,12 @@ class Gilgamesh(Kit):
             self.skill(target)
         else:
             self.basic(target)  # "automatically uses Basic ATK at the start of this unit's turn"
+
+    def menu(self) -> list[MenuItem]:
+        """Basic ATK only (used automatically in the game) until "Interest Piqued!", Skill only afterwards."""
+        if self.piqued:
+            return [self.basic_item(enabled=False, note="【来兴致了！】状态下仅能施放战技"), self.skill_item()]
+        return [self.basic_item(note="自动施放"), self.skill_item(enabled=False, note="尚未进入【来兴致了！】状态")]
 
     # -------------------------------------------------------------- actions
     def basic(self, target: Enemy | None) -> None:

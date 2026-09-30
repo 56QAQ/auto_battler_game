@@ -15,6 +15,7 @@ from typing import Any
 
 from .. import events as E
 from .. import stats as S
+from ..control import MenuItem
 from ..entities import Enemy
 from ..enums import ActionKind, Element
 from ..modifiers import Modifier, ModKind, Stacking, Tick, hidden
@@ -121,6 +122,15 @@ class Jingliu(Kit):
             self.skill(target)
         else:
             self.basic(target)
+
+    def menu(self) -> list[MenuItem]:
+        """Spectral Transmigration: only the enhanced Skill "Moon On Glacial River" (no SP) can be used."""
+        if self.in_transmigration:
+            return [
+                self.basic_item(enabled=False, note="【转魄】状态下仅能施放【寒川映月】"),
+                self.skill_item(self.sk(f"{self.prefix}09"), enabled=True, note=""),
+            ]
+        return super().menu()
 
     # ----------------------------------------------------------- actions
     def basic(self, target: Enemy | None) -> None:

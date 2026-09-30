@@ -5,12 +5,17 @@ Policy options:
   ``sp_reserve``: Skill Points to keep for teammates (default 1)
   ``straight_fire_chance``: probability of the "Straight Fire" gift (default 0.5; the real
       distribution is not in the data files)
+
+Manual control: the Skill starts the livestream (1 Engagement Farming, the turn continues); then "Engagement Farming"
+(Skill slot, 1 SP or Thrill each, up to the Skill's cap) or "Bloom! Winner Takes All" (Basic ATK slot) to finish.
+# approximation: in manual play every Engagement Farming is its own Livestream action (the policy groups them).
 """
 
 from __future__ import annotations
 
 from .. import events as E
 from .. import stats as S
+from ..control import MenuItem
 from ..elation import AHA_INSTANT_END
 from ..entities import Enemy, Entity
 from ..enums import ActionKind, Path
@@ -28,6 +33,8 @@ class Sparxie(Kit):
 
     def setup(self) -> None:
         self.thrill = 0
+        self.stream_turn = -1  # manual control: battle turn of the open livestream
+        self.stream_n = 0  # Engagement Farming triggered in it
         if self.trace(1):
             self.passive("Punchline Signing", {}, dyn=self._a2, dyn_keys={S.ELATION_DMG_PCT})
         if self.trace(3):
@@ -125,6 +132,46 @@ class Sparxie(Kit):
                 n += 1
                 self._engagement(lv)
         self.bloom(target, n, lv)
+
+    # ------------------------------------------------------ manual control
+    def _streaming(self) -> bool:
+        return self.stream_turn == self.battle.turns and self.battle.current_turn is self.char
+
+    def menu(self) -> list[MenuItem]:
+        can_pay = self._can_pay(0)
+        pay_note = "" if can_pay else "战技点不足"
+        if not self._streaming():
+            skill = self.skill_item(ends_turn=False, enabled=can_pay, note=pay_note)
+            return [self.basic_item(), skill]
+        farm = self.sk("150109")
+        left = int(self.p("skill", 0)) - self.stream_n
+        ok = can_pay and left > 0
+        note = (f"【爆点】{self.thrill}" if self.thrill > 0 else "") if ok else (pay_note or "已达发动上限")
+        return [
+            self.basic_item(self.sk("150108"), note=f"【互动陷阱】×{self.stream_n}"),
+            self.skill_item(farm, id="skill", ends_turn=False, enabled=ok, note=note),
+        ]
+
+    def _farm_once(self, target: Enemy | None) -> None:
+        farm = self.sk("150109")
+        lv = farm["params"][self.level_of(farm) - 1]
+        with self.action(ActionKind.EXTRA, "skill", target, label="Livestream", sp=0, energy=0):
+            self._pay()
+            self._engagement(lv)
+        if not self._streaming():
+            self.stream_turn, self.stream_n = self.battle.turns, 0
+        self.stream_n += 1
+
+    def perform(self, item: str, target: Entity | None) -> None:
+        if item == "skill":
+            self.with_target(target, self._farm_once)
+            return
+        if item == "basic" and self._streaming():
+            farm = self.sk("150109")
+            n, self.stream_turn = self.stream_n, -1
+            self.with_target(target, lambda t: self.bloom(t, n, farm["params"][self.level_of(farm) - 1]))
+            return
+        super().perform(item, target)
 
     def _engagement(self, lv: list[float]) -> None:
         # approximation: the gift is drawn with the "straight_fire_chance" option; the game's odds are not in the data

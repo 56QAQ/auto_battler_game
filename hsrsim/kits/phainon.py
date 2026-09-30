@@ -20,6 +20,10 @@ Options (``default_opts``):
 Cyrene protocol: ``on_cyrene_ode(cyrene)`` ("Ode to Worldbearing") and ``fill_special_resource()`` (Cyrene's Ultimate
 sets every teammate's Energy / special resource to its maximum).
 
+Manual control: Khaslana's extra turns are Phainon's own turns (``battle.take_turn(self.char, extra_turn=True)``), so
+``menu()`` offers "creation" / "calamity" / "foundation" there (the "battle event" summons stay automatic). The
+start-of-extra-turn effects (Ode HP cost, pending Soulscorch Counter) resolve right before the chosen ability.
+
 # approximation: departed teammates (and their memosprites / countdowns) are taken out of the battle for the duration
 #   (``alive = False``: no turns, no Ultimates, not targetable, queued follow-ups dropped). Their action gauges (and
 #   Phainon's own) are frozen and restored afterwards (the ability script records the Action Order; the "SPD +15% for
@@ -38,6 +42,7 @@ from typing import TYPE_CHECKING, Any
 from .. import events as E
 from .. import formulas as F
 from .. import stats as S
+from ..control import ENEMIES, SELF, MenuItem
 from ..entities import Character, Enemy, Entity, Summon
 from ..enums import ActionKind, DmgTag, Element, Side
 from ..modifiers import Modifier, ModKind, Stacking, Tick, hidden
@@ -158,6 +163,9 @@ class Phainon(Kit):
 
     def ult_ready(self) -> bool:
         return not self.transformed and self.coreflame >= self.p("talent", 3) - 1e-9
+
+    def ult_resource(self) -> tuple[float, float, str]:
+        return self.coreflame, self.p("talent", 3), "余烬"
 
     def want_ult(self) -> bool:
         if not self.opts.get("ult", True):
@@ -418,12 +426,8 @@ class Phainon(Kit):
 
     # ------------------------------------------------------- Khaslana turn
     def _khaslana_action(self) -> None:
-        if self.ode is not None:  # "At the start of extra turns, Khaslana consumes HP"
-            self.battle.lose_hp(self.char, self.ode[1] * self.char.hp, self.char)
-        if self.soulscorch > 0:  # "If Soulscorch is still active at the start of Khaslana's extra turn"
-            self._counter()
-        target = self.pick_target()
-        if target is None or not self.transformed:
+        target = self._khaslana_start()
+        if target is None:
             return
         choice = self._choose()
         if choice == "foundation":
@@ -432,6 +436,43 @@ class Phainon(Kit):
             self.calamity(target)
         else:
             self.creation(target)
+
+    def _khaslana_start(self) -> Enemy | None:
+        """Start of a Khaslana extra turn; returns the default target (None: no action left)."""
+        if self.ode is not None:  # "At the start of extra turns, Khaslana consumes HP"
+            self.battle.lose_hp(self.char, self.ode[1] * self.char.hp, self.char)
+        if self.soulscorch > 0:  # "If Soulscorch is still active at the start of Khaslana's extra turn"
+            self._counter()
+        target = self.pick_target()
+        if target is None or not self.transformed:
+            return None
+        return target
+
+    # ------------------------------------------------------ manual control
+    def menu(self) -> list[MenuItem]:
+        """Khaslana's extra turn: Enhanced Basic ATK "Creation" or the Enhanced Skills "Calamity" / "Foundation"
+        (Foundation needs Scourge). Phainon's own turn while transformed does nothing."""
+        if not self.transformed:
+            return super().menu()
+        if not self.k_turn:
+            return [MenuItem("pass", "（卡厄斯兰那不进入自己的回合）", target=SELF, kind="other")]
+        found = self.skill_item(self.sk(FOUNDATION), id="foundation", target=ENEMIES, enabled=self.scourge > 0)
+        found.note = f"【毁伤】{self.scourge}" if self.scourge > 0 else "没有【毁伤】"
+        return [
+            self.basic_item(self.sk(CREATION), id="creation"),
+            self.skill_item(self.sk(CALAMITY), id="calamity", enabled=True, note=""),
+            found,
+        ]
+
+    def perform(self, item: str, target: Entity | None) -> None:
+        if item == "pass":
+            return
+        ability = {"creation": self.creation, "calamity": self.calamity, "foundation": self.foundation}.get(item)
+        if ability is None:
+            super().perform(item, target)
+            return
+        if self._khaslana_start() is not None:
+            self.with_target(target, ability)
 
     def _choose(self) -> str:
         need = int(self._lv(FOUNDATION)[3])

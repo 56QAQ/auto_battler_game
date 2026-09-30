@@ -15,6 +15,7 @@ from collections import Counter
 
 from .. import events as E
 from .. import stats as S
+from ..control import MenuItem
 from ..entities import Character, Enemy
 from ..enums import ActionKind, DmgTag
 from ..modifiers import Modifier, Stacking, Tick
@@ -114,6 +115,17 @@ class Qingque(Kit):
         target = target if target.alive else self.pick_target()
         if target is not None:
             self.basic(target)
+
+    # ------------------------------------------------------ manual control
+    def menu(self) -> list[MenuItem]:
+        """The Skill never ends the turn (one Skill per choice, repeatable); in Hidden Hand "Cherry on Top!" replaces
+        the Basic ATK and the Skill is locked."""
+        if self.hidden_hand:
+            return [
+                self.basic_item(self.sk(ENHANCED_BASIC), sp=E6_SP if self.e(6) else 0),
+                self.skill_item(ends_turn=False, enabled=False, note="【暗杠】状态下无法施放战技"),
+            ]
+        return [self.basic_item(), self.skill_item(ends_turn=False)]
 
     # ------------------------------------------------------------- actions
     def basic(self, target: Enemy | None) -> None:

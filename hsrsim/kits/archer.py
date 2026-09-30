@@ -7,6 +7,9 @@ Options:
 Policy: enter Circuit Connection whenever 2 Skill Points (+ reserve) are available and keep using the Skill
 while possible (up to 5 times); otherwise Basic ATK. Rin Tohsaka's Joint Follow-Up ATK and Archer's own
 follow-ups triggered during the chain are resolved between the Skills.
+
+Manual control: one Skill per choice; in Circuit Connection the turn continues with "Skill" or "End" (the Basic ATK
+slot), and it ends by itself after the 5th Skill or when the Skill Points no longer cover another Skill.
 """
 
 from __future__ import annotations
@@ -16,13 +19,15 @@ from typing import Any, ClassVar
 
 from .. import events as E
 from .. import stats as S
-from ..entities import Character, Enemy
+from ..control import SELF, MenuItem
+from ..entities import Character, Enemy, Entity
 from ..enums import ActionKind, DmgTag, Element
 from ..modifiers import Modifier, ModKind
 from . import register
 from .base import Kit
 
 FUA_SP = 1  # "recovering 1 Skill Point" (literal in the Talent text)
+END_ID = "101509"  # "End": exits Circuit Connection and ends the turn
 
 
 @register
@@ -49,6 +54,8 @@ class Archer(Kit):
                 E.TURN_START, lambda ev: ev.entity is self.char and self.battle.gain_sp(int(self.ep(6, 0)), self.char)
             )
         self.on(E.ATTACK_END, self._talent)
+        self.on(E.TURN_END, self._cc_turn_end)
+        self.cc_ended_turn = -1  # manual control: battle turn in which Circuit Connection ended by itself
 
     def on_battle_start(self) -> None:
         if self.trace(2):
@@ -124,11 +131,58 @@ class Archer(Kit):
                 if self.cc_count >= int(self.p("skill", 4)) or not self.enemies() or not self._can_chain():
                     break
         finally:
-            self.in_chain = False
-            self.cc = False
-            for t in self._pending:
-                self.battle.queue_action(partial(self.follow_up, t), self.char, "Mind's Eye (True)")
-            self._pending = []
+            self._exit_cc()
+
+    def _exit_cc(self) -> None:
+        self.in_chain = False
+        self.cc = False
+        for t in self._pending:
+            self.battle.queue_action(partial(self.follow_up, t), self.char, "Mind's Eye (True)")
+        self._pending = []
+
+    # ------------------------------------------------------ manual control
+    def _cc_turn_end(self, ev: E.Ev) -> None:
+        if ev.entity is self.char and self.cc:  # a manual chain interrupted by the end of the turn / wave
+            self._exit_cc()
+
+    def _chain_continues(self) -> bool:
+        """Whether Circuit Connection survives the next Skill (5 uses, Skill Points for one more; E1's refund)."""
+        cost = self._skill_cost()
+        n = self.cc_count + 1 if self.cc else 1
+        sp = self.battle.sp - cost
+        if self.e(1) and n == int(self.ep(1, 0)):
+            sp += int(self.ep(1, 1))
+        return n < int(self.p("skill", 4)) and sp >= cost
+
+    def menu(self) -> list[MenuItem]:
+        """The Skill enters Circuit Connection and does not end the turn while it lasts; "End" exits it."""
+        skill = self.skill_item(ends_turn=not self._chain_continues())
+        if not self.cc:
+            if self.cc_ended_turn == self.battle.turns and self.battle.current_turn is self.char:
+                end = self.basic_item(self.sk(END_ID), id="end", target=SELF, sp=0, note="【回路连接】已结束")
+                return [end]
+            return [self.basic_item(), skill]
+        end = self.basic_item(self.sk(END_ID), id="end", target=SELF, sp=0, note="退出【回路连接】并结束回合")
+        skill.note = skill.note or f"【回路连接】第{self.cc_count + 1}次"
+        return [end, skill]
+
+    def perform(self, item: str, target: Entity | None) -> None:
+        if item == "end":
+            self._exit_cc()
+            return
+        if item != "skill":
+            super().perform(item, target)
+            return
+        last = not self._chain_continues()
+        if not self.cc:
+            self.cc, self.cc_count, self.cc_stacks = True, 0, 0
+            self.in_chain = True
+        self.with_target(target, self.skill)
+        self._after_skill()
+        if last or self.cc_count >= int(self.p("skill", 4)) or not self.enemies() or not self.can_skill():
+            self._exit_cc()
+            if not last:
+                self.cc_ended_turn = self.battle.turns  # the turn is over: only "End" is left
 
     def _after_skill(self) -> None:
         for c in self.battle.team:
