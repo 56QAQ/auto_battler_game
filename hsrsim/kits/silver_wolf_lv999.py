@@ -162,14 +162,17 @@ class SilverWolfLV999(Kit):
         return self.mmr, self.p("talent", 0), "MMR"
 
     def pay_ult_cost(self) -> None:
-        pass  # Hidden MMR is not consumed (it is cleared when Godmode ends)
+        """The Ultimate spends the base gauge (#1 = 60 Hidden MMR); the overflow is kept (Skill03_Phase02 empties
+        CurExtraSpecialSP and adds it back). E2 then counts from what is left: 99 MMR -> 39, + 20 (A6) + 20 (e.g.
+        the Punchline of "Welcome to the Cosmic City") = 79 < 120, no extra turn."""
+        self.mmr = max(0.0, self.mmr - self.p("talent", 0))
 
     def ult(self, target: Enemy | None) -> None:
         with self.action(ActionKind.ULT, "ult", energy=0):
             self.god = True
             self.box_chance = 1.0
             self.basics_left = int(self.p("talent", 4))
-            self.e2_progress = self.mmr
+            self.e2_progress = self.mmr  # "including the initial Hidden MMR": what is left after the cost
             if self.e(2):
                 self._extend_buffs()
             if self.trace(3):

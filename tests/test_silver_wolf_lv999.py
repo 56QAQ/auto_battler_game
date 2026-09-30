@@ -121,3 +121,27 @@ def test_new_wave_resumes_too():
     assert kit.pending is not None
     b.process_queue()  # wave 2 starts, the extra turn resumes the Enhanced Basic ATK
     assert b.wave_index == 1 and kit.pending is None
+
+
+def _extra_turns(b, sw):
+    return len([q for q in b.queue if q.label == "extra turn" and q.owner is sw])
+
+
+@pytest.mark.parametrize("mmr, left, extra", [(99, 79, 0), (140, 120, 1), (60, 40, 0)])
+def test_ult_spends_60_mmr_before_e2_counts(mmr, left, extra):
+    """99 MMR: -60 (cost) -> 39, +20 (A6 "Secret Level Maxed") +20 (Punchline from "Welcome to the Cosmic City")
+    = 79 < 120: no E2 extra turn. 140 MMR: 80 + 40 = 120: one."""
+    chars = [
+        make_character(Build("Silver Wolf LV.999", eidolon=2, light_cone="23057")),
+        make_character(generic_build("Bronya")),
+    ]
+    b = Battle(chars, [[Enemy("Dummy", hp=1e12)]])
+    b.start()
+    kit = chars[0].kit
+    assert kit.p("talent", 0) == 60 and kit.tp(3, 0) == 20 and kit.ep(2, 0) == 120
+    kit.mmr = float(mmr)
+    kit.use_ult()
+    assert kit.god
+    assert kit.mmr == pytest.approx(left)
+    assert kit.basics_left == int(kit.p("talent", 4)) + extra
+    assert _extra_turns(b, chars[0]) == extra
