@@ -64,6 +64,9 @@ def scenario_from(cfg: dict[str, Any]) -> Scenario:
 
 
 def team_from(cfg: dict[str, Any]) -> list[Build]:
+    if "team" not in cfg:
+        hint = " (this file has 'teams': use `python -m hsrsim compare <file>`)" if "teams" in cfg else ""
+        raise SystemExit(f"config has no 'team' list{hint}")
     team = []
     for m in cfg["team"]:
         m = dict(m)

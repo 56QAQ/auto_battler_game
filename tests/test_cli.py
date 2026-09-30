@@ -2,6 +2,8 @@
 
 import json
 
+import pytest
+
 from hsrsim.cli import main
 
 
@@ -33,3 +35,8 @@ def test_endgame_preset(capsys):
 def test_list(capsys):
     main(["list", "relics", "--implemented"])
     assert "Genius of Brilliant Stars" in capsys.readouterr().out
+
+
+def test_run_on_a_compare_config_points_to_compare():
+    with pytest.raises(SystemExit, match="hsrsim compare"):
+        main(["run", "examples/compare_dps.yaml"])
