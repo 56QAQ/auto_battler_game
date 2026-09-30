@@ -185,6 +185,18 @@ character's turns it shows `Kit.menu()` and executes the chosen item with `Kit.p
   Energy (Acheron's Slashed Dream, Phainon's Coreflame ...).
 * `take_turn()` / `want_ult()` remain the automatic policy ("auto" in the UI and all CLI runs).
 
+Ultimate timing (`Battle`, same for manual control and the automatic policies):
+
+* A character's turn: turn start -> the actor's menu (Ultimates may be cast before choosing) -> the action ->
+  window `"after_action"` (the action, its effects and Energy have resolved, the turn has not ended: Yao Guang's
+  Skill fills her Energy, then her Ultimate, still in her turn) -> turn end -> queued inserts.
+* Whatever an Ultimate queues (follow-ups, extra turns: Aha's from Yao Guang's Ultimate, the Aesthetic Archetype's
+  from Pearl's) resolves **right after it**, interrupting the current turn, which then resumes
+  (`Battle._cast_ult` / `_resolve_inserts`). Kits just queue as usual (`queue_action`, `queue_extra_turn`,
+  `elation.extra_turn`).
+* While those inserts resolve, `Battle.ults_locked` is true: no window opens and an Ultimate tried in such an extra
+  turn is deferred (`Battle.deferred_ults`) and cast as soon as it ends.
+
 ## 7. Writing a light cone / relic set
 
 ```python

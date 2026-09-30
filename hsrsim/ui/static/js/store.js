@@ -62,7 +62,7 @@ export function defaultConfig() {
 export function defaultSettings() {
   return {
     auto_ult: {},
-    pause: { before_enemy: true, before_ally: false, queue: true, mid_action: true },
+    pause: { before_enemy: true, before_ally: false, after_action: true, queue: true, mid_action: true },
   };
 }
 

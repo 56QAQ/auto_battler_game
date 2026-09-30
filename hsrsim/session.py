@@ -11,7 +11,8 @@ Settings (sent with every answer, recorded with it so replays are exact):
 * ``auto_ult``: ``{ref: bool}`` — cast that character's Ultimate automatically (kit policy) whenever it is ready,
 * ``pause``: which Ultimate windows stop for the player while an Ultimate is ready —
   ``before_enemy`` (default on), ``before_ally`` (off: the ally's turn menu offers the Ultimate anyway),
-  ``queue`` (between follow-ups, on), ``mid_action`` (inside actions that do not end the turn, on),
+  ``after_action`` (an ally's action has resolved, its turn has not ended yet, on), ``queue`` (between
+  follow-ups, on), ``mid_action`` (inside actions that do not end the turn, on),
 * ``auto``: set by :meth:`Session.auto` — the kits' policies play until a stop condition (``once``, ``ally_turn``,
   ``cycle``, ``wave``, ``end``).
 """
@@ -39,7 +40,7 @@ from .scenarios import Scenario
 
 DEFAULT_SETTINGS: dict[str, Any] = {
     "auto_ult": {},
-    "pause": {"before_enemy": True, "before_ally": False, "queue": True, "mid_action": True},
+    "pause": {"before_enemy": True, "before_ally": False, "after_action": True, "queue": True, "mid_action": True},
     "auto": None,
 }
 _TIMEOUT = 120.0  # seconds to wait for the worker to reach the next decision point
@@ -57,7 +58,7 @@ class Point:
     """A decision point reached by the battle."""
 
     kind: str  # "turn" | "window"
-    where: str = ""  # window: before_turn / queue / mid_action
+    where: str = ""  # window: before_turn / after_action / queue / mid_action
     actor: Entity | None = None  # turn: the acting unit
     subject: Entity | None = None  # window: unit acting next / owning the next queued action
     extra_turn: bool = False
@@ -108,6 +109,8 @@ class _SessionController(Controller):
             return bool(pause.get("before_ally", False))
         if where == "queue":
             return bool(pause.get("queue", True)) and subject is not None
+        if where == "after_action":
+            return bool(pause.get("after_action", True))
         return bool(pause.get("mid_action", True))
 
     # -------------------------------------------------------------------- asking
@@ -655,6 +658,9 @@ def serialize(b: Battle, p: Point | None, settings: dict[str, Any]) -> dict[str,
         "enemies": [_enemy(e) for e in b.enemies],
         "order": _order(b),
         "settings": copy.deepcopy(settings),
+        # an Ultimate's inserted extra turn is resolving: Ultimates tried now are cast when it is over
+        "ult_locked": b.ults_locked,
+        "deferred_ults": [c.ref for c, _ in b.deferred_ults],
         "point": None,
     }
     if p is not None:

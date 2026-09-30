@@ -582,17 +582,24 @@ function renderPrompt() {
     box.append(
       h("div.col", { style: { gap: "0" } },
         h("div.title", `${unitName(who) || p.actor_name} 的${p.extra_turn ? "额外" : ""}回合`),
-        h("div.hint", armedTxt || "Q 普攻 · E 战技 · 1–4 终结技 · ←/→ 选目标 · 再按一次或空格确认")),
+        h("div.hint", armedTxt || "Q 普攻 · E 战技 · 1–4 终结技 · ←/→ 选目标 · 再按一次或空格确认"),
+        B.state.ult_locked ? h("div.hint", lockedText()) : null),
     );
   } else {
     box.classList.add("window");
     const subj = p.subject ? unitByRef(p.subject) : null;
     const title = p.where === "before_turn"
       ? `即将轮到 ${unitName(subj) || p.subject_name || "?"}${p.subject_side === "enemy" ? "（敌方）" : ""} 行动`
+      : p.where === "after_action" ? `${unitName(subj) || p.subject_name || "?"} 行动完毕，回合尚未结束`
       : p.where === "queue" ? `插入行动队列：${(p.queued || []).join("、") || "…"}` : "行动进行中";
     box.append(h("div.col", { style: { gap: "0" } }, h("div.title", title), h("div.hint", armedTxt || "可插入终结技（1–4），或按空格继续")),
       h("button.btn.right", { onclick: () => decide({ kind: "continue" }) }, "继续 ", h("kbd", "空格")));
   }
+}
+
+function lockedText() {
+  const queued = (B.state.deferred_ults || []).map((r) => unitName(unitByRef(r)) || r);
+  return "终结技插入的额外回合中：此时释放的终结技会在额外回合结束后施放" + (queued.length ? `（已排队：${queued.join("、")}）` : "");
 }
 
 function armedText() {
@@ -851,7 +858,7 @@ function settingsView() {
   const box = h("div.col", { style: { gap: "14px" } });
   box.appendChild(h("div", h("h4", "自动释放终结技"), h("div.muted", { style: { fontSize: "12px", marginBottom: "6px" } }, "勾选的角色能量满时按套件策略自动释放，不再暂停询问。"),
     st.allies.map((a) => h("label.switch", { style: { display: "flex", margin: "4px 0" } }, h("input", { type: "checkbox", checked: !!s.auto_ult?.[a.ref], onchange: (e) => { s.auto_ult = Object.assign({}, s.auto_ult, { [a.ref]: e.target.checked }); saveSettings(); renderAllies(); } }), unitName(a)))));
-  const P = [["before_enemy", "敌方行动前"], ["before_ally", "我方行动前（回合开始前）"], ["queue", "追加攻击 / 插入行动之间"], ["mid_action", "不结束回合的行动中途"]];
+  const P = [["before_enemy", "敌方行动前"], ["before_ally", "我方行动前（回合开始前）"], ["after_action", "我方行动后（回合结束前）"], ["queue", "追加攻击 / 插入行动之间"], ["mid_action", "不结束回合的行动中途"]];
   box.appendChild(h("div", h("h4", "终结技插入时机（有终结技就绪时在这些时机暂停）"),
     P.map(([k, t]) => h("label.switch", { style: { display: "flex", margin: "4px 0" } }, h("input", { type: "checkbox", checked: !!s.pause?.[k], onchange: (e) => { s.pause = Object.assign({}, s.pause, { [k]: e.target.checked }); saveSettings(); } }), t)),
     h("div.dim", { style: { fontSize: "11.5px" } }, "我方回合中始终可以用 1–4 先释放终结技再行动。")));

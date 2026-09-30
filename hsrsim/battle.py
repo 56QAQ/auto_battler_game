@@ -358,6 +358,11 @@ class _Queued:
     needs_enemies: bool = field(compare=False, default=True)
 
 
+def _ally_unit(e: Entity) -> bool:
+    """Characters and memosprites: units after whose action an Ultimate may be inserted before the turn ends."""
+    return isinstance(e, Character) or (isinstance(e, Summon) and e.is_memosprite)
+
+
 class Battle:
     def __init__(
         self,
@@ -389,7 +394,9 @@ class Battle:
         self.current_turn: Entity | None = None
         self.current_action: Action | None = None
         self.queue: list[_Queued] = []
-        self._qseq = itertools.count()
+        self._qseq = 0  # sequence number of the next queued action
+        self._ult_lock = 0  # > 0 while the inserts of an Ultimate resolve: no Ultimate can be inserted
+        self.deferred_ults: list[tuple[Character, Entity | None]] = []  # tried during the lock, cast afterwards
         self._tie = itertools.count()
         self._tiebreak: dict[int, int] = {}
         self.records: list[DamageRecord] = []
@@ -534,6 +541,10 @@ class Battle:
                     self._controlled_turn(actor, extra_turn)
                 else:
                     actor.take_turn(self)
+                if _ally_unit(actor) and actor.alive and not self.finished:
+                    # the action (effects, Energy) has resolved but the turn has not ended yet: a usual moment to
+                    # cast an Ultimate (e.g. Yao Guang's Skill fills her Energy, then her Ultimate, in her turn)
+                    self.ult_window("after_action", actor)
         self.events.emit(E.TURN_END, entity=actor, extra=extra_turn)
         self._tick(actor, at_start=False)
         self.current_turn = prev
@@ -558,14 +569,60 @@ class Battle:
         return None
 
     def cast_ult(self, caster: Entity | None, target: Entity | None = None) -> bool:
-        """Cast ``caster``'s Ultimate now if it is ready (manual control). Returns True when cast."""
+        """Cast ``caster``'s Ultimate now if it is ready (manual control). Returns True when cast; while the
+        inserts of another Ultimate resolve, the attempt is deferred until they are done (False)."""
         if not isinstance(caster, Character) or caster.kit is None or not caster.alive:
             return False
         if self.finished or not self.alive_enemies() or not caster.kit.ult_ready():
             return False
+        if self.ults_locked:
+            if all(c is not caster for c, _ in self.deferred_ults):
+                self.deferred_ults.append((caster, target))
+            return False
+        self._cast_ult(caster, target)
+        return True
+
+    @property
+    def ults_locked(self) -> bool:
+        """True while an Ultimate's inserted actions (e.g. Aha's extra turn) resolve: Ultimates tried now are
+        cast once they are over."""
+        return self._ult_lock > 0
+
+    def _cast_ult(self, caster: Character, target: Entity | None = None) -> None:
+        """Cast an Ultimate. What it inserts (follow-ups, extra turns such as Aha's from Yao Guang's Ultimate or
+        the Aesthetic Archetype's from Pearl's) resolves right away, interrupting the current turn, which then
+        resumes (the actor chooses its action afterwards)."""
+        assert caster.kit is not None
+        mark = self._qseq
         caster.kit.use_ult(target)
         self._reap()
-        return True
+        self._resolve_inserts(since=mark)
+
+    def _resolve_inserts(self, since: int) -> None:
+        """Run the queued actions added since sequence ``since`` now. Ultimates cannot be inserted meanwhile;
+        attempts are cast when the last of them has finished. Inside an action (an Ultimate inserted mid-action)
+        they wait for the normal queue."""
+        if self.current_action is not None:
+            return
+        self._ult_lock += 1
+        try:
+            for _ in range(1000):
+                if self.finished or not self.alive_enemies():
+                    break  # e.g. the wave was cleared: the regular queue handles the rest after the wave change
+                item = next((q for q in self.queue if q.seq >= since), None)
+                if item is None:
+                    break
+                self.queue.remove(item)
+                if item.owner is not None and not item.owner.alive:
+                    continue
+                item.fn()
+                self._reap()
+        finally:
+            self._ult_lock -= 1
+        if not self.ults_locked:
+            while self.deferred_ults and not self.finished and self.alive_enemies():
+                caster, target = self.deferred_ults.pop(0)
+                self.cast_ult(caster, target)
 
     def _controlled_turn(self, actor: Entity, extra_turn: bool) -> None:
         assert self.controller is not None
@@ -637,7 +694,8 @@ class Battle:
         needs_enemies: bool = True,
     ) -> None:
         """Queue an inserted action (follow-up, counter, extra turn ...) to run after the current one."""
-        self.queue.append(_Queued(priority, next(self._qseq), fn, owner, label, needs_enemies))
+        self.queue.append(_Queued(priority, self._qseq, fn, owner, label, needs_enemies))
+        self._qseq += 1
         self.queue.sort()
 
     def queue_extra_turn(self, entity: Entity) -> None:
@@ -663,9 +721,13 @@ class Battle:
         """An Ultimate may be inserted now. With a controller it decides (repeatedly, so several Ultimates can
         be chained); otherwise every ally whose policy wants to cast its Ultimate does so.
 
-        ``where``: "before_turn" (``subject`` acts next), "queue" (between inserted actions; ``subject`` owns the
-        next queued one, None when the queue is empty) or "mid_action" (inside an action that does not end the
-        turn)."""
+        ``where``: "before_turn" (``subject`` acts next), "after_action" (``subject``'s action has resolved, its
+        turn has not ended), "queue" (between inserted actions; ``subject`` owns the next queued one, None when the
+        queue is empty) or "mid_action" (inside an action that does not end the turn).
+
+        No window opens while an Ultimate's inserted actions (e.g. Aha's extra turn) resolve."""
+        if self.ults_locked:
+            return
         if self.controller is not None:
             for _ in range(50):
                 if self.finished or not self.alive_enemies():
@@ -680,8 +742,7 @@ class Battle:
                 if self.finished or not self.alive_enemies():
                     return
                 if c.alive and c.kit is not None and c.kit.ult_ready() and c.kit.want_ult():
-                    c.kit.use_ult()
-                    self._reap()
+                    self._cast_ult(c)
                     casted = True
             if not casted:
                 return
