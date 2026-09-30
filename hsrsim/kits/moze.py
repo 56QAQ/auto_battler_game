@@ -13,8 +13,8 @@ from .. import events as E
 from .. import stats as S
 from ..battle import Action
 from ..entities import Enemy
-from ..formulas import AV_BASE
 from ..enums import ActionKind, DmgTag, Element, Side
+from ..formulas import AV_BASE
 from ..modifiers import Modifier, ModKind, Tick
 from . import register
 from .base import Kit

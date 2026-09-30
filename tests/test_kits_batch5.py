@@ -147,7 +147,9 @@ def test_moze_departed_charge_and_follow_up():
 # ------------------------------------------------------------ March 7th (Hunt)
 def test_march_7th_hunt_shifu_additional_dmg_and_enhanced_basic():
     no_ult = {"ult": False}
-    b, (m7, seele), (e,) = _battle([Build("1224", traces=False, options=no_ult), generic_build("Seele", options=no_ult)])
+    b, (m7, seele), (e,) = _battle(
+        [Build("1224", traces=False, options=no_ult), generic_build("Seele", options=no_ult)]
+    )
     kit = m7.kit
     spd0 = seele.spd
     kit.skill(e)

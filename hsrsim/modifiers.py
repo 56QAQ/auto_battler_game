@@ -231,7 +231,7 @@ def hidden(name: str, stats: dict[str, float] | None = None, **kw: Any) -> Modif
 
 
 def is_slowed(entity: Entity) -> bool:
-    """"Slowed": any active debuff that lowers SPD or is tagged ``"slow"``."""
+    """Whether the unit is Slowed: any active debuff that lowers SPD or is tagged ``"slow"``."""
     for m in entity.modifiers:
         if m.removed or not m.is_debuff:
             continue
