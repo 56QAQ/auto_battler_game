@@ -9,6 +9,7 @@ from __future__ import annotations
 from .. import events as E
 from .. import stats as S
 from ..battle import Battle
+from ..control import MenuItem
 from ..entities import Enemy
 from ..enums import ActionKind, DmgTag, Element
 from ..modifiers import DotModifier
@@ -101,6 +102,12 @@ class Hook(Kit):
             self.basic(target)
 
     # ----------------------------------------------------------- actions
+    def menu(self) -> list[MenuItem]:
+        """After the Ultimate the next Skill is enhanced (Blast)."""
+        if self.enhanced_skill:
+            return [self.basic_item(), self.skill_item(self.sk(ENHANCED_SKILL))]
+        return super().menu()
+
     def basic(self, target: Enemy | None) -> None:
         assert target is not None
         self.simple_basic(target)

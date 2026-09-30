@@ -9,6 +9,7 @@ from __future__ import annotations
 from .. import events as E
 from .. import stats as S
 from ..battle import Action, Battle
+from ..control import MenuItem
 from ..entities import Enemy
 from ..enums import ActionKind, DmgTag, Element
 from ..modifiers import DotModifier, Modifier, ModKind, Stacking
@@ -107,6 +108,12 @@ class Luka(Kit):
             self.basic(target)
 
     # ----------------------------------------------------------- actions
+    def menu(self) -> list[MenuItem]:
+        """With 2+ Fighting Will the Basic ATK is "Sky-Shatter Fist"."""
+        if self.fighting_will >= ENHANCED_BASIC_COST:
+            return [self.basic_item(self.sk(ENHANCED_BASIC)), self.skill_item()]
+        return super().menu()
+
     def basic(self, target: Enemy | None) -> None:
         assert target is not None
         if self.fighting_will >= ENHANCED_BASIC_COST:

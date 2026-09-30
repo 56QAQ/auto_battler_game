@@ -12,6 +12,7 @@ from typing import Any
 
 from .. import events as E
 from .. import stats as S
+from ..control import ENEMIES, MenuItem
 from ..elation import PUNCHLINE_CHANGED
 from ..entities import Enemy, Entity
 from ..enums import ActionKind, DmgTag, Element, Side
@@ -148,6 +149,9 @@ class SilverWolfLV999(Kit):
     def ult_ready(self) -> bool:
         return not self.god and self.mmr >= self.p("talent", 0)
 
+    def ult_resource(self) -> tuple[float, float, str]:
+        return self.mmr, self.p("talent", 0), "MMR"
+
     def pay_ult_cost(self) -> None:
         pass  # Hidden MMR is not consumed (it is cleared when Godmode ends)
 
@@ -233,6 +237,23 @@ class SilverWolfLV999(Kit):
             self.skill(target)
         else:
             self.basic(target)
+
+    def menu(self) -> list[MenuItem]:
+        """Godmode Player: the bouncing Enhanced Basic ATK replaces the Basic ATK; an interrupted one resumes on the
+        extra turn it grants (automatically: nothing else can be chosen then)."""
+        if self.pending is None and not self.god:
+            return super().menu()
+        enh = self.basic_item(self.sk(ENH_BASIC_ID), target=ENEMIES, note=f"剩余{max(0, self.basics_left)}次")
+        if self.pending is not None:
+            enh.note = "继续被打断的强化普攻"
+            return [enh, self.skill_item(enabled=False, note="继续被打断的强化普攻")]
+        return [enh, self.skill_item()]
+
+    def perform(self, item: str, target: Entity | None) -> None:
+        if item == "basic" and (self.pending is not None or self.god):
+            self.with_target(target, self.enhanced_basic)
+            return
+        super().perform(item, target)
 
     def _talent_proc(self, act: Any) -> None:
         p = self.banger()

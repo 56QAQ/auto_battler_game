@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from .. import events as E
 from .. import stats as S
+from ..control import MenuItem
 from ..entities import Character, Enemy
 from ..enums import ActionKind, DmgTag
 from ..modifiers import Modifier, Stacking
@@ -126,6 +127,15 @@ class Saber(Kit):
             self.skill(target)
         else:
             self.basic(target)
+
+    def menu(self) -> list[MenuItem]:
+        """After the Ultimate only "Release, the Golden Scepter" (the next Basic ATK) can be used."""
+        if self.release_next:
+            return [
+                self.basic_item(self.sk(RELEASE_ID)),
+                self.skill_item(enabled=False, note="仅能施放【解放的金色王权】"),
+            ]
+        return super().menu()
 
     # -------------------------------------------------------------- actions
     def basic(self, target: Enemy | None) -> None:
