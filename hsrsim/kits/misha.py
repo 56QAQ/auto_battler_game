@@ -29,14 +29,18 @@ BOUNCE_TOUGHNESS_RATIO = 0.5  # ability config: the first hit uses StanceRatio 1
 
 class CharFreeze(DotModifier):
     """Frozen from a character ability (``MCommon_CTRL_Frozen``): the holder skips its turn and takes
-    Ice Additional DMG (``mult`` x the source's ATK) at the start of it."""
+    Ice Additional DMG (``mult`` x the source's ``stat``, ATK by default) at the start of it."""
 
-    def __init__(self, source: Character, mult: float, duration: int = 1, label: str = "Frozen") -> None:
+    def __init__(
+        self, source: Character, mult: float, duration: int = 1, label: str = "Frozen", stat: str = "atk"
+    ) -> None:
         def dmg(mod: DotModifier, b: Battle, ratio: float) -> float:
             holder = mod.holder
             if not isinstance(holder, Enemy) or not holder.alive:
                 return 0.0
-            hit = b.additional_damage(source, holder, mult * ratio, element=Element.ICE, label=label, credited=source)
+            hit = b.additional_damage(
+                source, holder, mult * ratio, stat=stat, element=Element.ICE, label=label, credited=source
+            )
             return hit.damage
 
         super().__init__(

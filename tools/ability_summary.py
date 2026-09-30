@@ -13,6 +13,7 @@ Usage::
     python tools/ability_summary.py Seele            # base kit
     python tools/ability_summary.py "Seele+"         # enhanced kit
     python tools/ability_summary.py Acheron --grep Passive
+    python tools/ability_summary.py "Jingliu+" --grep PassiveAtkReady --full   # no truncation
 """
 
 from __future__ import annotations
@@ -92,7 +93,10 @@ def gameplay_ops(o: Any, out: list[str], depth: int = 0) -> None:
             gameplay_ops(v, out, depth)
 
 
-def summarize(data: dict[str, Any], grep: str | None) -> None:
+def summarize(data: dict[str, Any], grep: str | None, limit: int | None = 30) -> None:
+    def clip(ops: list[str], n: int | None, pad: str) -> str:
+        return "\n".join(ops[:n]) + (f"\n{pad}..." if n is not None and len(ops) > n else "")
+
     for ab in data.get("AbilityList", []):
         mods = ab.get("Modifiers") or {}
         for name, m in mods.items():
@@ -112,14 +116,14 @@ def summarize(data: dict[str, Any], grep: str | None) -> None:
                 gameplay_ops(cb.get("CallbackConfig", []), ops, 2)
                 if ops:
                     print(f"  on {cb.get('Event')}:")
-                    print("\n".join(ops[:25]) + ("\n      ..." if len(ops) > 25 else ""))
+                    print(clip(ops, limit and limit - 5, "      "))
         name = ab.get("Name", "")
         if name and (not grep or grep.lower() in name.lower()):
             ops = []
             gameplay_ops(ab.get("OnStart", []), ops, 1)
             if ops:
                 print(f"ABILITY {name}")
-                print("\n".join(ops[:30]) + ("\n    ..." if len(ops) > 30 else ""))
+                print(clip(ops, limit, "    "))
 
 
 def main() -> None:
@@ -127,13 +131,14 @@ def main() -> None:
     ap.add_argument("character")
     ap.add_argument("--grep", help="only modifiers/abilities whose name contains this")
     ap.add_argument("--cache", type=Path, default=Path(".cache/ability"))
+    ap.add_argument("--full", action="store_true", help="do not truncate long operation lists")
     args = ap.parse_args()
     enhanced = args.character.endswith("+")
     c = get_data().character(args.character.rstrip("+"))
     cfg = c["enhanced"]["config"] if enhanced else c["config"]
     path = cfg.replace("ConfigCharacter", "ConfigAbility").replace("_Config.json", "_Ability.json")
     print(f"# {c['name']}{' (enhanced)' if enhanced else ''}: {path}")
-    summarize(fetch(path, args.cache), args.grep)
+    summarize(fetch(path, args.cache), args.grep, None if args.full else 30)
 
 
 if __name__ == "__main__":

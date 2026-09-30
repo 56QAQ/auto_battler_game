@@ -1,6 +1,7 @@
 """Blade (刃) — Destruction / Wind. Hellscape (HP-scaling enhanced Basic ATK), Charge follow-up, HP-loss Ultimate.
 
-Base kit only (the enhanced kit is not implemented yet).
+The enhanced kit (``BladeEnhanced``) scales everything on Max HP, keeps part of the HP-loss tally after the
+Ultimate (A2), feeds healing into the tally (A4) and adds Energy to the Talent follow-up (A6).
 
 Options (``default_opts``):
 * ``rotation``: ``"skill"`` (default) enters Hellscape with the Skill whenever it is not active and SP allows
@@ -14,7 +15,7 @@ from .. import stats as S
 from ..entities import Enemy, Entity
 from ..enums import ActionKind
 from ..modifiers import Modifier, ModKind, Stacking, Tick
-from . import register
+from . import register, register_enhanced
 from .base import Kit
 
 MAX_CHARGE = 5  # Talent text "stacking up to 5 times" (ability config MWRen_Qi_MaxLayer = 5)
@@ -30,17 +31,18 @@ class Blade(Kit):
     default_opts = {"rotation": "skill"}
 
     def setup(self) -> None:
-        if self.char.enhanced:
-            raise NotImplementedError("Blade enhanced kit is not implemented yet")
+        self._setup_common()
+        if self.trace(1):
+            # not modelled: battle.heal ignores heal_taken% (the stat is still exposed on Blade)
+            self.passive("Vita Infinita", {}, dyn=self._a2, dyn_keys={S.HEAL_TAKEN})
+
+    def _setup_common(self) -> None:
         self.charge = 0
         self.tally = 0.0  # HP lost in this battle since the last Ultimate (the cap is applied on use)
         self.fua_pending = False
         self.on(E.ALLY_ATTACKED, self._on_attacked)
         self.on(E.HP_CHANGED, self._on_hp_changed)
         self.on(E.WAVE_START, self._on_wave)
-        if self.trace(1):
-            # not modelled: battle.heal ignores heal_taken% (the stat is still exposed on Blade)
-            self.passive("Vita Infinita", {}, dyn=self._a2, dyn_keys={S.HEAL_TAKEN})
 
     def technique(self) -> None:
         p = self.sk("technique")["params"][0]
@@ -140,8 +142,12 @@ class Blade(Kit):
         else:
             self.simple_basic(target)
 
+    @property
+    def forest_id(self) -> str:
+        return f"{self.prefix}08"
+
     def forest(self, target: Enemy) -> None:
-        rec = self.sk(FOREST_ID)
+        rec = self.sk(self.forest_id)
         lv = rec["params"][self.level_of(rec) - 1]
         with self.action(ActionKind.BASIC, rec, target) as act:
             self.consume_hp(lv[0])
@@ -149,19 +155,23 @@ class Blade(Kit):
                 target,
                 {"atk": lv[1], "hp": lv[3]},
                 {"atk": lv[2], "hp": lv[4]},
-                toughness=(self.toughness(FOREST_ID, 0), self.toughness(FOREST_ID, 2)),
+                toughness=(self.toughness(self.forest_id, 0), self.toughness(self.forest_id, 2)),
                 splits="data",
             )
         if self.trace(2) and any(h.target.broken for h in hits):
             self.battle.heal(self.char, self.tp(2, 0) * self.char.max_hp + self.tp(2, 1), self.char)
 
+    def _hellscape_stats(self) -> dict[str, float]:
+        stats = {S.DMG_PCT: self.p("skill", 3)}
+        if self.e(2):
+            stats[S.CRIT_RATE] = self.ep(2, 0)
+        return stats
+
     def skill(self, target: Enemy | None) -> None:
         assert target is not None
         with self.action(ActionKind.SKILL, "skill", target):
             self.consume_hp(self.p("skill", 0))
-            stats = {S.DMG_PCT: self.p("skill", 3)}
-            if self.e(2):
-                stats[S.CRIT_RATE] = self.ep(2, 0)
+            stats = self._hellscape_stats()
             # approximation: the Skill's own turn counts (3 Forest of Swords per Skill, community consensus);
             # the game implements the extra action with TurnInsertAction, which the engine has no notion of
             self.buff_self(Modifier("Hellscape", stats=stats, duration=int(self.p("skill", 1)), skip_first_tick=False))
@@ -200,3 +210,111 @@ class Blade(Kit):
                     primary=False,
                 )
         self.tally = 0.0
+
+
+FUA_SPLITS = [0.33, 0.33, 0.34]  # enhanced Talent follow-up: 3 AoE hits (Avatar_AdvancedRen_00_Passive1Atk02_Ability)
+
+
+@register_enhanced
+class BladeEnhanced(Blade):
+    """Enhanced Blade: Max HP scaling everywhere, persistent HP-loss tally (A2/A4), E1 on Forest of Swords too."""
+
+    def setup(self) -> None:
+        self._setup_common()
+        if self.trace(2):
+            # not modelled: battle.heal ignores heal_taken% (the stat is still exposed on Blade)
+            self.passive("Neverending Deaths", {S.HEAL_TAKEN: self.tp(2, 1)})
+            self.on(E.HEALED, self._a4_tally)
+
+    def _a4_tally(self, ev: E.Ev) -> None:
+        # approximation: the conversion uses the HP actually restored (overhealing is not converted)
+        if ev.entity is self.char and ev.effective > 0:
+            self.tally += self.tp(2, 0) * ev.effective
+
+    def _capped_tally(self, cap: float) -> float:
+        return min(self.tally, cap * self.char.max_hp)
+
+    def _e1_flat(self) -> float:
+        return self.ep(1, 0) * self._capped_tally(self.ep(1, 1)) if self.e(1) else 0.0
+
+    def _hellscape_stats(self) -> dict[str, float]:
+        stats = super()._hellscape_stats()
+        # approximation: Hellscape parameter #5 ("chance of getting attacked greatly increases") read as aggro%
+        stats[S.AGGRO_PCT] = self.p("skill", 4)
+        return stats
+
+    def basic(self, target: Enemy | None) -> None:
+        assert target is not None
+        if self.in_hellscape:
+            self.forest(target)
+            return
+        with self.action(ActionKind.BASIC, "basic", target) as act:
+            act.hit(target, self.p("basic", 0), stat="hp", toughness=self.toughness("basic"), splits="data")
+
+    def forest(self, target: Enemy) -> None:
+        rec = self.sk(self.forest_id)
+        lv = rec["params"][self.level_of(rec) - 1]
+        with self.action(ActionKind.BASIC, rec, target) as act:
+            self.consume_hp(lv[0])
+            act.hit(
+                target,
+                lv[1],
+                stat="hp",
+                flat=self._e1_flat(),
+                toughness=self.toughness(self.forest_id, 0),
+                splits=[0.5, 0.5],  # Avatar_AdvancedRen_00_Skill11_Phase02: two half hits on the main target
+            )
+            for adj in self.battle.adjacent(target):
+                act.hit(adj, lv[2], stat="hp", toughness=self.toughness(self.forest_id, 2), primary=False)
+
+    def ult(self, target: Enemy | None) -> None:
+        if target is None:
+            return
+        with self.action(ActionKind.ULT, "ult", target) as act:
+            mh = self.char.max_hp
+            goal = ULT_HP_SET * mh
+            if self.char.hp > goal:
+                self.battle.lose_hp(self.char, self.char.hp - goal, self.char)  # counts towards the tally
+            elif self.char.hp < goal:
+                self.battle.heal(self.char, goal - self.char.hp, self.char)
+            lost = self._capped_tally(self.p("ult", 6))
+            act.hit(
+                target,
+                self.p("ult", 0),
+                stat="hp",
+                flat=self.p("ult", 4) * lost + self._e1_flat(),
+                toughness=self.toughness("ult", 0),
+            )
+            for adj in self.battle.adjacent(target):
+                act.hit(
+                    adj,
+                    self.p("ult", 2),
+                    stat="hp",
+                    flat=self.p("ult", 5) * lost,
+                    toughness=self.toughness("ult", 2),
+                    primary=False,
+                )
+        # A2: only part of the (capped) tally is cleared
+        keep = 1.0 - self.tp(1, 0) if self.trace(1) else 0.0
+        self.tally = lost * keep
+
+    def _fua(self) -> None:
+        target = self.battle.default_target()
+        if target is None:
+            return
+        hp_mult = self.p("talent", 1) + (self.ep(6, 0) if self.e(6) else 0.0)
+        extra = {S.DMG_PCT: self.tp(3, 0)} if self.trace(3) else None
+        with self.action(ActionKind.FUA, "talent", target) as act:
+            act.aoe(
+                hp_mult,
+                stat="hp",
+                toughness=self.toughness("talent", 1),
+                main_target=target,
+                extra=extra,
+                splits=FUA_SPLITS,
+            )
+            self.battle.heal(self.char, self.p("talent", 2) * self.char.max_hp, self.char)
+            if self.trace(3):
+                self.battle.gain_energy(self.char, self.tp(3, 1))
+        self.charge = 0
+        self.fua_pending = False
