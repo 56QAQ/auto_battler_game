@@ -6,7 +6,7 @@ from .. import events as E
 from .. import stats as S
 from ..entities import Character, Enemy, Entity
 from ..enums import ActionKind, DmgTag, Side
-from ..modifiers import Modifier, ModKind, Tick, hidden
+from ..modifiers import Modifier, ModKind, Tick
 from . import register
 from .base import Kit
 
@@ -31,7 +31,8 @@ class YaoGuang(Kit):
         self.on(E.ATTACK_END, self._great_boon)
 
     def technique(self) -> None:
-        self._zone()
+        # MAvatar_YaoGuang_00_MazeSkill: an inserted Skill at battle start that consumes no Skill Points
+        self.skill(None, sp=0)
 
     def banger_extra_turns(self) -> int:
         return int(self.tp(3, 1)) if self.trace(3) else 0
@@ -46,15 +47,23 @@ class YaoGuang(Kit):
 
     # ------------------------------------------------------------ zone
     def _zone_elation(self, mod: Modifier, key: str, ent: Entity) -> float:
-        if ent is self.char:
-            return 0.0  # the conversion is based on Yao Guang's own Elation
-        v = self.p("skill", 1) * self.char.stat(S.ELATION_DMG_PCT)
-        return v + (self.ep(2, 0) if self.e(2) else 0.0)
+        """Every ally, Yao Guang included, gains #2 of Yao Guang's Elation (Skill02_ToSelf / _ToMember convert her
+        ElationDamageAddedRatioBase, i.e. her Elation without the conversion itself); E2 adds a flat bonus to the
+        same allies (on the Base property, so it is part of the converted amount)."""
+        e2 = self.ep(2, 0) if self.e(2) else 0.0
+        return self.p("skill", 1) * (self._elation_before_zone(mod) + e2) + e2
+
+    def _elation_before_zone(self, zone: Modifier) -> float:
+        """Yao Guang's Elation without the Zone (no recursion into the Zone's own conversion)."""
+        ch = self.char
+        total = ch.base.get(S.ELATION_DMG_PCT, 0.0)
+        for m in ch._stat_mods():
+            if m is not zone and m.touches(S.ELATION_DMG_PCT):
+                total += m.value(S.ELATION_DMG_PCT, ch)
+        return total
 
     def _zone(self) -> None:
         stats = {S.SPD_PCT: self.ep(2, 1)} if self.e(2) else {}
-        if self.e(2):
-            self.buff_self(hidden("Decalight (self E2)", {S.ELATION_DMG_PCT: self.ep(2, 0)}))
         self.zone = self.buff_self(
             Modifier(
                 "Decalight Zone",
@@ -91,8 +100,8 @@ class YaoGuang(Kit):
             )
         self.gain_punchline(int(self.p("skill", 2)))
 
-    def skill(self, target: Enemy | None) -> None:
-        with self.action(ActionKind.SKILL, "skill"):
+    def skill(self, target: Enemy | None, sp: int | None = None) -> None:
+        with self.action(ActionKind.SKILL, "skill", sp=sp):
             self._zone()
         self.gain_punchline(int(self.p("skill", 2)))
 
@@ -108,7 +117,10 @@ class YaoGuang(Kit):
             self.battle.queue_action(self._flag_e4, self.char, "Yao Guang E4 flag", priority=4)
         self.battle.elation.extra_turn(fixed, self.char)
         if self.e(4):
-            self.battle.queue_action(self._unflag_e4, self.char, "Yao Guang E4 unflag", priority=6)
+            # needs_enemies=False: the flag must be cleared even if the Aha turn ends the wave
+            self.battle.queue_action(
+                self._unflag_e4, self.char, "Yao Guang E4 unflag", priority=6, needs_enemies=False
+            )
 
     def _flag_e4(self) -> None:
         self.e4_turn = True
@@ -126,11 +138,11 @@ class YaoGuang(Kit):
     def elation_skill(self, punchline: float) -> None:
         rec = self.sk(self.elation_skill_id)
         lv = rec["params"][self.level_of(rec) - 1]
-        mult = 2.0 if self.e(6) else 1.0
+        mult = 1.0 + (self.ep(6, 1) if self.e(6) else 0.0)
         tough = rec["toughness"]
         with self.action(ActionKind.ELATION, rec, label=rec["name"]) as act:
-            for e in self.enemies():
-                self.battle.try_debuff(
+            for e in self.enemies():  # "Inflicts" without a base chance: guaranteed
+                self.battle.apply(
                     Modifier(
                         "Woe's Whisper",
                         stats={S.VULN: lv[2]},
@@ -140,7 +152,6 @@ class YaoGuang(Kit):
                     ),
                     e,
                     self.char,
-                    1.0,
                 )
             for e in self.enemies():
                 self.elation_hit(

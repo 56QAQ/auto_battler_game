@@ -10,7 +10,9 @@ from ..modifiers import Modifier, ModKind, Stacking, Tick, hidden
 from . import register
 from .base import Kit
 
+# Crimson Knot stack cap and the stacks one Rainblade removes: literal in the status / Ultimate text, not parameters
 MAX_KNOTS = 9
+RAINBLADE_KNOTS = 3
 
 
 @register
@@ -65,10 +67,15 @@ class Acheron(Kit):
                 self.add_knots(self.battle.rng.choice(enemies), n)
 
     def technique(self) -> None:
+        # "At the start of each wave" (SkillMaze_Acheron_Modifier fires on every wave's OnEnterBattle)
+        self._technique_wave()
+        self.on(E.WAVE_START, lambda ev: self._technique_wave())
+
+    def _technique_wave(self) -> None:
         self.qa = min(self._qa_max(), self.qa + 1)
         p = self.sk("technique")["params"][0]
         with self.action(ActionKind.EXTRA, None, label="Quadrivalent Ascendance (technique)", energy=0, sp=0) as act:
-            act.aoe(p[0], toughness=20, ignore_weakness=True)
+            act.aoe(p[0], toughness=self.toughness("technique"), ignore_weakness=True)
 
     def _e4(self, e: Enemy) -> None:
         self.battle.apply(
@@ -113,7 +120,7 @@ class Acheron(Kit):
         self.battle.apply(
             Modifier(
                 "Crimson Knot",
-                kind=ModKind.DEBUFF,
+                kind=ModKind.OTHER,  # not a debuff: it neither re-triggers the Talent nor counts for E1 / "debuffed"
                 stacks=n,
                 max_stacks=MAX_KNOTS,
                 stacking=Stacking.STACK,
@@ -156,6 +163,19 @@ class Acheron(Kit):
     def pay_ult_cost(self) -> None:
         self.sd -= self.sd_max
 
+    def _rainblade_target(self, fallback: Enemy) -> Enemy | None:
+        """Each Rainblade locks onto the enemy with the most Crimson Knot (SortByModifierDynamicFloat /
+        SetTeamLockTarget after every Rainblade); without knots it stays on the chosen target."""
+        pool = [e for e in self.enemies() if e.hp > 0] or self.enemies()
+        if not pool:
+            return None
+        most = max(self.knots(e) for e in pool)
+        if fallback in pool and self.knots(fallback) == most:
+            return fallback
+        if most > 0:
+            return self._most_knotted(pool)
+        return self.battle.default_target()
+
     def _tags(self, base: str) -> tuple[str, ...]:
         return (base, DmgTag.ULT) if self.e(6) and base != DmgTag.ULT else (base,)
 
@@ -169,20 +189,12 @@ class Acheron(Kit):
         rain = [self.sk("130814"), self.sk("130815"), self.sk("130816")]
         with self.action(ActionKind.ULT, "ult", target, energy=0) as act:
             for rb in rain:
-                t = target if target.alive and target.hp > 0 else b.default_target()
+                t = self._rainblade_target(target)
                 if t is None:
                     break
                 lv = rb["params"][self.level_of(rb) - 1]
-                had_knot = self.knots(t) > 0
-                act.hit(
-                    t,
-                    lv[0],
-                    toughness=rb["toughness"][0],
-                    ignore_weakness=True,
-                    label="Rainblade",
-                    splits=rb.get("splits"),
-                )
-                if self.trace(3) and had_knot:
+                if self.trace(3) and self.knots(t) > 0:
+                    # Skill31/32/33_Phase02: the A6 stack is added before the Rainblade's own DMG
                     self.buff_self(
                         Modifier(
                             "Thunder Core",
@@ -192,7 +204,15 @@ class Acheron(Kit):
                             max_stacks=int(self.tp(3, 1)),
                         )
                     )
-                removed = min(3, self.knots(t))
+                act.hit(
+                    t,
+                    lv[0],
+                    toughness=rb["toughness"][0],
+                    ignore_weakness=True,
+                    label="Rainblade",
+                    splits=rb.get("splits"),
+                )
+                removed = min(RAINBLADE_KNOTS, self.knots(t))
                 if removed:
                     m = t.get_mod("Crimson Knot")
                     assert m is not None

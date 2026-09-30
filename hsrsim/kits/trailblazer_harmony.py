@@ -11,6 +11,8 @@ from . import register
 from .base import Kit
 
 BOUNCES = 4  # "additionally deals DMG for 4 times" (literal in the skill text, not a parameter)
+# Backup Dancer converts the Toughness Reduction into 1 instance of (100%) Super Break DMG; A2 adds to this ratio
+SUPER_BREAK_RATIO = 1.0
 
 
 class _TrailblazerHarmony(Kit):
@@ -55,7 +57,7 @@ class _TrailblazerHarmony(Kit):
             act.bounce(None, n, mult, toughness=self.toughness("skill", 2))
         if self.e(1) and self.first_skill:
             self.first_skill = False
-            self.battle.gain_sp(1, self.char)
+            self.battle.gain_sp(int(self.ep(1, 0)), self.char)
 
     def ult(self, target: Enemy | None) -> None:
         with self.action(ActionKind.ULT, "ult"):
@@ -89,7 +91,12 @@ class _TrailblazerHarmony(Kit):
             tough = self.battle.super_break_toughness(act, t)
             if tough > 0:
                 self.battle.super_break(
-                    act.actor, t, tough, 1.0 + bonus, credited=act.owner, label="Super Break (Backup Dancer)"
+                    act.actor,
+                    t,
+                    tough,
+                    SUPER_BREAK_RATIO + bonus,
+                    credited=act.owner,
+                    label="Super Break (Backup Dancer)",
                 )
 
 

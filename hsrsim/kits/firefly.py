@@ -1,6 +1,6 @@
 """Firefly (流萤) — Destruction / Fire. Complete Combustion: SPD, Break Efficiency, Super Break.
 
-Base kit only (the enhanced kit is not implemented yet).
+Base kit and enhanced kit (``FireflyEnhanced``).
 """
 
 from __future__ import annotations
@@ -12,6 +12,11 @@ from ..enums import ActionKind, Element
 from ..modifiers import Modifier, ModKind, hidden
 from . import register, register_enhanced
 from .base import Kit
+
+# Enhanced kit, Enhanced Skill (1131009): literal in the text and the ability script (HealPercentage=0.25,
+# FireWeakType LifeTime=2 on the target and its adjacent targets); the record's parameters #3/#4 are 0
+ENH_SKILL_HEAL = 0.25
+ENH_SKILL_WEAKNESS_TURNS = 2
 
 
 @register
@@ -32,11 +37,16 @@ class Firefly(Kit):
             self.char.energy = floor
 
     def technique(self) -> None:
+        # "At the start of each wave" (MAvatar_Sam_00_Maze / _Maze_AddWeakness fire on every wave's OnEnterBattle)
+        self._technique_wave()
+        self.on(E.WAVE_START, lambda ev: self._technique_wave())
+
+    def _technique_wave(self) -> None:
         p = self.sk("technique")["params"][0]
         with self.action(ActionKind.EXTRA, None, label="Firefly Technique", energy=0, sp=0) as act:
             for e in self.enemies():
                 self.fire_weakness(e, int(p[2]))
-            act.aoe(p[1], toughness=20)
+            act.aoe(p[1], toughness=self.toughness("technique"))
 
     def _a6(self, mod: Modifier, key: str, ent: object) -> float:
         over = self.char.atk - self.tp(3, 0)
@@ -107,7 +117,7 @@ class Firefly(Kit):
         with self.action(ActionKind.BASIC, rec, target) as act:
             self.battle.heal(self.char, lv[1] * self.char.max_hp, self.char)
             tough, ign = self._tough(target, rec["toughness"][0])
-            hits = act.hit(target, lv[0], toughness=tough, ignore_weakness=ign)
+            hits = act.hit(target, lv[0], toughness=tough, ignore_weakness=ign, splits="data")
         self.battle.remove_modifier(mod)
         self._e2(act, any(h.broke for h in hits) or target.hp <= 0)
 
@@ -117,7 +127,7 @@ class Firefly(Kit):
             with self.action(ActionKind.SKILL, "skill", target) as act:
                 self.battle.lose_hp(self.char, self.p("skill", 1) * self.char.max_hp, self.char)
                 self.battle.gain_energy(self.char, self.p("skill", 2) * self.char.max_energy, fixed=True)
-                act.hit(target, self.p("skill", 0), toughness=self.toughness("skill"))
+                act.hit(target, self.p("skill", 0), toughness=self.toughness("skill"), splits="data")
             self.battle.advance(self.char, self.p("skill", 3))
             return
         rec = self.sk("131009")
@@ -126,21 +136,43 @@ class Firefly(Kit):
         sp = 0 if self.e(1) else None
         extra = {S.DEF_IGNORE: self.ep(1, 0)} if self.e(1) else None
         with self.action(ActionKind.SKILL, rec, target, sp=sp) as act:
-            self.battle.heal(self.char, lv[2] * self.char.max_hp, self.char)
-            self.fire_weakness(target, int(lv[3]))
+            self._enhanced_skill_prelude(target, lv)
             be = min(self.char.stat(S.BREAK_EFFECT), lv[6])
             hits = []
-            tough, ign = self._tough(target, rec["toughness"][0])
-            hits += act.hit(
-                target, lv[4] * be + lv[0], toughness=tough, ignore_weakness=ign, extra=extra, splits="data"
-            )
-            for adj in self.battle.adjacent(target):
-                tough, ign = self._tough(adj, rec["toughness"][2])
-                hits += act.hit(
-                    adj, lv[5] * be + lv[1], toughness=tough, ignore_weakness=ign, extra=extra, primary=False
-                )
+            adjs = self.battle.adjacent(target)
+            # Skill21_Phase02: 4 x (15% target, 15% each adjacent), then 40% target and 40% each adjacent
+            main_r = rec.get("splits") or [1.0]
+            adj_r = rec.get("splits_adj") or main_r
+            for i in range(max(len(main_r), len(adj_r))):
+                if i < len(main_r):
+                    tough, ign = self._tough(target, rec["toughness"][0])
+                    hits += act.hit(
+                        target,
+                        lv[4] * be + lv[0],
+                        toughness=tough,
+                        ignore_weakness=ign,
+                        extra=extra,
+                        splits=[main_r[i]],
+                    )
+                if i < len(adj_r):
+                    for adj in adjs:
+                        tough, ign = self._tough(adj, rec["toughness"][2])
+                        hits += act.hit(
+                            adj,
+                            lv[5] * be + lv[1],
+                            toughness=tough,
+                            ignore_weakness=ign,
+                            extra=extra,
+                            primary=False,
+                            splits=[adj_r[i]],
+                        )
         self.battle.remove_modifier(mod)
         self._e2(act, any(h.broke for h in hits) or any(h.target.hp <= 0 for h in hits))
+
+    def _enhanced_skill_prelude(self, target: Enemy, lv: list[float]) -> None:
+        """Enhanced Skill: heal (#3 of Max HP), then Fire Weakness on the target for #4 turns."""
+        self.battle.heal(self.char, lv[2] * self.char.max_hp, self.char)
+        self.fire_weakness(target, int(lv[3]))
 
     def ult(self, target: Enemy | None) -> None:
         with self.action(ActionKind.ULT, "ult"):
@@ -185,10 +217,6 @@ class Firefly(Kit):
 class FireflyEnhanced(Firefly):
     """Enhanced Firefly: Combustion Break Effect, countdown delay on breaks, lower Super Break thresholds."""
 
-    def setup(self) -> None:
-        super().setup()
-        self.delays_left = 0
-
     def ult(self, target: Enemy | None) -> None:
         super().ult(target)
         self.delays_left = int(self.tp(1, 2)) if self.trace(1) else 0
@@ -203,22 +231,30 @@ class FireflyEnhanced(Firefly):
             self.e2_ready_turn = self.battle.turns
             self.battle.queue_extra_turn(self.char)
 
-    def skill(self, target: Enemy | None) -> None:
-        assert target is not None
-        if self.in_combustion:
-            for e in [target, *self.battle.adjacent(target)]:
-                self.fire_weakness(e, 2)
-        before = len(self.battle.records)
-        super().skill(target)
-        self._check_breaks(before)
+    def setup(self) -> None:
+        super().setup()
+        self.delays_left = 0
+        self.on(E.BREAK, self._a2_delay)
 
-    def basic(self, target: Enemy | None) -> None:
-        before = len(self.battle.records)
-        super().basic(target)
-        self._check_breaks(before)
+    def _enhanced_skill_prelude(self, target: Enemy, lv: list[float]) -> None:
+        # the enhanced record's #3/#4 are 0: the heal and the Weakness duration are literal (module constants)
+        self.battle.heal(self.char, ENH_SKILL_HEAL * self.char.max_hp, self.char)
+        for e in [target, *self.battle.adjacent(target)]:
+            self.fire_weakness(e, ENH_SKILL_WEAKNESS_TURNS)
 
-    def _check_breaks(self, before: int) -> None:
-        broke = any(r.label == "Break" and r.owner == self.char.name for r in self.battle.records[before:])
-        if broke and self.trace(1) and self.delays_left > 0 and self.countdown is not None:
-            self.delays_left -= 1
-            self.battle.delay(self.countdown, self.tp(1, 1))
+    def _a2_delay(self, ev: E.Ev) -> None:
+        """A2: every Weakness Break inflicted by the Enhanced Basic ATK / Skill delays the countdown by #2
+        (OnTriggerBreak, up to #3 times per Complete Combustion)."""
+        act = self.battle.current_action
+        if (
+            not self.trace(1)
+            or self.delays_left <= 0
+            or self.countdown is None
+            or not self.in_combustion
+            or act is None
+            or act.owner is not self.char
+            or act.kind not in (ActionKind.BASIC, ActionKind.SKILL)
+        ):
+            return
+        self.delays_left -= 1
+        self.battle.delay(self.countdown, self.tp(1, 1))

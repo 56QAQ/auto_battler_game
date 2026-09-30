@@ -1,18 +1,22 @@
 """Kafka (卡芙卡) — Nihility / Lightning. Shock DoT, DoT detonation, follow-up on allies' Basic ATK.
 
-Base kit only (the enhanced kit is not implemented yet).
+Base kit and enhanced kit (``KafkaEnhanced``).
 """
 
 from __future__ import annotations
 
 from .. import events as E
 from .. import stats as S
-from ..battle import Battle
+from ..battle import Action, Battle
 from ..entities import Character, Enemy, Entity
 from ..enums import ActionKind, DmgTag, Element
 from ..modifiers import DotModifier, Modifier, ModKind
 from . import register, register_enhanced
 from .base import Kit
+
+# Avatar_Kafka_00_PassiveAtk_Ability (and the enhanced one): five 15% hits and a final 25% hit
+# (the data snapshot has no splits for the Talent follow-up)
+FUA_SPLITS = [0.15, 0.15, 0.15, 0.15, 0.15, 0.25]
 
 
 @register
@@ -79,14 +83,16 @@ class Kafka(Kit):
     def skill(self, target: Enemy | None) -> None:
         assert target is not None
         with self.action(ActionKind.SKILL, "skill", target) as act:
-            act.blast(
-                target,
-                self.p("skill", 0),
-                self.p("skill", 2),
-                toughness=(self.toughness("skill", 0), self.toughness("skill", 2)),
-            )
+            self._skill_hits(act, target)
             if target.alive and target.has_tag("dot"):
                 self.battle.detonate(target, self.p("skill", 1))
+
+    def _skill_hits(self, act: Action, target: Enemy) -> None:
+        """Skill02_Phase02: 20/30/50% hits on the target, then one hit on each adjacent target."""
+        adjs = self.battle.adjacent(target)
+        act.hit(target, self.p("skill", 0), toughness=self.toughness("skill", 0), splits="data")
+        for a in adjs:
+            act.hit(a, self.p("skill", 2), toughness=self.toughness("skill", 2), primary=False)
 
     def ult(self, target: Enemy | None) -> None:
         with self.action(ActionKind.ULT, "ult", target) as act:
@@ -114,7 +120,7 @@ class Kafka(Kit):
             if t is None:
                 return
             with self.action(ActionKind.FUA, "talent", t) as a:
-                a.hit(t, self.p("talent", 0), toughness=self.toughness("talent"))
+                a.hit(t, self.p("talent", 0), toughness=self.toughness("talent"), splits=FUA_SPLITS)
                 if t.alive:
                     self.shock(t, self.p("talent", 1))
                     if self.e(1):
@@ -152,7 +158,7 @@ class KafkaEnhanced(Kafka):
         if self.e(2):
             self.passive("Fortississimo", {f"{S.DMG_PCT}:{DmgTag.DOT}": self.ep(2, 0)}, scope=self.ally_scope)
         if self.e(1):
-            self.on(E.ATTACK_END, self._e1_enh)
+            self.on(E.BEFORE_HIT, self._e1_enh)
 
     def _a2(self, mod: Modifier, key: str, ent: Entity) -> float:
         return self.tp(1, 1) if ent.stat(S.EHR) >= self.tp(1, 0) - 1e-9 else 0.0
@@ -165,33 +171,33 @@ class KafkaEnhanced(Kafka):
             self.charges = min(int(self.p("talent", 4)), self.charges + int(self.p("talent", 3)))
 
     def _e1_enh(self, ev: E.Ev) -> None:
-        act = ev.attack
-        if act.owner is not self.char:
+        """E1 is applied before the attack's DMG (Rank01 AddModifier precedes the hits in every ability), so the
+        detonations of the same Skill / Ultimate / follow-up already benefit from it."""
+        hit = ev.hit
+        act = hit.action
+        if act is None or act.owner is not self.char or not isinstance(hit.target, Enemy):
             return
-        for t in act.attacked:
-            if t.alive:
-                self.battle.try_debuff(
-                    Modifier(
-                        "Da Capo",
-                        stats={f"{S.VULN}:{DmgTag.DOT}": self.ep(1, 1)},
-                        duration=int(self.ep(1, 2)),
-                        kind=ModKind.DEBUFF,
-                    ),
-                    t,
-                    self.char,
-                    self.ep(1, 0),
-                )
+        done: set[int] = act.data.setdefault("kafka_e1", set())
+        if hit.target.uid in done:
+            return
+        done.add(hit.target.uid)
+        self.battle.try_debuff(
+            Modifier(
+                "Da Capo",
+                stats={f"{S.VULN}:{DmgTag.DOT}": self.ep(1, 1)},
+                duration=int(self.ep(1, 2)),
+                kind=ModKind.DEBUFF,
+            ),
+            hit.target,
+            self.char,
+            self.ep(1, 0),
+        )
 
     def skill(self, target: Enemy | None) -> None:
         assert target is not None
         with self.action(ActionKind.SKILL, "skill", target) as act:
             adjs = self.battle.adjacent(target)
-            act.blast(
-                target,
-                self.p("skill", 0),
-                self.p("skill", 2),
-                toughness=(self.toughness("skill", 0), self.toughness("skill", 2)),
-            )
+            self._skill_hits(act, target)
             if target.alive and target.has_tag("dot"):
                 self.battle.detonate(target, self.p("skill", 1))
             for a in adjs:
@@ -203,8 +209,8 @@ class KafkaEnhanced(Kafka):
             act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target, splits="data")
             for e in self.enemies():
                 self.shock(e, self.p("ult", 1))
-                if e.has_tag("shock"):
-                    self.battle.detonate(e, self.p("ult", 4))
+                # every DoT detonates, whether or not the Shock landed (DOT_TriggerRatio on AllEnemy)
+                self.battle.detonate(e, self.p("ult", 4))
         if self.trace(3):
             self.charges = min(int(self.p("talent", 4)), self.charges + 1)
 
@@ -224,7 +230,7 @@ class KafkaEnhanced(Kafka):
             if t is None:
                 return
             with self.action(ActionKind.FUA, "talent", t) as a:
-                a.hit(t, self.p("talent", 0), toughness=self.toughness("talent"))
+                a.hit(t, self.p("talent", 0), toughness=self.toughness("talent"), splits=FUA_SPLITS)
                 if t.alive:
                     self.shock(t, self.p("talent", 1))
                     if self.trace(3):
