@@ -47,10 +47,11 @@ def test_enhanced_blade_hp_scaling_and_persistent_tally():
     ult = [h for h in hits if h.label == "Death Sentence" and h.primary]
     assert ult[0].base == pytest.approx(k.p("ult", 0) * mh + k.p("ult", 4) * 0.5 * mh)
     assert k.tally == pytest.approx(0.5 * mh * (1 - k.tp(1, 0)))
-    # A4: a share of the HP restored by healing feeds the tally
+    # A4: Incoming Healing boost, and a share of the HP restored by healing feeds the tally
     before = k.tally
-    b.heal(blade, 0.1 * mh, blade)
-    assert k.tally == pytest.approx(before + k.tp(2, 0) * 0.1 * mh)
+    restored = b.heal(blade, 0.1 * mh, blade)
+    assert restored == pytest.approx(0.1 * mh * (1 + k.tp(2, 1)))
+    assert k.tally == pytest.approx(before + k.tp(2, 0) * restored)
     # Talent follow-up: 3 AoE hits on Max HP; A6 Energy
     k.charge = k.max_charge() - 1
     energy = blade.energy

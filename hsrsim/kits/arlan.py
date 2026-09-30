@@ -71,7 +71,7 @@ class Arlan(Kit):
         # approximation: allies do not die in the engine; a hit leaving Arlan at <= 1 HP counts as a killing blow
         if self.char.hp <= 1.0 + 1e-9:
             self.battle.remove_modifier(mod)
-            self.battle.heal(self.char, self.ep(4, 0) * self.char.max_hp - self.char.hp, self.char)
+            self.battle.set_hp(self.char, self.ep(4, 0) * self.char.max_hp, self.char)
 
     def _cleanse(self) -> None:
         deb = next((m for m in self.char.debuffs if m.dispellable), None)

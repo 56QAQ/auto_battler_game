@@ -118,8 +118,14 @@ Outside of attacks: `battle.additional_damage(...)`, `battle.dot_damage(...)`,
 `battle.break_damage(...)`, `battle.super_break(...)`, `battle.true_damage(...)`,
 `battle.detonate(target, ratio)`, `battle.reduce_toughness(...)`.
 Other helpers: `battle.advance(entity, 0.25)`, `battle.delay(...)`, `battle.gain_energy(c, x, fixed=False)`,
-`battle.gain_sp/use_sp`, `battle.heal`, `battle.lose_hp`, `battle.queue_action(fn, owner)` (follow-ups),
+`battle.gain_sp/use_sp`, `battle.lose_hp`, `battle.queue_action(fn, owner)` (follow-ups),
 `battle.queue_extra_turn(entity)`, `battle.add_unit(Summon(...))`.
+
+Healing: `battle.heal(target, base, source, bonus=0.0)` takes the **base** amount (scaling stat × multiplier + flat)
+and applies the healer's Outgoing Healing (`heal%` + a conditional `bonus` from the kit text) and the target's
+Incoming Healing (`heal_taken%`); never multiply by them in the kit. "Sets HP to X%" and revives use
+`battle.set_hp(target, value, source)` (no boosts, no `HEALED`). `self.char.on_timeline = False` takes a unit off the
+Action Order (gauge frozen) until set back to `True`.
 
 ## 6. Writing a kit
 

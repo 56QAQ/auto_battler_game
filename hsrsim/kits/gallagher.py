@@ -56,7 +56,7 @@ class Gallagher(Kit):
         return min(self.tp(1, 1), self.tp(1, 0) * self.char.stat(S.BREAK_EFFECT))
 
     def heal(self, ally: Character, amount: float) -> None:
-        self.battle.heal(ally, amount * (1.0 + self.char.stat(S.HEAL_PCT)), self.char)
+        self.battle.heal(ally, amount, self.char)
 
     def besot(self, enemy: Enemy, turns: int) -> None:
         self.battle.apply(

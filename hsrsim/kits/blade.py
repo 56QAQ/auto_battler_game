@@ -36,7 +36,6 @@ class Blade(Kit):
     def setup(self) -> None:
         self._setup_common()
         if self.trace(1):
-            # not modelled: battle.heal ignores heal_taken% (the stat is still exposed on Blade)
             self.passive("Vita Infinita", {}, dyn=self._a2, dyn_keys={S.HEAL_TAKEN})
 
     def _setup_common(self) -> None:
@@ -198,10 +197,7 @@ class Blade(Kit):
         with self.action(ActionKind.ULT, "ult", target) as act:
             mh = self.char.max_hp
             goal = ULT_HP_SET * mh
-            if self.char.hp > goal:
-                self.battle.lose_hp(self.char, self.char.hp - goal, self.char)  # counts towards the tally
-            elif self.char.hp < goal:
-                self.battle.heal(self.char, goal - self.char.hp, self.char)
+            self.battle.set_hp(self.char, goal, self.char)  # a decrease counts towards the tally
             lost = min(self.tally, self.p("ult", 6) * mh)
             main_flat = self.p("ult", 4) * lost
             if self.e(1):
@@ -230,7 +226,6 @@ class BladeEnhanced(Blade):
     def setup(self) -> None:
         self._setup_common()
         if self.trace(2):
-            # not modelled: battle.heal ignores heal_taken% (the stat is still exposed on Blade)
             self.passive("Neverending Deaths", {S.HEAL_TAKEN: self.tp(2, 1)})
             self.on(E.HEALED, self._a4_tally)
 
@@ -281,10 +276,7 @@ class BladeEnhanced(Blade):
         with self.action(ActionKind.ULT, "ult", target) as act:
             mh = self.char.max_hp
             goal = ULT_HP_SET * mh
-            if self.char.hp > goal:
-                self.battle.lose_hp(self.char, self.char.hp - goal, self.char)  # counts towards the tally
-            elif self.char.hp < goal:
-                self.battle.heal(self.char, goal - self.char.hp, self.char)
+            self.battle.set_hp(self.char, goal, self.char)  # a decrease counts towards the tally
             lost = self._capped_tally(self.p("ult", 6))
             act.hit(
                 target,

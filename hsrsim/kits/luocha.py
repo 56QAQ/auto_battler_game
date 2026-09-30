@@ -93,7 +93,7 @@ class Luocha(Kit):
 
     # ------------------------------------------------------------ healing
     def _heal(self, ally: Character, amount: float, bonus: float = 0.0) -> None:
-        self.battle.heal(ally, amount * (1.0 + self.char.stat(S.HEAL_PCT) + bonus), self.char)
+        self.battle.heal(ally, amount, self.char, bonus=bonus)
 
     def _skill_effect(self, ally: Character, auto: bool) -> None:
         # approximation: the low-HP trigger is an inserted Skill action without SP cost (it grants the Skill's Energy)

@@ -179,7 +179,7 @@ class Pearl(Kit):
                 self.battle.remove_modifier(m)
 
     def _heal_all(self, ratio: float, flat: float) -> None:
-        amount = (ratio * self.char.defense + flat) * (1.0 + self.char.stat(S.HEAL_PCT))
+        amount = ratio * self.char.defense + flat
         allies = self.allies()
         for c in allies:
             self.battle.heal(c, amount, self.char)

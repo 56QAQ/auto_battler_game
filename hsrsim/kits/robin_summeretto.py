@@ -340,8 +340,7 @@ class RobinSummeretto(Kit):
             if sb is None:
                 self._summon_band()
             else:
-                amount = self.p("skill", 0) * sb.max_hp * (1.0 + self.char.stat(S.HEAL_PCT) + sb.stat(S.HEAL_TAKEN))
-                self.battle.heal(sb, amount, self.char)
+                self.battle.heal(sb, self.p("skill", 0) * sb.max_hp, self.char)
                 self.gain_vibes(int(self.p("skill", 1)), cause=self.char, ability=True)
 
     def ult(self, target: Enemy | None) -> None:

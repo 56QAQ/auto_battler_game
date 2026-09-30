@@ -130,7 +130,7 @@ class Gepard(Kit):
         restore = self.p("talent", 0) * c.max_hp
         if self.e(6):
             restore += self.ep(6, 0) * c.max_hp
-        self.battle.heal(c, max(0.0, restore - c.hp), c)
+        self.battle.set_hp(c, max(c.hp, restore), c)
         if self.trace(2):
             self.battle.gain_energy(c, c.max_energy, fixed=True)
         if self.e(6):

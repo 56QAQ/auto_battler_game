@@ -2,6 +2,7 @@
 
 import pytest
 
+from hsrsim import events as E
 from hsrsim import formulas as F
 from hsrsim import stats as S
 from hsrsim.battle import Battle, BattleConfig
@@ -116,3 +117,18 @@ def test_vulnerability_and_final_dmg_layers():
         c.atk * F.def_multiplier(80, 1150) * 0.9 * F.crit_multiplier_expected(c.stat(S.CRIT_RATE), c.stat(S.CRIT_DMG))
     )
     assert b.records[0].amount == pytest.approx(base * 1.2 * 1.1)
+
+
+def test_heal_applies_outgoing_and_incoming_boosts_and_set_hp_does_not():
+    healer, target = make_character(Build("Seele")), make_character(Build("Bronya"))
+    b = Battle([healer, target], [[Enemy("Dummy", hp=1e9, toughness=100)]], BattleConfig())
+    b.start()
+    b.apply(Modifier("OHB", stats={S.HEAL_PCT: 0.2}), healer, healer)
+    b.apply(Modifier("IHB", stats={S.HEAL_TAKEN: 0.1}), target, target)
+    target.hp = 1.0
+    healed = []
+    b.events.on(E.HEALED, lambda ev: healed.append(ev.amount))
+    assert b.heal(target, 100.0, healer, bonus=0.05) == pytest.approx(100.0 * (1 + 0.2 + 0.05 + 0.1))
+    assert healed == [pytest.approx(135.0)]
+    b.set_hp(target, 0.5 * target.max_hp, healer)  # "sets HP": no boosts, no HEALED event
+    assert target.hp == pytest.approx(0.5 * target.max_hp) and len(healed) == 1

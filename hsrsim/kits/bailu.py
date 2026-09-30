@@ -130,7 +130,6 @@ class Bailu(Kit):
                 self.battle.heal(c, self.p("ult", 0) * self.char.max_hp + self.p("ult", 1), self.char)
                 self.invigorate(c, int(self.p("ult", 2)))
             if self.e(2):
-                # not modelled: battle.heal ignores heal% (Outgoing Healing), so this only shows on the stat sheet
                 self.buff_self(
                     Modifier("Sylphic Slumber", stats={S.HEAL_PCT: self.ep(2, 0)}, duration=int(self.ep(2, 1)))
                 )

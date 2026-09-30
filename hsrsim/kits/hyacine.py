@@ -93,12 +93,12 @@ class Hyacine(Kit):
         return (self._excess_spd() / self.ep(4, 0)) * self.ep(4, 1)  # E4 CRIT DMG
 
     def _heal(self, target: Entity, ratio: float, flat: float, healer: Entity | None = None) -> None:
-        """Healing = (#% of Hyacine's Max HP + flat) x (1 + Outgoing Healing + target's Incoming Healing)."""
+        """Healing = #% of Hyacine's Max HP + flat (the engine applies Outgoing/Incoming Healing boosts)."""
         healer = healer or self.char
-        bonus = healer.stat(S.HEAL_PCT) + target.stat(S.HEAL_TAKEN)
+        bonus = 0.0
         if self.trace(1) and target.hp_ratio <= self.tp(1, 1):
-            bonus += self.tp(1, 2)  # Gloomy Grin: healing an ally at or below #2% HP
-        self.battle.heal(target, (ratio * self.char.max_hp + flat) * (1.0 + bonus), healer)
+            bonus = self.tp(1, 2)  # Gloomy Grin: healing an ally at or below #2% HP
+        self.battle.heal(target, ratio * self.char.max_hp + flat, healer, bonus=bonus)
 
     def _heal_team(self, ratio: float, flat: float, ica_ratio: float, ica_flat: float) -> None:
         ica = self.ica()

@@ -83,7 +83,7 @@ class Lingsha(Kit):
 
     # -------------------------------------------------------------- healing
     def _heal_value(self, pct: float, flat: float) -> float:
-        return (pct * self.char.atk + flat) * (1.0 + self.char.stat(S.HEAL_PCT))
+        return pct * self.char.atk + flat
 
     def _heal_all(self, pct: float, flat: float) -> None:
         v = self._heal_value(pct, flat)

@@ -60,10 +60,8 @@ class Lynx(Kit):
 
     # ------------------------------------------------------------ healing
     def _heal(self, ally: Entity, amount: float) -> None:
-        bonus = self.char.stat(S.HEAL_PCT)
-        if self.e(1) and ally.hp_ratio <= self.ep(1, 0):
-            bonus += self.ep(1, 1)
-        self.battle.heal(ally, amount * (1.0 + bonus), self.char)
+        bonus = self.ep(1, 1) if self.e(1) and ally.hp_ratio <= self.ep(1, 0) else 0.0
+        self.battle.heal(ally, amount, self.char, bonus=bonus)
 
     def _hot(self, ally: Entity, turns: int | None = None) -> None:
         """Talent: continuous healing (bigger on targets with Survival Response)."""

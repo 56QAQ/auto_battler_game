@@ -52,9 +52,8 @@ class Mydei(Kit):
         if self.trace(3):
             excess = min(self.tp(3, 1), max(0.0, self.char.max_hp - self.tp(3, 0)))
             steps = int(excess / A6_STEP)
-            self.passive("Bloodied Chiton", {S.CRIT_RATE: steps * self.tp(3, 2)})
+            self.passive("Bloodied Chiton", {S.CRIT_RATE: steps * self.tp(3, 2), S.HEAL_TAKEN: steps * self.tp(3, 4)})
             self.a6_charge = steps * self.tp(3, 3)
-            # not modelled: the healing received bonus (steps * #5) - heals are not scaled by the engine
         if self.e(6):
             self._enter_vendetta(consume=False)
 

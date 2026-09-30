@@ -1100,11 +1100,32 @@ class Battle:
                 self.remove_modifier(m)
         return max(0.0, dmg - biggest)
 
-    def heal(self, target: Entity, amount: float, source: Entity | None = None) -> None:
+    def heal(self, target: Entity, amount: float, source: Entity | None = None, *, bonus: float = 0.0) -> float:
+        """Restore HP. ``amount`` is the base healing; it is scaled by the healer's Outgoing Healing Boost
+        (``heal%`` of ``source``, plus a conditional ``bonus`` from the calling effect) and the target's Incoming
+        Healing Boost (``heal_taken%``). Returns the HP actually restored.
+
+        approximation: the outgoing and incoming boosts are added in one bucket (as in Genshin Impact); whether
+        Star Rail adds or multiplies them has not been verified.
+        """
+        out = source.stat(S.HEAL_PCT) if source is not None else 0.0
+        amount *= max(0.0, 1.0 + out + bonus + target.stat(S.HEAL_TAKEN))
         before = target.hp
         target.hp = min(target.max_hp, target.hp + amount)
         self.events.emit(E.HEALED, entity=target, amount=amount, effective=target.hp - before, source=source)
         if target.hp != before:
+            self.events.emit(E.HP_CHANGED, entity=target, delta=target.hp - before, source=source)
+        return target.hp - before
+
+    def set_hp(self, target: Entity, value: float, source: Entity | None = None) -> None:
+        """Set current HP ("sets HP to X% of Max HP", revives): not healing, no healing boosts or HEALED event.
+        A decrease counts as HP consumption (``lose_hp``)."""
+        value = min(target.max_hp, max(0.0, value))
+        if value < target.hp:
+            self.lose_hp(target, target.hp - value, source)
+        elif value > target.hp:
+            before = target.hp
+            target.hp = value
             self.events.emit(E.HP_CHANGED, entity=target, delta=target.hp - before, source=source)
 
     def lose_hp(self, target: Entity, amount: float, source: Entity | None = None) -> float:

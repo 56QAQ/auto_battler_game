@@ -217,7 +217,7 @@ class ThoughWorldsApart(_LC):
             if not self.used(ev.action, ActionKind.ULT):
                 return
             allies = self.battle.allies()
-            atk = self.char.atk * (1.0 + self.char.stat(S.HEAL_PCT))
+            atk = self.char.atk
             for c in allies:
                 self.battle.heal(c, self.p(4) * atk, self.char)
             if allies:

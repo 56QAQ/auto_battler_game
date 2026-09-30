@@ -142,7 +142,7 @@ class _LC(LightCone):
         return [e for e in (self.battle.alive_enemies() if targets is None else targets) if e.alive]
 
     def heal(self, target: Entity, base: float) -> None:
-        self.battle.heal(target, base * (1.0 + self.char.stat(S.HEAL_PCT) + target.stat(S.HEAL_TAKEN)), self.char)
+        self.battle.heal(target, base, self.char)
 
     def healed_by_me(self, ev: E.Ev) -> bool:
         """HP_CHANGED listener check: a heal provided by the wearer (or its summon) to an ally."""
