@@ -38,6 +38,8 @@ FINAL_ID = "151014"
 ASSIST = "assist"  # damage tag of Assist Skill hits
 BEAMS = 6  # "can launch Hyperluminal Particle Beam against enemies 6 times" (literal in the Ultimate text)
 SEMAPHORE = "Navigator's Semaphore"
+E6_SE_PER_ASSIST = 1  # E6: "Himeko • Nova gains 1 Source Energy" per Assist Skill (literal)
+E6_SE_PER_BEAM = 1  # E6: "When launching Hyperluminal Particle Beam ... additionally gains 1 Source Energy" (literal)
 # Trailblaze Companions (data has no such tag): March 7th, Dan Heng, Himeko, Welt, Imbibitor Lunae,
 # March 7th (Hunt), Sunday, Evernight, Dan Heng • Permansor Terrae, Himeko • Nova and every Trailblazer.
 COMPANIONS = frozenset(
@@ -59,6 +61,7 @@ class HimekoNova(Kit):
         self.verdict_ults = 0
         self.decimation_charge = 0
         self.ult_only: set[int] = set()
+        self.wrapped: set[int] = set()
         self.tech = False
         stats = {S.CRIT_DMG: self.p("talent", 0), S.RES_PEN: self.p("talent", 1)}
         if self.e(4):
@@ -86,7 +89,8 @@ class HimekoNova(Kit):
             self.uses[c.uid] = 1
         for name in self.opts.get("assist_users") or []:
             c = self.battle.character(name)
-            if c is not self.char and c.kit is not None:
+            if c is not self.char and c.kit is not None and c.uid not in self.wrapped:
+                self.wrapped.add(c.uid)
                 setattr(c.kit, "take_turn", self._wrap_turn(c, c.kit.take_turn))  # noqa: B010
 
     def technique(self) -> None:
@@ -154,14 +158,14 @@ class HimekoNova(Kit):
         if not by_self:
             self.battle.gain_energy(user, self.p("talent", 2))
         if self.e(6):
-            self.add_se(int(self.ep(6, 3) / self.ep(6, 3)))  # "Himeko • Nova gains 1 Source Energy"
+            self.add_se(E6_SE_PER_ASSIST)
         if not by_self and not launched and user.char_id in COMPANIONS:
             proto = str(self.opts.get("protocol") or "verdict")
             if proto in ("verdict", "decimation"):
                 self.protocols.add(proto)
                 self._apply_protocols()
         if not by_self and not launched and self.trace(2) and (user.char_id in COMPANIONS or self.e(2)):
-            if user.kit is not None and user.kit.take_turn.__name__ == "turn":
+            if user.uid in self.wrapped:
                 self.ult_only.add(user.uid)
             self.battle.queue_extra_turn(user)
 
@@ -193,7 +197,7 @@ class HimekoNova(Kit):
         if "verdict" not in self.protocols or not isinstance(ev.entity, Character) or ev.entity is self.char:
             return
         rec = self.sk(VERDICT_ID)
-        need = int(rec["params"][self.level_of(rec) - 1][8]) - (int(self.ep(1, 1) / self.ep(1, 1)) if self.e(1) else 0)
+        need = int(rec["params"][self.level_of(rec) - 1][8]) - (int(self.ep(1, 2)) if self.e(1) else 0)
         self.verdict_ults += 1
         if self.verdict_ults >= need:
             self.verdict_ults = 0
@@ -270,7 +274,7 @@ class HimekoNova(Kit):
                     self._pulse(act, pulse, target)
                 else:
                     act.aoe(blv[0], toughness=beam["toughness"][1], main_target=target, ignore_weakness=True)
-                    self.add_se(int(blv[1]) + (1 if self.e(6) else 0))  # E6: "additionally gains 1"
+                    self.add_se(int(blv[1]) + (E6_SE_PER_BEAM if self.e(6) else 0))
                     beams -= 1
             if self.enemies() and self.se >= 1:
                 self._pulse(act, pulse, target)

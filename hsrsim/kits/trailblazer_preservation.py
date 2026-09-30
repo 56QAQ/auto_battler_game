@@ -16,6 +16,7 @@ from . import register
 from .base import Kit
 
 ENHANCED_BASIC = "08"  # skill ID suffix of the enhanced Basic ATK
+MAGMA_GAIN = 1  # Basic ATK / Skill / being hit: "gains 1 stack of Magma Will" (literal)
 MAGMA_COST = 4  # 'When "Magma Will" has no fewer than 4 stacks' / "Consumes 4 stacks" (literal)
 
 
@@ -25,7 +26,7 @@ class _TrailblazerPreservation(Kit):
     def setup(self) -> None:
         self.magma = 0
         self.free_enhanced = False
-        self.on(E.ALLY_ATTACKED, lambda ev: self.char in ev.targets and self.add_magma(1))
+        self.on(E.ALLY_ATTACKED, lambda ev: self.char in ev.targets and self.add_magma(MAGMA_GAIN))
         if self.trace(3):
             self.on(E.TURN_START, self._a6_start)
             self.on(
@@ -102,7 +103,7 @@ class _TrailblazerPreservation(Kit):
             mult["def"] = self.ep(1, 0)
         with self.action(ActionKind.BASIC, "basic", target) as act:
             act.hit(target, mult, toughness=self.toughness("basic"))
-            self.add_magma(1)
+            self.add_magma(MAGMA_GAIN)
             self._team_shield()
 
     def _enhanced_basic(self, target: Enemy) -> None:
@@ -131,7 +132,7 @@ class _TrailblazerPreservation(Kit):
                     "Ever-Burning Amber", stats={S.MITIGATION: self.p("skill", 0)}, duration=int(self.p("skill", 2))
                 )
             )
-            self.add_magma(1)
+            self.add_magma(MAGMA_GAIN)
             if self.trace(1):
                 for c in self.allies():
                     self.buff(
