@@ -14,7 +14,7 @@ from .. import stats as S
 from ..battle import Battle
 from ..entities import Character, Enemy, Entity
 from ..enums import ActionKind, Element
-from ..modifiers import DotModifier, Modifier
+from ..modifiers import DotModifier, Modifier, Tick
 from . import register
 from .base import Kit
 
@@ -50,6 +50,7 @@ class March7thPreservation(Kit):
                 self.char,
                 duration=int(self.ep(2, 1)),
                 name="Memory of It",
+                tick=Tick.HOLDER_TURN_END,  # MAvatar_March7th_00_Rank02_Shield: LifeStepMoment default (turn end)
             )
 
     def technique(self) -> None:
@@ -133,7 +134,10 @@ class March7thPreservation(Kit):
                     self.battle.remove_modifier(deb)
             dur = int(self.p("skill", 1)) + (int(self.tp(2, 0)) if self.trace(2) else 0)
             value = self.p("skill", 0) * self.char.defense + self.p("skill", 3)
-            shield = self.battle.add_shield(ally, value, self.char, duration=dur, name=SKILL_SHIELD)
+            # MAvatar_March7th_00_BPSkill_Shield: LifeStepMoment default (turn end)
+            shield = self.battle.add_shield(
+                ally, value, self.char, duration=dur, name=SKILL_SHIELD, tick=Tick.HOLDER_TURN_END
+            )
             if ally.hp_ratio >= self.p("skill", 2):
                 shield.stats[S.AGGRO_PCT] = SKILL_SHIELD_AGGRO_PCT
             else:

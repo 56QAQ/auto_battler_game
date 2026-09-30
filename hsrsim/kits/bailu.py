@@ -76,7 +76,8 @@ class Bailu(Kit):
         if mod.name != INVIGORATION or mod.source is not self.char or not isinstance(ally, Character):
             return
         if ally.hp >= ally.max_hp - 1e-6:
-            self.battle.gain_energy(ally, self.ep(1, 0))
+            # MAvatar_Bailu_Heal_Mark OnDestroy: ModifySPNew FixedAddValue (ignores ERR)
+            self.battle.gain_energy(ally, self.ep(1, 0), fixed=True)
 
     # ------------------------------------------------------------ policy
     def _heal_target(self) -> Character:

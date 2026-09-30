@@ -43,7 +43,8 @@ class Jiaoqiu(Kit):
 
     def on_battle_start(self) -> None:
         if self.trace(1):
-            self.battle.gain_energy(self.char, self.tp(1, 0), fixed=True)
+            # MAvatar_Jiaoqiu_00_Tree01_recoverSP: ModifySPNew AddValue (scales with ERR)
+            self.battle.gain_energy(self.char, self.tp(1, 0))
 
     def technique(self) -> None:
         p = self.sk("technique")["params"][0]

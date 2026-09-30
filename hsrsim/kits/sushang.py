@@ -12,7 +12,7 @@ from .. import events as E
 from .. import stats as S
 from ..entities import Enemy, Entity
 from ..enums import ActionKind, Element
-from ..modifiers import Modifier, Stacking, hidden
+from ..modifiers import Modifier, Stacking, Tick, hidden
 from . import register
 from .base import Kit
 
@@ -88,7 +88,15 @@ class Sushang(Kit):
         if self.trace(2):
             self.riposte = min(self.riposte + 1, int(self.tp(2, 1)))
         if self.e(2):
-            self.buff_self(Modifier("Refine in Toil", stats={S.MITIGATION: self.ep(2, 0)}, duration=E2_TURNS))
+            # MAvatar_Sushang_00_Rank02_Buff: LifeStepMoment=ModifierPhase1End (expires at her next turn start)
+            self.buff_self(
+                Modifier(
+                    "Refine in Toil",
+                    stats={S.MITIGATION: self.ep(2, 0)},
+                    duration=E2_TURNS,
+                    tick=Tick.HOLDER_TURN_START,
+                )
+            )
 
     def skill(self, target: Enemy | None) -> None:
         assert target is not None

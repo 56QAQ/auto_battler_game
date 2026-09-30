@@ -16,7 +16,7 @@ from .. import events as E
 from .. import stats as S
 from ..entities import Character, Enemy
 from ..enums import ActionKind
-from ..modifiers import Modifier, ModKind
+from ..modifiers import Modifier, ModKind, Tick
 from . import register
 from .base import Kit
 
@@ -108,7 +108,10 @@ class Luocha(Kit):
                     bonus = self.ep(2, 0)
                 else:
                     shield = self.ep(2, 1) * self.char.atk + self.ep(2, 2)
-                    self.battle.add_shield(ally, shield, self.char, duration=int(self.ep(2, 3)), name="Bestowal")
+                    # MAvatar_Luocha_00_Skill02_Shield: LifeStepMoment default (turn end)
+                    self.battle.add_shield(
+                        ally, shield, self.char, duration=int(self.ep(2, 3)), name="Bestowal", tick=Tick.HOLDER_TURN_END
+                    )
             self._heal(ally, self.p("skill", 0) * self.char.atk + self.p("skill", 1), bonus)
             self._gain_flower()
 

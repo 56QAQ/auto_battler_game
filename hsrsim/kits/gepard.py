@@ -12,7 +12,7 @@ from .. import stats as S
 from ..battle import Battle
 from ..entities import Enemy
 from ..enums import ActionKind, Element
-from ..modifiers import DotModifier, Modifier, ModKind, hidden
+from ..modifiers import DotModifier, Modifier, ModKind, Tick, hidden
 from . import register
 from .base import Kit
 
@@ -113,7 +113,8 @@ class Gepard(Kit):
     def _team_shield(self, def_ratio: float, flat: float, turns: int, name: str) -> None:
         value = def_ratio * self.char.defense + flat
         for c in self.allies():
-            self.battle.add_shield(c, value, self.char, duration=turns, name=name)
+            # MAvatar_Gepard_00_Ultra_Shield: LifeStepMoment default (turn end)
+            self.battle.add_shield(c, value, self.char, duration=turns, name=name, tick=Tick.HOLDER_TURN_END)
 
     def ult(self, target: Enemy | None) -> None:
         with self.action(ActionKind.ULT, "ult"):
@@ -132,6 +133,7 @@ class Gepard(Kit):
             restore += self.ep(6, 0) * c.max_hp
         self.battle.set_hp(c, max(c.hp, restore), c)
         if self.trace(2):
-            self.battle.gain_energy(c, c.max_energy, fixed=True)
+            # PassiveSkill_1_Insert: ModifySPNew AddValue (Max Energy, scales with ERR)
+            self.battle.gain_energy(c, c.max_energy)
         if self.e(6):
             self.battle.advance(c, 1.0)

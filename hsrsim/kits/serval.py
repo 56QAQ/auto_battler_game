@@ -31,7 +31,7 @@ class Serval(Kit):
 
     def on_battle_start(self) -> None:
         if self.trace(2):
-            self.battle.gain_energy(self.char, self.tp(2, 0), fixed=True)
+            self.battle.gain_energy(self.char, self.tp(2, 0))  # SkillTree02 ModifySPNew AddValue: scales with ERR
 
     def technique(self) -> None:
         p = self.sk("technique")["params"][0]

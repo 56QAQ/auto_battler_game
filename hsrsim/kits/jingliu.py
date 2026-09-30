@@ -43,7 +43,8 @@ class Jingliu(Kit):
 
     def technique(self) -> None:
         p = self.sk("technique")["params"][0]
-        self.battle.gain_energy(self.char, p[5], fixed=True)
+        # SkillMaze_Jingliu_Modifier: ModifySPNew AddValue (scales with ERR)
+        self.battle.gain_energy(self.char, p[5])
         for e in self.enemies():
             self.battle.try_debuff(
                 CharFreeze(self.char, p[4], int(p[3]), label="Frozen (Jingliu Technique)"),
@@ -206,7 +207,8 @@ class JingliuEnhanced(Jingliu):
 
     def technique(self) -> None:
         p = self.sk("technique")["params"][0]
-        self.battle.gain_energy(self.char, p[5], fixed=True)
+        # SkillMaze_Jingliu_Modifier: ModifySPNew AddValue (scales with ERR)
+        self.battle.gain_energy(self.char, p[5])
         for e in self.enemies():
             self.battle.try_debuff(
                 CharFreeze(self.char, p[4], int(p[3]), label="Frozen (Jingliu Technique)", stat="hp"),

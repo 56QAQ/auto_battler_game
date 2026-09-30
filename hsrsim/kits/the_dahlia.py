@@ -55,7 +55,7 @@ class TheDahlia(Kit):
             )
 
     def on_battle_start(self) -> None:
-        self.battle.gain_energy(self.char, self.p("talent", 3), fixed=True)
+        self.battle.gain_energy(self.char, self.p("talent", 3))  # Passive OnEnterBattle AddValue: scales with ERR
         if self.trace(1):
             self._a2(int(self.tp(1, 1)))
 

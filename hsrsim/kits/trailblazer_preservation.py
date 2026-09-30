@@ -60,8 +60,14 @@ class _TrailblazerPreservation(Kit):
         if self.e(2):
             value += self.ep(2, 0) * d + self.ep(2, 1)
         for c in self.allies():
+            # MWAvatar_PlayerBoy_10_Shield: LifeStepMoment default (turn end)
             self.battle.add_shield(
-                c, value, self.char, duration=int(self.p("talent", 1)), name="Treasure of the Architects"
+                c,
+                value,
+                self.char,
+                duration=int(self.p("talent", 1)),
+                name="Treasure of the Architects",
+                tick=Tick.HOLDER_TURN_END,
             )
 
     def _e6(self) -> None:

@@ -63,7 +63,7 @@ class March7thHunt(Kit):
         p = self.sk("technique")["params"][0]
         # approximation: every teammate is assumed to have used their Technique
         self.gain_charge(min(int(p[0]), len(self.teammates())))
-        self.battle.gain_energy(self.char, p[1], fixed=True)
+        self.battle.gain_energy(self.char, p[1])  # MazeInLevel ModifySPNew AddValue: scales with ERR
 
     # ----------------------------------------------------------------- Shifu
     def _shifu(self) -> Character | None:

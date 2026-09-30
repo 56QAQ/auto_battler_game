@@ -255,7 +255,8 @@ class Cerydra(Kit):
                         ),
                     )
             if self.e(1):
-                self.battle.gain_energy(ally, self.ep(1, 2))
+                # Skill02_Others_Phase02: ModifySPNew FixedAddValue on the target (ignores ERR)
+                self.battle.gain_energy(ally, self.ep(1, 2), fixed=True)
 
     def ult(self, target: Enemy | None) -> None:
         with self.action(ActionKind.ULT, "ult", target) as act:

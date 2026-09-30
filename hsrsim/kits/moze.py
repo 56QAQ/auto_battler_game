@@ -45,7 +45,7 @@ class Moze(Kit):
 
     def on_battle_start(self) -> None:
         if self.e(1):
-            self.battle.gain_energy(self.char, self.ep(1, 1), fixed=True)
+            self.battle.gain_energy(self.char, self.ep(1, 1))  # Rank01_AddSPModifier AddValue: scales with ERR
 
     def technique(self) -> None:
         p = self.sk("technique")["params"][0]

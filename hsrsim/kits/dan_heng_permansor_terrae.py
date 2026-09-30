@@ -71,7 +71,10 @@ class DanHengPermansorTerrae(Kit):
         if old is not None:
             cur = old.data.get("value", 0.0) / scale
         total = min(cap, cur + base)
-        self.battle.add_shield(ally, total, self.char, duration=turns, name=SHIELD_NAME, key="DHPT Shield")
+        # MAvatar_DanHengPT_00_Shield: LifeStepMoment default (turn end)
+        self.battle.add_shield(
+            ally, total, self.char, duration=turns, name=SHIELD_NAME, key="DHPT Shield", tick=Tick.HOLDER_TURN_END
+        )
 
     def _shield_value(self, ally: Entity) -> float:
         return sum(m.data.get("value", 0.0) for m in ally.modifiers if "shield" in m.tags and not m.removed)

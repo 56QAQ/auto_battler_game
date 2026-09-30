@@ -112,7 +112,7 @@ class Topaz(Kit):
             if self.trace(3):
                 self.battle.gain_energy(self.char, self.tp(3, 0))
         if self.technique_energy:
-            self.battle.gain_energy(self.char, self.technique_energy, fixed=True)
+            self.battle.gain_energy(self.char, self.technique_energy)  # MAvatar_Topaz_Buff AddValue: scales with ERR
             self.technique_energy = 0.0
 
     def _numby_turn(self, unit: Summon, battle: object) -> None:

@@ -435,7 +435,8 @@ class Cyrene(Kit):
         elif sid == TRICKERY:
             self._ode_trickery(ally, p)
         elif sid == SKY:
-            self.battle.gain_energy(ally, p[1])
+            # Servant Skill02_Phase02 (Hyacine branch): ModifySPNew FixedAddValue (ignores ERR)
+            self.battle.gain_energy(ally, p[1], fixed=True)
         # LIFE_DEATH (Castorice) and hooks-only Odes: not modelled without the target kit's hook
 
     def _ode_genesis(self, ally: Character, p: list[float]) -> None:

@@ -10,7 +10,7 @@ from .. import stats as S
 from ..battle import Battle
 from ..entities import Character, Enemy, Entity
 from ..enums import ActionKind, DmgTag, Element, Side
-from ..modifiers import DotModifier, Modifier, ModKind
+from ..modifiers import DotModifier, Modifier, ModKind, Tick
 from . import register
 from .base import Kit
 
@@ -49,6 +49,7 @@ class Himeko(Kit):
                     "Incomplete Combustion",
                     stats={f"{S.VULN}:{Element.FIRE.value}": p[1]},
                     duration=int(p[2]),
+                    tick=Tick.HOLDER_TURN_START,  # MAvatar_Himeko_00_FireTakenRatio: ModifierPhase1End
                     kind=ModKind.DEBUFF,
                 ),
                 e,

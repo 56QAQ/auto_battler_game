@@ -167,7 +167,7 @@ class WeltEnhanced(Welt):
 
     def on_battle_start(self) -> None:
         if self.trace(1):
-            self.battle.gain_energy(self.char, self.tp(1, 3), fixed=True)
+            self.battle.gain_energy(self.char, self.tp(1, 3))  # SkillTree01Listen AddValue: scales with ERR
 
     def _a6(self, mod: Modifier, key: str, ent: object) -> float:
         over = self.char.stat(S.EHR) - self.tp(3, 0)

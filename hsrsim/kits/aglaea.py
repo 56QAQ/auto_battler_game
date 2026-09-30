@@ -89,7 +89,8 @@ class Aglaea(Kit):
     def technique(self) -> None:
         p = self.sk("technique")["params"][0]
         self.summon_gm()
-        self.battle.gain_energy(self.char, p[1], fixed=True)
+        # StageAbility_Maze_Aglaea_Modifier: ModifySPNew AddValue (scales with ERR)
+        self.battle.gain_energy(self.char, p[1])
         with self.action(ActionKind.EXTRA, None, label="Meteoric Sunder (Technique)", energy=0, sp=0) as act:
             act.aoe(p[0], toughness=self.toughness("technique"))
         enemies = self.enemies()
