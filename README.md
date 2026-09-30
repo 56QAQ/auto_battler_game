@@ -7,6 +7,23 @@
 - **全部 98 名角色 + 10 个强化版套件**、170 个光锥条件效果、62 套遗器均已实现；角色逻辑逐个手写（只写逻辑，数字全部读数据），并对照游戏技能脚本（`ConfigAbility`）审校命中拆分、生效时机与参数下标。
 - 近似/未建模之处在代码中以 `# approximation:` / `# not modelled:` 注释逐条标出（约 150 处），汇总见 [docs/RESEARCH.md §5](docs/RESEARCH.md)。
 
+## 交互式界面（逐回合手动操作）
+
+```bash
+python -m hsrsim ui          # 打开 http://127.0.0.1:8765/ （只用标准库，无需额外依赖）
+```
+
+- **配置页**：最多 4 名角色；角色 / 光锥 / 遗器可中英文搜索；星魂、等级、强化版、行迹、主词条、副词条（按次数）、技能等级、
+  自动策略选项；右侧实时显示战斗外面板，并可展开技能 / 行迹 / 星魂说明（数值已代入）。
+  敌人可选当期混沌回忆 / 虚构叙事 / 末日幻影（真实敌人数据，可"复制到自定义波次"后修改数值）、单体 / 多目标预设或自定义波次。
+  方案可保存到浏览器，或导出 JSON（与 `python -m hsrsim run` 通用）。
+- **战斗页**：行动顺序、敌人（生命、韧性、弱点、状态）、我方（生命、护盾、终结技充能、状态、召唤物 / 忆灵）、战斗记录（每一击的全部乘区）、
+  伤害统计、单位详情。
+- **终结技插入**：只要有角色终结技就绪，战斗就会在每个可插入时机停下——敌方行动前、我方行动前（可选）、追加攻击 / 插入行动之间、
+  "不结束回合"的行动中途——此时按 `1`–`4` 即可插入；我方回合中也可以先放终结技再行动。可对每个角色设置"自动释放"。
+- **操作**（与游戏相同的手感）：`Q` 普攻、`E` 战技（其他行动 `R F G T`），再按一次或 `空格` 确认；`←` `→` 切换目标（点击敌人 / 角色也可，双击直接执行）；
+  `Esc` 取消；`Z` 撤销（按相同随机种子重放，结果完全一致）；`X` 自动一步，`Shift+X` 自动到下个我方回合，`C` 自动到下一轮；也可一键自动到战斗结束。
+
 ## 快速开始
 
 ```bash
@@ -19,6 +36,7 @@ python -m hsrsim trace examples/acheron_boss.yaml --character Acheron   # 逐条
 python -m hsrsim stats examples/firefly_break_aoe.yaml   # 查看面板
 python -m hsrsim list characters --implemented           # 已实现的角色
 python -m hsrsim info "Jing Yuan"                         # 打印角色技能/行迹/星魂数据
+python -m hsrsim ui                                       # 交互式界面（见上）
 python tools/ability_summary.py Acheron --grep Passive    # 查看游戏技能脚本摘要（审校角色逻辑用）
 ```
 
@@ -83,6 +101,8 @@ report.to_dict()              # 结构化结果（按角色/来源/伤害类型/
 | `hsrsim/gear/` | 光锥与遗器的条件效果 |
 | `hsrsim/data/gamedata/` | 数据快照（由 `tools/build_gamedata.py` 生成） |
 | `hsrsim/scenarios.py` / `report.py` / `cli.py` | 场景、报表、命令行 |
+| `hsrsim/control.py` / `session.py` | 手动操作：决策点（回合 / 终结技插入时机）、行动菜单、交互会话（撤销 = 重放） |
+| `hsrsim/ui/` | 本地 Web 界面（`server.py` JSON 接口 + `static/` 前端，纯原生 JS） |
 | `docs/RESEARCH.md` | **可行性研究报告**（结论、公式、可信度、限制、路线图） |
 | `docs/mechanics_memo.md` | 机制逐条验证记录（含数据字段与置信度） |
 | `docs/DEVELOPING.md` | 如何编写角色/光锥/遗器 |

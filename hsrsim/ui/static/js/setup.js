@@ -195,7 +195,8 @@ function numInput(value, min, max, on, step = 1) {
 function relicEditor(m, i) {
   const caverns = Object.entries(m.relics || {}).filter(([k]) => relicOf(k) && !relicOf(k).planar);
   const planar = Object.keys(m.relics || {}).find((k) => relicOf(k) && relicOf(k).planar) || null;
-  const mode = caverns.length === 2 ? "22" : "4";
+  store.relicMode = store.relicMode || {};
+  const mode = caverns.length === 2 ? "22" : caverns.length === 1 && caverns[0][1] >= 4 ? "4" : store.relicMode[i] || "4";
   const cavItems = store.catalog.relic_sets.filter((r) => !r.planar).map((r) => ({ value: r.id, label: nameOf(r), sub: r.effect ? "" : "仅属性", search: `${r.name} ${r.name_cn}` }));
   const plaItems = store.catalog.relic_sets.filter((r) => r.planar).map((r) => ({ value: r.id, label: nameOf(r), sub: r.effect ? "" : "仅属性", search: `${r.name} ${r.name_cn}` }));
   const write = (cav, pla) => {
@@ -208,7 +209,7 @@ function relicEditor(m, i) {
   };
   const cur = caverns.map(([k]) => k);
   const box = h("div.col", { style: { gap: "6px" } },
-    h("div.row", h("div.label", "遗器套装"), h("div.right", seg([["4", "4 件套"], ["22", "2 + 2"]], mode, (v) => write(v === "4" ? [cur[0] || null] : [cur[0] || null, cur[1] || null], planar)))),
+    h("div.row", h("div.label", "遗器套装"), h("div.right", seg([["4", "4 件套"], ["22", "2 + 2"]], mode, (v) => { store.relicMode[i] = v; write(v === "4" ? [cur[0] || null] : [cur[0] || null, cur[1] || null], planar); }))),
   );
   if (mode === "4") {
     box.appendChild(picker({ items: cavItems, value: cur[0] || null, allowNone: true, noneLabel: "（无）", placeholder: "隧洞遗器 4 件", onPick: (v) => write([v], planar) }));

@@ -169,6 +169,22 @@ A2/A4/A6 (`n` = 1/2/3, check `self.trace(n)`), `self.ep(n, i)` eidolon parameter
 Use `tools/kitinfo.py <name>` for the data and keep kits readable; comment every approximation
 with `# approximation:` or `# not modelled:`.
 
+### Manual control (the web UI)
+
+The UI (`python -m hsrsim ui`) plays battles through `hsrsim.control` / `hsrsim.session`: at each of the
+character's turns it shows `Kit.menu()` and executes the chosen item with `Kit.perform(item_id, target)`.
+
+* The default menu is Basic ATK + Skill (`basic_item()` / `skill_item()`, labels, SP and target kind from the
+  records). Override `menu()` / `perform()` when the kit has other actions or enhanced forms: return
+  `MenuItem(id, label, target, enabled, ends_turn, sp, kind, note, label_cn, shape)`; `ends_turn=False` keeps the
+  turn going (Qingque's Skill); disable what the game disables and say why in `note`.
+* Summons whose turns the player controls in the game: `menu_for(unit)` / `perform_for(unit, item, target)`.
+* `target` passed to `perform` / `use_ult(target)` is an enemy (main target) or an ally; `with_target(target, fn)`
+  routes an ally to `main_dps()` through the `target` option, so ally-targeted abilities keep working.
+* `ult_resource()` returns (current, required, label) for the Ultimate gauge when the Ultimate is not paid with
+  Energy (Acheron's Slashed Dream, Phainon's Coreflame ...).
+* `take_turn()` / `want_ult()` remain the automatic policy ("auto" in the UI and all CLI runs).
+
 ## 7. Writing a light cone / relic set
 
 ```python

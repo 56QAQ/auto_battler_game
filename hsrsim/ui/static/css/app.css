@@ -383,3 +383,16 @@ input[type="checkbox"] { accent-color: var(--gold); }
 .log .ac .l1 .muted { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .log .ln > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ticker div { line-height: 1.5; }
+
+/* compact top bar */
+.topbar { flex-wrap: nowrap; gap: 10px; }
+.topbar button, .topbar .pill, .tabs button, .brand { white-space: nowrap; }
+.topbar select { width: auto; max-width: 170px; padding: 3px 6px; font-size: 12.5px; }
+#battle-status { min-width: 0; overflow: hidden; flex-wrap: nowrap; }
+#battle-status .pill { padding: 2px 8px; font-size: 12.5px; }
+@media (max-width: 1500px) {
+  .brand small { display: none; }
+}
+@media (max-width: 1280px) {
+  .brand { display: none; }
+}
