@@ -56,7 +56,7 @@ def test_gallagher_besotted_heals_attackers_and_nectar_blitz():
     heals.clear()
     k.basic(enemy)  # the Ultimate enhanced this Basic ATK into Nectar Blitz
     lv = _lv(k, "130108")
-    assert _labels(b, "Nectar Blitz")
+    assert len(_labels(b, "Nectar Blitz")) == len(k.sk("130108")["splits"]) == 3  # 25% / 15% / 60% hits
     assert enemy.get_mod("Nectar Blitz ATK Reduction").stats[S.ATK_PCT] == pytest.approx(-lv[1])
     assert {h.entity for h in heals} == {gal, seele}  # A6: the Talent heal also applies to teammates
     k.basic(enemy)
@@ -74,6 +74,10 @@ def test_argenti_apotheosis_energy_and_enhanced_ultimate():
     k.skill(b.default_target())
     assert arg.get_mod("Apotheosis").stacks == 3
     assert arg.stat(S.CRIT_RATE) - cr0 == pytest.approx(3 * k.p("talent", 1))
+    # the ability script grants Energy and Apotheosis before the damage: the Skill's hits use the 3 new stacks
+    q = ("Physical", "skill")
+    crit = F.crit_multiplier_expected(arg.stat_q(S.CRIT_RATE, q), arg.stat_q(S.CRIT_DMG, q))
+    assert [r.parts.crit_mult for r in b.records] == pytest.approx([crit] * 3)
     assert arg.energy - e0 == pytest.approx((k.sk("skill")["energy"] + 3 * k.p("talent", 0)) * err)
     arg.energy = arg.max_energy
     k.use_ult()
@@ -115,6 +119,16 @@ def test_aventurine_blind_bet_when_the_hit_breaks_the_wager():
     assert av.kit.bet == 1 + int(av.kit.p("talent", 0))  # ... but he held a Wager when attacked
 
 
+def test_aventurine_e2_res_reduction_applies_to_the_basic_itself():
+    b, (av,) = _battle([Build("Aventurine", eidolon=2, options={"ult": False})])
+    k = av.kit
+    enemy = b.default_target()
+    k.basic(enemy)
+    assert enemy.has_mod("Bounded Rationality")
+    res_pen = av.stat_q(S.RES_PEN, ("Imaginary", "basic"))
+    assert b.records[0].parts.res_mult == pytest.approx(F.res_multiplier(0.2, res_pen, k.ep(2, 1)))
+
+
 # ------------------------------------------------------------------ Dr. Ratio
 def test_dr_ratio_summation_guaranteed_follow_up_and_wisemans_folly():
     b, (ratio, pela) = _battle([Build("Dr. Ratio"), Build("Pela")])
@@ -136,6 +150,29 @@ def test_dr_ratio_summation_guaranteed_follow_up_and_wisemans_folly():
         pela.kit.basic(enemy)
         b.process_queue()
     assert len(_labels(b, "Cogito, Ergo Sum")) == 1 + int(k.p("ult", 1))  # Wiseman's Folly triggers twice
+
+
+def test_dr_ratio_follow_up_chance_ignores_the_inference_of_the_same_skill():
+    b, (ratio,) = _battle([Build("Dr. Ratio")])
+    enemy = b.default_target()
+    b.rng.random = lambda: 0.5  # 40% base chance (0 debuffs) fails; 60% (counting Inference) would succeed
+    ratio.kit.skill(enemy)
+    b.process_queue()
+    assert enemy.has_mod("Inference")
+    assert not _labels(b, "Cogito, Ergo Sum")
+
+
+def test_dr_ratio_e6_bonus_applies_to_e2_additional_dmg():
+    b, (ratio, pela) = _battle([Build("Dr. Ratio", eidolon=6), Build("Pela")])
+    k = ratio.kit
+    enemy = b.default_target()
+    b.apply(Modifier("Test Debuff", kind=ModKind.DEBUFF, duration=9), enemy, pela)
+    k.queue_fua(enemy)
+    b.process_queue()
+    e2 = _labels(b, "The Divine Is in the Details")
+    assert len(e2) == 1
+    boost = 1 + ratio.stat_q(S.DMG_PCT, ("Imaginary", "additional")) + k.ep(6, 1)
+    assert e2[0].parts.dmg_boost == pytest.approx(boost)
 
 
 # --------------------------------------------------------------------- Sunday
@@ -178,10 +215,25 @@ def test_jade_debt_collector_additional_dmg_and_follow_up():
     assert pawned0 == 2 * int(k.tp(1, 1))
     k.basic(enemies[0])  # blast on both enemies: +2 Charge -> follow-up
     b.process_queue()
-    assert len(_labels(b, "Fang of Flare Flaying")) == 2
+    assert len(_labels(b, "Fang of Flare Flaying")) == 2 * 5  # 5 hits (10/10/10/10/60%) on each enemy
     assert k.charge == 1 and k.pawned == pawned0 + int(k.p("talent", 3))
     atk_pct0 = make_character(Build("Jade")).stat(S.ATK_PCT)
     assert jade.stat(S.ATK_PCT) - atk_pct0 == pytest.approx(k.pawned * k.tp(3, 0))  # A6
+
+
+def test_jade_e4_before_ult_damage_and_e6_a2_stacks_on_her_turn():
+    b, (jade, seele) = _battle([Build("Jade", eidolon=6), Build("Seele")])
+    k = jade.kit
+    jade.energy = jade.max_energy
+    k.use_ult()
+    assert b.records[0].parts.def_mult == pytest.approx(
+        F.def_multiplier(80, b.default_target().raw(S.BASE_DEF), def_ignore=jade.stat_q(S.DEF_IGNORE, ("ult",)))
+    )
+    assert jade.stat(S.DEF_IGNORE) >= k.ep(4, 0)
+    k.skill(None)
+    p0 = k.pawned
+    b.events.emit(E.TURN_START, entity=jade, extra=False)  # E6: Jade also holds the Debt Collector state
+    assert k.pawned == p0 + int(k.tp(1, 0))
 
 
 # ------------------------------------------------------------------- Boothill
@@ -209,6 +261,14 @@ def test_boothill_standoff_enhanced_basic_and_talent_break():
     assert k.trickshot == 3 and not k.in_standoff and not enemy.has_mod("Standoff (target)")
     rec = k.sk("131508")
     assert bh.energy - e0 == pytest.approx((rec["energy"] + k.tp(3, 0)) * (1 + bh.stat(S.ERR)))
+
+
+def test_boothill_ultimate_hit_splits():
+    b, (bh,) = _battle([Build("Boothill")])
+    bh.energy = bh.max_energy
+    bh.kit.use_ult()
+    hits = _labels(b, bh.kit.sk("ult")["name"])
+    assert [h.amount / sum(x.amount for x in hits) for h in hits] == pytest.approx(bh.kit.sk("ult")["splits"])
 
 
 def test_boothill_standoff_lasts_two_turns():
@@ -256,6 +316,13 @@ def test_rappa_sealform_petalblade_toughness_and_charge_break():
     assert not k.in_seal and rappa.stat(S.BREAK_EFF) == pytest.approx(0.0)
 
 
+def test_rappa_skill_hits_twice():
+    enemies = _enemies(3)
+    b, (rappa,) = _battle([Build("Rappa")], enemies)
+    rappa.kit.skill(enemies[1])
+    assert len(_labels(b, rappa.kit.sk("skill")["name"])) == 2 * 3  # 50% / 50% on every enemy
+
+
 # ------------------------------------------------------- Trailblazer (Destruction)
 def test_trailblazer_destruction_fighting_will_and_perfect_pickoff():
     enemies = _enemies(3, toughness=1e6)
@@ -289,15 +356,24 @@ def test_trailblazer_preservation_magma_will_and_shields():
     assert shield.data["value"] == pytest.approx(k.p("talent", 0) * tb.defense + k.p("talent", 3))
     k.magma = 4
     n0 = len(b.records)
-    k.basic(enemies[1])  # enhanced: blast, consumes 4 Magma Will
-    assert len(b.records) - n0 == 3 and k.magma == 0
+    k.basic(enemies[1])  # enhanced: 2 hits on the target + 1 on each adjacent enemy, consumes 4 Magma Will
+    assert len(b.records) - n0 == 4 and k.magma == 0
+    assert [r.target for r in b.records[n0:]] == [enemies[1].name, enemies[1].name, enemies[0].name, enemies[2].name]
     b.events.emit(E.ALLY_ATTACKED, attacker=enemies[0], targets=[tb], action=None)
     assert k.magma == 1
     tb.energy = tb.max_energy
     k.use_ult()
     n0 = len(b.records)
     k.basic(enemies[1])  # the Ultimate enhances the next Basic ATK without consuming Magma Will
-    assert len(b.records) - n0 == 3 and k.magma == 1
+    assert len(b.records) - n0 == 4 and k.magma == 1
+
+
+def test_trailblazer_preservation_technique_shield_lasts_through_the_first_turn():
+    b, (tb,) = _battle([Build("8003")], techniques=True)
+    seen = []
+    b.events.on(E.ACTION_START, lambda ev: seen.append(tb.has_mod("Call of the Guardian")))
+    b.take_turn(tb)
+    assert seen and seen[0] and not tb.has_mod("Call of the Guardian")
 
 
 def test_batch4_kits_run_in_aoe_with_techniques():

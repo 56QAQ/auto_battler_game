@@ -16,6 +16,10 @@ from . import register
 from .base import Kit
 
 DEBT_COLLECTOR = "Debt Collector"
+# Talent follow-up hit ratios from the ability script (Avatar_Jade_00_Passive_Phase02_01 when enhanced by the
+# Ultimate, Phase02_02 otherwise); the skill record carries none because the attack has two variants
+FUA_SPLITS = [0.1, 0.1, 0.1, 0.1, 0.6]
+FUA_SPLITS_ENHANCED = [0.15, 0.15, 0.15, 0.15, 0.4]
 
 
 @register
@@ -90,7 +94,8 @@ class Jade(Kit):
 
     def _a2_turn_start(self, ev: E.Ev) -> None:
         dc = self.debt_collector()
-        if dc is not None and ev.entity is dc:
+        # E6: Jade also holds the Debt Collector state (the A2 listener checks every holder of it)
+        if dc is not None and (ev.entity is dc or (self.e(6) and ev.entity is self.char)):
             self.pawn(int(self.tp(1, 0)))
 
     def _after_attack(self, ev: E.Ev) -> None:
@@ -132,13 +137,15 @@ class Jade(Kit):
         self.charge -= need
         self.pawn(int(self.p("talent", 3)))
         mult = self.p("talent", 4)
+        splits = FUA_SPLITS
         if self.enhanced_left > 0:
             self.enhanced_left -= 1
             mult += self.p("ult", 0)
+            splits = FUA_SPLITS_ENHANCED
         target = self.battle.default_target()
         with self.action(ActionKind.FUA, "talent", target) as act:
             act.data["jade_no_charge"] = True  # "This Follow-Up ATK does not generate Charge"
-            act.aoe(mult, toughness=self.toughness("talent", 1), main_target=target)
+            act.aoe(mult, toughness=self.toughness("talent", 1), main_target=target, splits=splits)
         if self.charge >= need:
             self.add_charge(0)
 
@@ -184,9 +191,11 @@ class Jade(Kit):
 
     def ult(self, target: Enemy | None) -> None:
         with self.action(ActionKind.ULT, "ult", target) as act:
+            if self.e(4):  # the ability script adds Rank04_DefPenetrate before the Ultimate's damage
+                self.buff_self(
+                    Modifier(
+                        "Sincerity? Put Option Only", stats={S.DEF_IGNORE: self.ep(4, 0)}, duration=int(self.ep(4, 1))
+                    )
+                )
             act.aoe(self.p("ult", 2), toughness=self.toughness("ult", 1), main_target=target)
         self.enhanced_left = int(self.p("ult", 1))
-        if self.e(4):
-            self.buff_self(
-                Modifier("Sincerity? Put Option Only", stats={S.DEF_IGNORE: self.ep(4, 0)}, duration=int(self.ep(4, 1)))
-            )

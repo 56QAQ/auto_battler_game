@@ -109,6 +109,27 @@ def test_clara_counter_marks_and_enhanced_counter():
     assert fua[0].extra[S.DMG_PCT] == pytest.approx(k.tp(3, 0))  # A6 Revenge
 
 
+def test_clara_marks_only_attackers_of_clara():
+    b, (clara, bro), (e1, e2) = _battle([Build("Clara"), Build("Bronya")], n_enemies=2)
+    k = clara.kit
+    clara.energy = clara.max_energy
+    k.use_ult()
+    b.events.emit(E.ALLY_ATTACKED, attacker=e1, targets=[bro], action=None)
+    b.process_queue()
+    assert k.enhanced_left == int(k.p("ult", 4)) - 1  # Enhanced Counter on the attacker of a teammate ...
+    assert not e1.has_mod("Mark of Counter")  # ... which is not marked (the counter itself does not mark)
+    b.events.emit(E.ALLY_ATTACKED, attacker=e2, targets=[clara], action=None)
+    b.process_queue()
+    assert e2.has_mod("Mark of Counter")
+    # E6: every enemy attacking an ally is marked, even when the 50% Counter chance fails
+    b, (clara, bro), (e1,) = _battle([Build("Clara", eidolon=6), Build("Bronya")])
+    b.rng.random = lambda: 0.99  # type: ignore[method-assign]
+    b.events.emit(E.ALLY_ATTACKED, attacker=e1, targets=[bro], action=None)
+    b.process_queue()
+    assert e1.has_mod("Mark of Counter")
+    assert not [r for r in b.records if r.label == "Svarog Counter"]
+
+
 # -------------------------------------------------------------------- Lynx
 def test_lynx_survival_response_max_hp():
     b, (lynx, clara), (e,) = _battle([Build("Lynx", options={"target": "Clara"}), Build("Clara")])
@@ -171,6 +192,24 @@ def test_qingque_skill_stacks_and_hidden_hand():
     assert not k.hidden_hand and not qq.has_mod("Hidden Hand")
 
 
+def test_qingque_ult_enters_hidden_hand_and_e4_blast():
+    b, (qq,), (e1, e2, e3) = _battle([Build("Qingque", eidolon=4)], n_enemies=3)
+    k = qq.kit
+    k.hand = [0, 1]
+    qq.energy = qq.max_energy
+    k.use_ult()  # outside her turn: the 4 tiles are consumed and Hidden Hand starts right away
+    assert k.hidden_hand and k.hand == [] and qq.has_mod("Hidden Hand")
+    k.self_sufficer = True
+    hits = _hits(b)
+    k.basic(e2)
+    fua = [h for h in hits if h.label == "Self-Sufficer"]
+    assert {h.target.name for h in fua} == {"Dummy 0", "Dummy 1", "Dummy 2"}
+    rec = k.sk("120108")
+    main_mult, adj_mult = rec["params"][k.level_of(rec) - 1][:2]
+    assert sum(h.mult["atk"] for h in fua if h.primary) == pytest.approx(main_mult)
+    assert all(h.mult["atk"] == pytest.approx(adj_mult) for h in fua if not h.primary)
+
+
 # ------------------------------------------------------------------ Luocha
 def test_luocha_zone_after_two_flowers_heals_attacker():
     b, (luo, bro), (e,) = _battle([Build("Luocha", eidolon=1), Build("Bronya")], start_sp=5)
@@ -213,11 +252,23 @@ def test_sushang_sword_stance_on_broken_enemy():
     hits = _hits(b)
     k.skill(e)
     stance_hits = [h for h in hits if h.label == "Sword Stance"]
-    assert len(stance_hits) == 1 + 2  # 2 extra chances during the Ultimate buff
+    assert len(stance_hits) == 2 + 1  # 2 extra chances during the Ultimate buff, resolved before the regular one
     base = k.p("skill", 1) * su.atk
-    assert stance_hits[0].base == pytest.approx(base)
+    assert stance_hits[0].base == pytest.approx(base * k.p("ult", 2))
     assert stance_hits[1].base == pytest.approx(base * k.p("ult", 2))
+    assert stance_hits[2].base == pytest.approx(base)
     assert stance_hits[0].extra[S.DMG_PCT] == pytest.approx(1 * k.tp(2, 0))  # A4 Riposte stacks
+    assert stance_hits[2].extra[S.DMG_PCT] == pytest.approx(3 * k.tp(2, 0))
+
+
+def test_sushang_e1_needs_target_broken_before_skill():
+    b, (su,), (e,) = _battle([Build("Sushang", eidolon=1)], start_sp=5)
+    k = su.kit
+    e.toughness = 1.0
+    k.skill(e)
+    assert e.broken and b.sp == 4  # broken by this very Skill: no Skill Point back
+    k.skill(e)
+    assert b.sp == 4  # used against an already broken enemy: 1 Skill Point regenerated
 
 
 # ------------------------------------------------------------------ Yukong

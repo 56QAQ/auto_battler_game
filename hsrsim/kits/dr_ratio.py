@@ -88,9 +88,17 @@ class DrRatio(Kit):
         with self.action(ActionKind.FUA, "talent", t) as act:
             act.hit(t, self.p("talent", 0), toughness=self.toughness("talent"))
             if self.e(2):
+                # E6's DMG bonus is a modifier held for the whole follow-up (Rank06_AllDamageTypeAddedRatio),
+                # so it also applies to E2's extra hits
+                extra = {S.DMG_PCT: self.ep(6, 1)} if self.e(6) else None
                 for _ in range(min(int(self.ep(2, 1)), len(t.debuffs))):
                     self.battle.additional_damage(
-                        self.char, t, self.ep(2, 0), element=Element.IMAGINARY, label="The Divine Is in the Details"
+                        self.char,
+                        t,
+                        self.ep(2, 0),
+                        element=Element.IMAGINARY,
+                        label="The Divine Is in the Details",
+                        extra=extra,
                     )
         if self.e(4):
             self.battle.gain_energy(self.char, self.ep(4, 0))
@@ -115,9 +123,14 @@ class DrRatio(Kit):
 
     def skill(self, target: Enemy | None) -> None:
         assert target is not None
+        # the ability script counts the target's debuffs and rolls the Talent's fixed chance before the hit,
+        # so Inference (A4, applied after the hit) only counts for later Skills
+        n = len(target.debuffs)
+        chance = self.p("talent", 1) + self.p("talent", 2) * n
+        fua = chance >= 1.0 or self.battle.rng.random() < chance
         with self.action(ActionKind.SKILL, "skill", target) as act:
             if self.trace(1):
-                self.summation(len(target.debuffs))
+                self.summation(n)
             act.hit(target, self.p("skill", 0), toughness=self.toughness("skill"))
             if self.trace(2) and target.alive:
                 self.battle.try_debuff(
@@ -131,8 +144,7 @@ class DrRatio(Kit):
                     self.char,
                     self.tp(2, 0),
                 )
-        chance = self.p("talent", 1) + self.p("talent", 2) * len(target.debuffs)  # fixed chance
-        if chance >= 1.0 or self.battle.rng.random() < chance:
+        if fua:
             self.queue_fua(target)
 
     def ult(self, target: Enemy | None) -> None:

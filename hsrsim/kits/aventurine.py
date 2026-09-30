@@ -165,8 +165,7 @@ class Aventurine(Kit):
     def basic(self, target: Enemy | None) -> None:
         assert target is not None
         with self.action(ActionKind.BASIC, "basic", target) as act:
-            act.hit(target, self.p("basic", 0), stat="def", toughness=self.toughness("basic"))
-            if self.e(2) and target.alive:
+            if self.e(2):  # the ability script adds Rank02_ResistanceDown before the Basic ATK's damage
                 self.battle.try_debuff(
                     Modifier(
                         "Bounded Rationality",
@@ -178,6 +177,7 @@ class Aventurine(Kit):
                     self.char,
                     self.ep(2, 0),  # base chance (parameter, not shown in the text)
                 )
+            act.hit(target, self.p("basic", 0), stat="def", toughness=self.toughness("basic"))
 
     def skill(self, target: Enemy | None) -> None:
         with self.action(ActionKind.SKILL, "skill"):

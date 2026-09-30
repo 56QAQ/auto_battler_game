@@ -101,7 +101,7 @@ class Gallagher(Kit):
         self.nectar = False
         with self.action(ActionKind.BASIC, rec, target) as act:
             act.data["nectar_blitz"] = True
-            act.hit(target, lv[0], toughness=float(rec["toughness"][0]))
+            act.hit(target, lv[0], toughness=float(rec["toughness"][0]), splits="data")
             if target.alive:
                 self.battle.apply(
                     Modifier(

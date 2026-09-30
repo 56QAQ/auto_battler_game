@@ -73,9 +73,14 @@ class Qingque(Kit):
             self.hand.remove(min(counts, key=lambda s: (counts[s], s)))
 
     def _check_hidden_hand(self) -> None:
-        if self.hidden_hand or not any(n >= HAND_MAX for n in self._counts().values()):
-            return
+        if not self.hidden_hand and any(n >= HAND_MAX for n in self._counts().values()):
+            self._enter_hidden_hand()
+
+    def _enter_hidden_hand(self) -> None:
+        """Consume all tiles and enter "Hidden Hand" (no-op on the state when already active)."""
         self.hand.clear()
+        if self.hidden_hand:
+            return
         self.hidden_hand = True
         self.buff_self(Modifier(HIDDEN_HAND, stats={S.ATK_PCT: self.p("talent", 0)}, tick=Tick.NONE))
 
@@ -95,9 +100,6 @@ class Qingque(Kit):
         target = self.pick_target()
         if target is None:
             return
-        # approximation: an Ultimate cast at the start of this turn (4 tiles of one suit) enters Hidden Hand
-        # right away instead of waiting for the next turn start
-        self._check_hidden_hand()
         if self.opts.get("rotation", "skill") == "skill":
             used = 0
             reserve = int(self.opts.get("sp_reserve", 0))
@@ -129,7 +131,7 @@ class Qingque(Kit):
         main_t = self.toughness(ENHANCED_BASIC, 0)
         with self.action(ActionKind.BASIC, rec, target, sp=0) as act:  # "cannot recover Skill Points"
             act.blast(target, prm[0], prm[1], toughness=(main_t, self.toughness(ENHANCED_BASIC, 2)), splits="data")
-        self._self_sufficer(target, prm[0], main_t)
+        self._self_sufficer(target, prm[0], main_t, adj=(prm[1], self.toughness(ENHANCED_BASIC, 2)))
         self.hidden_hand = False
         self.battle.remove_named(self.char, HIDDEN_HAND)
         if self.trace(3):
@@ -137,18 +139,26 @@ class Qingque(Kit):
         if self.e(6):
             self.battle.gain_sp(E6_SP, self.char)
 
-    def _self_sufficer(self, target: Enemy, mult: float, toughness: float) -> None:
-        """E4: the Basic ATK / Enhanced Basic ATK is followed by a Follow-Up ATK with the same multiplier."""
+    def _self_sufficer(
+        self, target: Enemy, mult: float, toughness: float, adj: tuple[float, float] | None = None
+    ) -> None:
+        """E4: the Basic ATK / Enhanced Basic ATK is followed by a Follow-Up ATK with the same multiplier.
+
+        ``adj`` = (multiplier, Toughness) on adjacent enemies: after "Cherry on Top!" the Follow-Up ATK is a
+        Blast as well (the game's Rank04_ATK_Special ability also hits AbilityTargetAdjoinEntity)."""
         if not self.self_sufficer:
             return
         self.self_sufficer = False
         t = target if target.alive and target.hp > 0 else self.pick_target()
         if t is None:
             return
-        # approximation: "100% of Basic ATK DMG" = same main-target multiplier/Toughness as a single-target FUA,
-        # performed right after the Basic ATK (while Hidden Hand's ATK bonus is still active)
+        # approximation: "100% of Basic ATK DMG" = same multipliers/Toughness as the Basic ATK, performed right
+        # after the Basic ATK (while Hidden Hand's ATK bonus is still active)
         with self.action(ActionKind.FUA, "basic", t, label="Self-Sufficer", energy=0, sp=0) as act:
-            act.hit(t, mult, toughness=toughness)
+            if adj is None:
+                act.hit(t, mult, toughness=toughness)
+            else:
+                act.blast(t, mult, adj[0], toughness=(toughness, adj[1]))
 
     def skill(self, target: Enemy | None) -> None:
         with self.action(ActionKind.SKILL, "skill", target):
@@ -174,4 +184,6 @@ class Qingque(Kit):
     def ult(self, target: Enemy | None) -> None:
         with self.action(ActionKind.ULT, "ult", target) as act:
             act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target, splits="data")
-        self.hand = [self.battle.rng.randrange(SUITS)] * HAND_MAX
+        # the 4 tiles of one suit are consumed at once and "Hidden Hand" starts immediately, also outside her turn
+        # (the game's Ultimate script removes the tiles and adds the Hidden Hand modifier right after the DMG)
+        self._enter_hidden_hand()

@@ -34,7 +34,8 @@ class Guinaifen(Kit):
 
     def technique(self) -> None:
         p = self.sk("technique")["params"][0]
-        # approximation: the in-battle hits of the Technique reduce no Toughness (none is given in the data)
+        # approximation: the 4 random in-battle hits of the Technique reduce no Toughness (how the Maze record's
+        # single-target Toughness value applies to them is not given in the data)
         with self.action(ActionKind.EXTRA, None, label="Skill Showcase", energy=0, sp=0) as act:
             for _ in range(int(p[1])):
                 hits = act.bounce(None, 1, p[0])

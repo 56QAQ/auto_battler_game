@@ -26,6 +26,9 @@ SYZYGY_MAX = 3  # Talent text "Syzygy can stack up to 3 times"
 ENHANCED_SKILL_ID = "121209"  # "Moon On Glacial River"
 HP_FLOOR = 1.0  # Talent text "this cannot reduce teammates' HP to lower than 1"
 TRANSMIGRATION = "Spectral Transmigration"
+# Moon On Glacial River: 5 hits on the main and adjacent targets (and the E1 extra DMG) in
+# Avatar_Jingliu_00_PassiveAtkReady_Ability / Avatar_Advanced_Jingliu_00_PassiveAtkReady_Ability
+MOON_SPLITS = [0.1, 0.1, 0.1, 0.2, 0.5]
 
 
 @register
@@ -160,6 +163,7 @@ class Jingliu(Kit):
                 lv[2],
                 (self.toughness(ENHANCED_SKILL_ID, 0), self.toughness(ENHANCED_SKILL_ID, 2)),
                 extra=extra,
+                splits=MOON_SPLITS,
             )
             self.syzygy = max(0, self.syzygy - int(lv[1]))
         if atk is not None:
@@ -186,7 +190,6 @@ class Jingliu(Kit):
 ENH_SYZYGY_MAX = 4  # enhanced Talent text "Syzygy can stack up to 4 times"
 ENH_ENTRY_BONUS = 1  # enhanced Talent text "enters the Spectral Transmigration state with 1 extra stack of Syzygy"
 E6_LIMIT_BONUS = 1  # E6 text "the Syzygy stack limit increases by 1"
-MOON_SPLITS = [0.1, 0.1, 0.1, 0.2, 0.5]  # Avatar_Advanced_Jingliu_00_PassiveAtkReady_Ability (main and adjacent)
 MOONLIGHT = "Moonlight"
 
 

@@ -17,6 +17,8 @@ from .base import Kit
 
 # A2 "When Cipher's SPD is higher than or equal to 140/170" (literal thresholds, not parameters)
 A2_SPD = (140.0, 170.0)
+# Talent Follow-Up ATK hit split (Avatar_Cipher_00_PassiveSkill01_Insert_Phase02; not in the skill record)
+FUA_SPLITS = [0.2, 0.1, 0.1, 0.6]
 
 
 @register
@@ -38,7 +40,8 @@ class Cipher(Kit):
         if self.trace(3):
             self.passive("Sleight of Sky", {S.VULN: self.tp(3, 0)}, scope=self.enemy_scope)
         if self.e(2):
-            self.on(E.AFTER_HIT, self._e2)
+            # OnBeforeHit in the ability script: the hit that applies the debuff already benefits from it
+            self.on(E.BEFORE_HIT, self._e2)
 
     def on_battle_start(self) -> None:
         self._ensure_patron()
@@ -138,6 +141,7 @@ class Cipher(Kit):
                 self.p("skill", 0),
                 self.p("skill", 1),
                 toughness=(self.toughness("skill", 0), self.toughness("skill", 2)),
+                splits="data",
             )
 
     def ult(self, target: Enemy | None) -> None:
@@ -202,7 +206,7 @@ class Cipher(Kit):
                         "Read the Room, Seek the Glee", stats={S.ATK_PCT: self.ep(1, 0)}, duration=int(self.ep(1, 1))
                     )
                 )
-            act.hit(t, self.p("talent", 0), toughness=self.toughness("talent"), extra=extra)
+            act.hit(t, self.p("talent", 0), toughness=self.toughness("talent"), extra=extra, splits=FUA_SPLITS)
 
     def _e2(self, ev: E.Ev) -> None:
         h = ev.hit

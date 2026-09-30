@@ -115,11 +115,14 @@ class Serval(Kit):
 
     def ult(self, target: Enemy | None) -> None:
         with self.action(ActionKind.ULT, "ult", target) as act:
+            if self.e(4):
+                # the ability script Shocks the non-Shocked enemies before the damage (so E6 and the extension
+                # below already apply to them)
+                for e in [e for e in self.enemies() if e.hp > 0 and not e.has_tag("shock")]:
+                    self.skill_shock(e, self.ep(4, 0))
             act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target, splits="data")
             for e in [e for e in self.enemies() if e.hp > 0]:
                 own = self._own_shock(e)
                 if own is not None:
                     # approximation: only Serval's own Shock is extended
                     own.duration = (own.duration or 0) + int(self.p("ult", 1))
-                elif self.e(4) and not e.has_tag("shock"):
-                    self.skill_shock(e, self.ep(4, 0))

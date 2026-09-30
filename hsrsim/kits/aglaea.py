@@ -262,7 +262,7 @@ class Aglaea(Kit):
         tough = rec["toughness"]
         with self.action(ActionKind.BASIC, rec, target) as act:
             act.data["aglaea_joint"] = True
-            act.blast(target, lv[0], lv[1], toughness=(float(tough[0]), float(tough[2])))
+            act.blast(target, lv[0], lv[1], toughness=(float(tough[0]), float(tough[2])), splits="data")
             memo_tags = (DmgTag.BASIC, DmgTag.MEMOSPRITE)
             for t in [target, *self.battle.adjacent(target)]:
                 memo_hit(act, gm, t, lv[2] if t is target else lv[3], tags=memo_tags, primary=t is target)

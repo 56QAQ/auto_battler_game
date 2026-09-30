@@ -174,27 +174,20 @@ class TheHerta(Kit):
         mult: float,
         tough_main: float,
         tough_other: float,
-        bonus: tuple[float, float] = (0.0, 0.0),
         extra: dict[str, float] | None = None,
     ) -> None:
         """Main target: 3 instances, adjacent targets: 2, targets adjacent to those: 1.
 
         # approximation: the data's Toughness values are per-target totals (main / adjacent); they are split
-        # evenly over the instances (targets two steps away take one adjacent-sized instance). The
-        # Interpretation multiplier bonus is added once, to the first instance on each target."""
+        # evenly over the instances (targets two steps away take one adjacent-sized instance)."""
         rings = self._rings(target)
-        first_hit: set[int] = set()
         for i in range(SPREAD_INSTANCES):
             for ring_no, ring in enumerate(rings[: i + 1]):
                 for t in ring:
                     if not t.alive:
                         continue
                     tough = tough_main / SPREAD_INSTANCES if ring_no == 0 else tough_other / (SPREAD_INSTANCES - 1)
-                    m = mult
-                    if t.uid not in first_hit:
-                        first_hit.add(t.uid)
-                        m += bonus[0] if t is target else bonus[1]
-                    act.hit(t, m, toughness=tough, extra=extra, primary=t is target)
+                    act.hit(t, mult, toughness=tough, extra=extra, primary=t is target)
 
     def skill(self, target: Enemy | None) -> None:
         assert target is not None
@@ -224,8 +217,13 @@ class TheHerta(Kit):
         if self.trace(1) and counted >= self.p("talent", 2):
             extra[f"{S.DMG_PCT}:{self.char.element.value}"] = self.tp(1, 1)
         with self.action(ActionKind.SKILL, rec, target) as act:
-            self._spread(act, target, lv[0], float(tough[0]), float(tough[2]), bonus, extra or None)
-            act.aoe(lv[2], main_target=target, extra=extra or None)
+            self._spread(act, target, lv[0], float(tough[0]), float(tough[2]), extra or None)
+            # The Interpretation bonus is applied once per enemy, by the final all-enemy instance (the ability
+            # script's S03_Mark_Damage Retarget after the spreading hits): every enemy other than the primary
+            # target gets the "other targets" bonus, including enemies the spreading hits never reached.
+            for e in self.enemies():
+                m = lv[2] + (bonus[0] if e is target else bonus[1])
+                act.hit(e, m, extra=extra or None, primary=e is target)
             self.add_interp(target, int(lv[1]))
             self.set_interp(target, int(self.ep(1, 1)) if self.e(1) else 1)
         if self.e(2):

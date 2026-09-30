@@ -61,7 +61,7 @@ class Natasha(Kit):
         # approximation: the Technique's in-battle DMG does not reduce Toughness
         with self.action(ActionKind.EXTRA, None, target, label="Hypnosis Research", energy=0, sp=0) as act:
             act.hit(target, p[3])
-        # not modelled: the engine's enemy attacks ignore Weaken, the debuff is applied for bookkeeping only
+        # Weakened enemies deal less DMG to allies (``S.WEAKEN`` is applied by the engine's enemy attacks)
         for e in self.enemies():
             self.battle.try_debuff(
                 Modifier("Weakened (Natasha)", stats={S.WEAKEN: p[1]}, duration=int(p[2]), kind=ModKind.DEBUFF),

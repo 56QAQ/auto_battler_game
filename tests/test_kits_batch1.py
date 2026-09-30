@@ -63,6 +63,7 @@ def test_march_7th_ult_freeze_skips_turn_and_deals_additional_dmg():
     acted = []
     b.events.on(E.ACTION_START, lambda ev: ev.action.actor is e and acted.append(ev.action))
     b.take_turn(e)
+    assert len(_recs(b, "Glacial Cascade")) == 4  # ability script: 4 hits of 25%
     add = _recs(b, "Frozen (March 7th)")
     assert len(add) == 1 and "additional" in add[0].tags
     assert not acted  # the Frozen enemy skipped its turn
@@ -102,7 +103,10 @@ def test_himeko_charge_and_victory_rush():
     kit.basic(e)
     b.process_queue()
     fua = _recs(b, "Victory Rush")
-    assert len(fua) == 1 and "fua" in fua[0].tags and kit.charge == 0
+    assert all("fua" in r.tags for r in fua) and kit.charge == 0
+    # one Follow-Up ATK of 4 hits (ability script: 3 x 20% + 40%)
+    total = sum(r.amount for r in fua)
+    assert [r.amount / total for r in fua] == pytest.approx([0.2, 0.2, 0.2, 0.4], rel=1e-6)
 
 
 def test_himeko_charge_from_weakness_break():
@@ -129,6 +133,19 @@ def test_welt_talent_additional_dmg_vs_slowed_and_imprison():
     kit.ult(e)
     assert e.has_mod("Imprisoned (Welt)")
     assert e.gauge == pytest.approx(gauge + kit.p("ult", 1) * F.AV_BASE)
+
+
+def test_welt_ult_two_hits_trigger_talent_twice_and_a2_before_damage():
+    b, (welt,), (e,) = _battle([Build("1004")])
+    kit = welt.kit
+    b.apply(Modifier("Slow", stats={S.SPD_PCT: -0.1}, duration=2, kind=ModKind.DEBUFF), e, welt)
+    kit.ult(e)
+    ult = _recs(b, "Synthetic Black Hole")
+    # ability script: split 0.1 / 0.9 on all enemies; the Talent triggers on every hit vs a Slowed enemy
+    assert [r.amount / sum(x.amount for x in ult) for r in ult] == pytest.approx([0.1, 0.9], rel=1e-6)
+    assert len(_recs(b, "Time Distortion")) == 2
+    # A2 Retribution is added before the damage: the Ultimate itself takes the DMG-taken increase
+    assert all(r.parts.vuln_mult == pytest.approx(1 + kit.tp(1, 1)) for r in ult)
 
 
 def test_welt_enhanced_weightless():
@@ -185,6 +202,33 @@ def test_herta_follow_up_when_enemy_drops_below_half():
     assert len(_recs(b, "Fine, I'll Do It Myself")) == 1
 
 
+def test_herta_skill_two_hits_check_hp_per_hit():
+    b, (herta,), (e,) = _battle([Build("1013", traces=False)])
+    kit = herta.kit
+    kit.skill(e)  # full HP: both hits (30% / 70%) get the "HP >= 50%" bonus
+    hits = _recs(b, "One-Time Offer")
+    assert len(hits) == 2
+    assert hits[1].parts.dmg_boost == pytest.approx(hits[0].parts.dmg_boost)
+    assert hits[1].amount / hits[0].amount == pytest.approx(0.7 / 0.3, rel=1e-6)
+    b.records.clear()
+    e.hp = e.max_hp * kit.p("skill", 1) - 1.0  # below 50%: no bonus
+    kit.skill(e)
+    low = _recs(b, "One-Time Offer")
+    assert hits[0].parts.dmg_boost - low[0].parts.dmg_boost == pytest.approx(kit.p("skill", 2))
+
+
+def test_herta_e1_checks_hp_before_the_basic_hit():
+    b, (herta,), (e,) = _battle([Build("1013", eidolon=1)])
+    kit = herta.kit
+    e.hp = e.max_hp * kit.ep(1, 0) + 1.0  # above 50% before the hit, below after it
+    kit.basic(e)
+    b.process_queue()
+    assert e.hp_ratio <= kit.ep(1, 0)
+    assert not _recs(b, "Kick You When You're Down")
+    kit.basic(e)
+    assert len(_recs(b, "Kick You When You're Down")) == 1
+
+
 # --------------------------------------------------------------------- Serval
 def test_serval_shock_talent_and_ult_extension():
     b, (serval,), (e,) = _battle([Build("1103")])
@@ -196,6 +240,19 @@ def test_serval_shock_talent_and_ult_extension():
     kit.ult(e)
     assert shock.duration == int(kit.p("skill", 3) + kit.p("ult", 1))
     assert len(_recs(b, "Galvanic Chords")) == 2
+
+
+def test_serval_e4_shock_applied_before_ult_damage():
+    b, (serval,), (e,) = _battle([Build("1103", eidolon=6)])
+    kit = serval.kit
+    kit.basic(e)  # enemy not Shocked: no E6 bonus
+    basic_boost = _recs(b, "Roaring Thunderclap")[0].parts.dmg_boost
+    kit.ult(e)
+    ult = _recs(b, "Here Comes the Mechanical Fever")
+    # E4 Shocks the enemy before the damage -> E6 (+30% vs Shocked) applies to the Ultimate hit
+    assert ult[0].parts.dmg_boost - basic_boost == pytest.approx(kit.ep(6, 0))
+    shock = e.get_mod("Shock (Serval)")
+    assert shock is not None and shock.duration == int(kit.p("skill", 3) + kit.p("ult", 1))
 
 
 # ---------------------------------------------------------------------- Sampo
@@ -211,6 +268,35 @@ def test_sampo_skill_wind_shear_per_hit_and_energy():
     b.take_turn(e)  # Wind Shear triggers at the enemy's turn start: stacks x multiplier
     ws = _recs(b, "Wind Shear (Sampo)")
     assert len(ws) == 1 and "dot" in ws[0].tags
+
+
+def test_sampo_basic_and_ult_hits_each_roll_wind_shear():
+    b, (sampo,), (e,) = _battle([Build("1108", extra_stats={"ehr": 1.0})])
+    kit = sampo.kit
+    kit.basic(e)  # 3 hits in the ability script
+    assert len(_recs(b, "Dazzling Blades")) == 3 and kit.ws_stacks(e) == 3
+    b2, (sampo2,), (e2,) = _battle([Build("1108", extra_stats={"ehr": 1.0})])
+    sampo2.kit.ult(e2)  # 4 AoE hits of 25%
+    assert len(_recs(b2, "Surprise Present")) == 4 and sampo2.kit.ws_stacks(e2) == 4
+
+
+def test_sampo_technique_delay_uses_the_right_parameters():
+    b, (sampo,), (e,) = _battle([Build("1108")])
+    p = sampo.kit.sk("technique")["params"][0]  # [Blind seconds, fixed chance, delay]
+    gauge = e.gauge
+    sampo.kit.technique()
+    assert e.gauge == pytest.approx(gauge + p[2] * F.AV_BASE)
+
+
+def test_sampo_e4_checks_stacks_before_each_skill_hit():
+    b, (sampo,), (e,) = _battle([Build("1108", eidolon=4, extra_stats={"ehr": 1.0})])
+    kit = sampo.kit
+    kit.wind_shear(e, 1.0, stacks=int(kit.ep(4, 0)) - 1)  # one stack short of the E4 threshold
+    triggers = []
+    b.events.on(E.DOT_TRIGGERED, lambda ev: triggers.append(ev))
+    kit.skill(e)  # every hit lands on the only enemy and adds a stack after it hits
+    hits = len(_recs(b, "Ricochet Love"))
+    assert len(triggers) == hits - 1  # the first hit sees 4 stacks, every later one 5
 
 
 # ----------------------------------------------------------------------- Hook

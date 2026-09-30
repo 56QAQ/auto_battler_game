@@ -20,6 +20,9 @@ CHARGE_PER_BREAK = 1
 START_CHARGE = 1
 # E6: "Ultimate deals 2 extra instances of Fire DMG" (literal in the text)
 E6_EXTRA_HITS = 2
+# Victory Rush hit splits from the ability script (Passive1Atk02_Ability: a loop of split=0.2 AoE hits, then one of
+# 0.4 -> 3 x 0.2 + 0.4; AoE splits are not in the data snapshot)
+FUA_SPLITS = [0.2, 0.2, 0.2, 0.4]
 
 
 @register
@@ -93,7 +96,9 @@ class Himeko(Kit):
             return
         self.charge = 0
         with self.action(ActionKind.FUA, "talent", self.battle.default_target()) as act:
-            act.aoe(self.p("talent", 0), toughness=self.toughness("talent", 1), main_target=act.target, splits="data")
+            act.aoe(
+                self.p("talent", 0), toughness=self.toughness("talent", 1), main_target=act.target, splits=FUA_SPLITS
+            )
         if self.e(1):
             self.buff_self(Modifier("Childhood", stats={S.SPD_PCT: self.ep(1, 0)}, duration=int(self.ep(1, 1))))
 

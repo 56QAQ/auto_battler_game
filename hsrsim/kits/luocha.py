@@ -68,7 +68,7 @@ class Luocha(Kit):
             )
         )
         if self.e(4):
-            # not modelled: the engine's enemy attacks ignore Weaken (the field is applied for bookkeeping)
+            # Weakened enemies deal less DMG to allies (``S.WEAKEN`` is applied by the engine's enemy attacks)
             self.buff_self(
                 Modifier(
                     "Heavy Lies the Crown",

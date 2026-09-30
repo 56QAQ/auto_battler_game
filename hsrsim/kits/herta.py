@@ -13,6 +13,10 @@ from ..modifiers import Modifier, Stacking
 from . import register
 from .base import Kit
 
+# Skill hit splits from the ability script (Skill02_Phase02: split=0.3 / 0.7 on all enemies; AoE splits are not in the
+# data snapshot). The "HP >= 50%" DMG bonus is checked on each hit (OnBeforeHit).
+SKILL_SPLITS = [0.3, 0.7]
+
 
 @register
 class Herta(Kit):
@@ -84,15 +88,17 @@ class Herta(Kit):
     def basic(self, target: Enemy | None) -> None:
         assert target is not None
         with self.action(ActionKind.BASIC, "basic", target) as act:
+            # E1: the ability script checks the target's HP before the Basic ATK hit lands (OnBeforeHit)
+            low = self.e(1) and target.hp_ratio <= self.ep(1, 0)
             act.hit(target, self.p("basic", 0), toughness=self.toughness("basic"), splits="data")
-            if self.e(1) and target.hp > 0 and target.hp_ratio <= self.ep(1, 0):
+            if low and target.hp > 0:
                 self.battle.additional_damage(
                     self.char, target, self.ep(1, 1), element=Element.ICE, label="Kick You When You're Down"
                 )
 
     def skill(self, target: Enemy | None) -> None:
         with self.action(ActionKind.SKILL, "skill", target) as act:
-            act.aoe(self.p("skill", 0), toughness=self.toughness("skill", 1), main_target=target, splits="data")
+            act.aoe(self.p("skill", 0), toughness=self.toughness("skill", 1), main_target=target, splits=SKILL_SPLITS)
 
     def ult(self, target: Enemy | None) -> None:
         with self.action(ActionKind.ULT, "ult", target) as act:

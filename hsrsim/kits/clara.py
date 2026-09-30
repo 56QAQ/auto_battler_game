@@ -82,6 +82,11 @@ class Clara(Kit):
             return
         c = self.char
         clara_hit = c in ev.targets
+        if clara_hit or self.e(6):
+            # Marks of Counter come from attacks on Clara (E6: on any ally), not from the Counters themselves:
+            # Enhanced Counters triggered by attacks on teammates do not mark (E0-E5), and at E6 the attacker
+            # is marked even when the 50% Counter chance fails
+            self._mark(enemy)
         if clara_hit:
             if self.trace(1) and c.debuffs and self.battle.rng.random() < self.tp(1, 0):
                 m = next((m for m in c.debuffs if m.dispellable), None)
@@ -103,14 +108,10 @@ class Clara(Kit):
             self._queue_counter(enemy, enhanced=False)
 
     def _queue_counter(self, enemy: Enemy, enhanced: bool) -> None:
-        # approximation: every Counter (also Enhanced ones triggered by other allies) marks its target
-        self._mark(enemy)
-
         def counter() -> None:
             t = enemy if enemy.alive else self.battle.default_target()
             if t is None:
                 return
-            self._mark(t)
             mult = self.p("talent", 1) + (self.p("ult", 1) if enhanced else 0.0)
             extra = {S.DMG_PCT: self.tp(3, 0)} if self.trace(3) else None
             label = "Svarog Enhanced Counter" if enhanced else "Svarog Counter"

@@ -88,7 +88,12 @@ class FuXuan(Kit):
             self.battle.lose_hp(self.char, share, ev.source)
         if self.e(6) and self.e6_active:
             self.e6_tally += lost
-        if ent is self.char and self.triggers > 0 and self.char.hp_ratio <= self.p("talent", 1):
+        if ent is self.char:
+            self._try_restore()
+
+    def _try_restore(self) -> None:
+        """Talent HP Restore: at or below the HP threshold, spend 1 trigger count to heal missing HP."""
+        if self.triggers > 0 and self.char.hp_ratio <= self.p("talent", 1):
             self.triggers -= 1
             self.battle.heal(self.char, self.p("talent", 2) * (self.char.max_hp - self.char.hp), self.char)
 
@@ -135,3 +140,6 @@ class FuXuan(Kit):
                     self.battle.heal(c, self.tp(2, 0) * self.char.max_hp + self.tp(2, 1), self.char)
         if self.e(6):
             self.e6_tally = 0.0
+        # Avatar_FuXuan_00_Skill03_Phase02: after the Ultimate grants its trigger count, HP Restore fires at once
+        # (TurnInsertAbility Avatar_FuXuan_00_Passive_Ability) if her HP is already at or below the threshold
+        self._try_restore()

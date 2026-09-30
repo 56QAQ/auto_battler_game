@@ -23,6 +23,9 @@ E6_MAX_CHARGE = 4  # E6 text "The maximum number of Charge stacks is reduced to 
 ULT_HP_SET = 0.5  # Ultimate text "Sets Blade's current HP to 50% of his Max HP"
 LOW_HP = 0.5  # A2 / E4 text: "at 50% of Max HP or lower"
 FOREST_ID = "120508"  # enhanced Basic ATK "Forest of Swords"
+# Talent follow-up: 3 AoE hits (Avatar_Ren_00_Passive1Atk02_Ability / Avatar_AdvancedRen_00_Passive1Atk02_Ability:
+# a 2x loop of HitSplitRatio 0.33, then 0.34)
+FUA_SPLITS = [0.33, 0.33, 0.34]
 
 
 @register
@@ -115,6 +118,7 @@ class Blade(Kit):
                 toughness=self.toughness("talent", 1),
                 main_target=target,
                 extra=extra,
+                splits=FUA_SPLITS,
             )
             self.battle.heal(self.char, self.p("talent", 2) * self.char.max_hp, self.char)
         self.charge = 0
@@ -151,13 +155,20 @@ class Blade(Kit):
         lv = rec["params"][self.level_of(rec) - 1]
         with self.action(ActionKind.BASIC, rec, target) as act:
             self.consume_hp(lv[0])
-            hits = act.blast(
+            # Avatar_Ren_00_Skill11_Phase02: two half hits on the main target, then one hit on adjacent targets
+            hits = act.hit(
                 target,
                 {"atk": lv[1], "hp": lv[3]},
-                {"atk": lv[2], "hp": lv[4]},
-                toughness=(self.toughness(self.forest_id, 0), self.toughness(self.forest_id, 2)),
+                toughness=self.toughness(self.forest_id, 0),
                 splits="data",
             )
+            for adj in self.battle.adjacent(target):
+                hits += act.hit(
+                    adj,
+                    {"atk": lv[2], "hp": lv[4]},
+                    toughness=self.toughness(self.forest_id, 2),
+                    primary=False,
+                )
         if self.trace(2) and any(h.target.broken for h in hits):
             self.battle.heal(self.char, self.tp(2, 0) * self.char.max_hp + self.tp(2, 1), self.char)
 
@@ -210,9 +221,6 @@ class Blade(Kit):
                     primary=False,
                 )
         self.tally = 0.0
-
-
-FUA_SPLITS = [0.33, 0.33, 0.34]  # enhanced Talent follow-up: 3 AoE hits (Avatar_AdvancedRen_00_Passive1Atk02_Ability)
 
 
 @register_enhanced

@@ -26,7 +26,6 @@ class Argenti(Kit):
     def setup(self) -> None:
         self.apo_max = int(self.p("talent", 2)) + (int(self.ep(4, 1)) if self.e(4) else 0)
         self.enhanced_ult = False
-        self.on(E.ACTION_END, self._talent)
         if self.trace(1):
             self.on(E.TURN_START, lambda ev: ev.entity is self.char and self.gain_apotheosis(int(self.tp(1, 0))))
         if self.trace(2):
@@ -72,13 +71,10 @@ class Argenti(Kit):
         m = self.char.get_mod("Apotheosis")
         return m.stacks if m is not None else 0
 
-    def _talent(self, ev: E.Ev) -> None:
-        act = ev.action
-        if act.owner is not self.char or act.kind not in (ActionKind.BASIC, ActionKind.SKILL, ActionKind.ULT):
-            return
-        n = len(act.attacked)
-        if n:
-            # approximation: granted once the action ends (in game per enemy as it is hit)
+    def _talent(self, n: int) -> None:
+        """Talent for ``n`` enemies about to be hit: the ability script grants the Energy and the Apotheosis
+        stacks (ModifySPNew + Passive_Charge) before DamageByAttackProperty, so they count for this attack."""
+        if n > 0:
             self.battle.gain_energy(self.char, self.p("talent", 0) * n)
             self.gain_apotheosis(n)
 
@@ -110,20 +106,25 @@ class Argenti(Kit):
             self.buff_self(Modifier("Agate's Humility", stats={S.ATK_PCT: self.ep(2, 1)}, duration=int(self.ep(2, 2))))
         if not self.enhanced_ult:
             with self.action(ActionKind.ULT, "ult", target) as act:
+                self._talent(len(self.enemies()))
                 act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target)
             return
         rec = self._enh_rec()
         lv = rec["params"][self.level_of(rec) - 1]
         tough = rec["toughness"]
         with self.action(ActionKind.ULT, rec, target) as act:
+            self._talent(len(self.enemies()))  # the bounces grant nothing (only the AoE part charges)
             act.aoe(lv[0], toughness=float(tough[1]), main_target=target)
             act.bounce(None, int(lv[1]), lv[2], toughness=float(tough[0]))
 
     # ----------------------------------------------------------- actions
     def basic(self, target: Enemy | None) -> None:
         assert target is not None
-        self.simple_basic(target)
+        with self.action(ActionKind.BASIC, "basic", target) as act:
+            self._talent(1)
+            act.hit(target, self.p("basic", 0), toughness=self.toughness("basic"), splits="data")
 
     def skill(self, target: Enemy | None) -> None:
         with self.action(ActionKind.SKILL, "skill", target) as act:
+            self._talent(len(self.enemies()))
             act.aoe(self.p("skill", 0), toughness=self.toughness("skill", 1), main_target=target)

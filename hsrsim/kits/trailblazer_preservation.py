@@ -40,8 +40,14 @@ class _TrailblazerPreservation(Kit):
 
     def technique(self) -> None:
         p = self.sk("technique")["params"][0]
+        # the ability script's MazeSkill_Shield counts down at the end of the holder's turn (LifeStepMoment default)
         self.battle.add_shield(
-            self.char, p[0] * self.char.defense + p[1], self.char, duration=int(p[2]), name="Call of the Guardian"
+            self.char,
+            p[0] * self.char.defense + p[1],
+            self.char,
+            duration=int(p[2]),
+            name="Call of the Guardian",
+            tick=Tick.HOLDER_TURN_END,
         )
 
     # ------------------------------------------------------------ helpers
@@ -118,7 +124,11 @@ class _TrailblazerPreservation(Kit):
             main["def"] = self.ep(1, 1)  # approximation: E1's extra DEF-scaled DMG on the main target only
         tough = rec["toughness"]
         with self.action(ActionKind.BASIC, rec, target) as act:
-            act.blast(target, main, lv[1], toughness=(float(tough[0]), float(tough[2])))
+            # ability script: two hits on the target (the record's splits), then one hit on each adjacent enemy
+            adjacent = self.battle.adjacent(target)
+            act.hit(target, main, toughness=float(tough[0]), splits="data")
+            for adj in adjacent:
+                act.hit(adj, lv[1], toughness=float(tough[2]), primary=False)
             if self.trace(2):
                 self.battle.heal(self.char, self.tp(2, 0) * self.char.max_hp, self.char)
             self._team_shield()

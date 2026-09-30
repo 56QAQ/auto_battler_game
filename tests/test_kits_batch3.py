@@ -9,8 +9,9 @@ from hsrsim.battle import Battle, BattleConfig
 from hsrsim.build import Build, make_character
 from hsrsim.entities import Enemy
 from hsrsim.enums import Element
-from hsrsim.kits.blade import FOREST_ID
+from hsrsim.kits.blade import FOREST_ID, FUA_SPLITS
 from hsrsim.kits.imbibitor_lunae import FULGURANT_SPLITS
+from hsrsim.kits.jingliu import MOON_SPLITS
 
 
 def _battle(builds, n_enemies=1, toughness=1e6, **cfg):
@@ -59,8 +60,21 @@ def test_blade_hellscape_hp_tally_ult_and_charge_fua():
     k.add_charge()
     b.process_queue()
     fua = [h for h in hits if h.label == "Shuhu's Gift"]
-    assert len(fua) == 1 and fua[0].base == pytest.approx(k.p("talent", 1) * atk + k.p("talent", 3) * mh)
+    assert [h.ratio for h in fua] == FUA_SPLITS  # 0.33 / 0.33 / 0.34 (Avatar_Ren_00_Passive1Atk02_Ability)
+    assert sum(h.base for h in fua) == pytest.approx(k.p("talent", 1) * atk + k.p("talent", 3) * mh)
     assert k.charge == 0
+
+
+def test_blade_forest_of_swords_adjacent_targets_take_one_hit():
+    b, (blade, _), enemies = _battle([Build("Blade"), Build("Bronya")], n_enemies=3)
+    k = blade.kit
+    hits = _hits(b)
+    k.skill(enemies[1])
+    forest = [h for h in hits if h.label == "Forest of Swords"]
+    # Avatar_Ren_00_Skill11_Phase02: 2 half hits on the main target, 1 full hit (split=None) on each adjacent one
+    assert [h.ratio for h in forest if h.target is enemies[1]] == [0.5, 0.5]
+    assert [h.ratio for h in forest if h.target is enemies[0]] == [1.0]
+    assert [h.ratio for h in forest if h.target is enemies[2]] == [1.0]
 
 
 # ------------------------------------------------------------------ Fu Xuan
@@ -79,6 +93,17 @@ def test_fu_xuan_matrix_knowledge_and_dmg_distribution():
     lost_fx, lost_s = fx_hp - fx.hp, s_hp - seele.hp
     assert lost_fx > 0
     assert lost_fx / (lost_fx + lost_s) == pytest.approx(k.p("skill", 0))
+
+
+def test_fu_xuan_ult_trigger_count_restores_hp_at_once_when_low():
+    b, (fx, _), (e,) = _battle([Build("Fu Xuan"), Build("Seele")])
+    k = fx.kit
+    k.triggers = 0
+    fx.hp = 0.3 * fx.max_hp  # already below the threshold, no trigger count left
+    fx.energy = fx.max_energy
+    k.use_ult()  # the Ultimate's trigger count is spent right away (Skill03_Phase02 -> Passive_Ability)
+    assert k.triggers == 0
+    assert fx.hp == pytest.approx(0.3 * fx.max_hp + k.p("talent", 2) * 0.7 * fx.max_hp)
 
 
 # ---------------------------------------------------------------- Guinaifen
@@ -135,8 +160,9 @@ def test_jingliu_transmigration_consumes_teammate_hp_for_atk():
     bonus = min(k.p("talent", 2) * consumed, k.p("talent", 3) * jl.raw(S.BASE_ATK))
     rec = k.sk("121209")
     lv = rec["params"][k.level_of(rec) - 1]
-    assert hits[0].label == "Moon On Glacial River"
-    assert hits[0].base == pytest.approx(lv[0] * (jl.atk + bonus))  # the ATK bonus ends with the attack
+    moon = [h for h in hits if h.label == "Moon On Glacial River"]
+    assert [h.ratio for h in moon] == MOON_SPLITS  # 5 hits (Avatar_Jingliu_00_PassiveAtkReady_Ability)
+    assert sum(h.base for h in moon) == pytest.approx(lv[0] * (jl.atk + bonus))  # the ATK bonus ends with the attack
     assert b.sp == sp and k.syzygy == 1
 
 
@@ -188,6 +214,14 @@ def test_xueyi_karma_ult_bonus_and_follow_up():
     b.process_queue()
     fua = [h for h in hits if h.label == "Karmic Perpetuation"]
     assert len(fua) == 3 and k.karma == 0
+
+
+def test_xueyi_technique_adds_karma():
+    # StageAbility_Maze_Xueyi_Modifier adds MAvatar_Xueyi_00_Passive_AddCount after the Technique's DMG
+    b, (xy, _), enemies = _battle([Build("Xueyi"), Build("Bronya")], n_enemies=3, toughness=100, techniques=True)
+    reduced = sum(100 - e.toughness for e in enemies)
+    assert reduced == pytest.approx(3 * xy.kit.toughness("technique"))
+    assert xy.kit.karma == int(reduced // 10)
 
 
 # -------------------------------------------------------------------- Hanya

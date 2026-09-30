@@ -237,6 +237,6 @@ class Boothill(Kit):
         assert t is not None
         with self.action(ActionKind.ULT, "ult", t) as act:
             self.physical_weakness(t, int(self.p("ult", 2)))
-            act.hit(t, self.p("ult", 0), toughness=self.toughness("ult"))
+            act.hit(t, self.p("ult", 0), toughness=self.toughness("ult"), splits="data")
         if t.alive:
             self.battle.delay(t, self.p("ult", 1))

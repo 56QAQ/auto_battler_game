@@ -20,6 +20,12 @@ WS_TAG = "wind_shear_sampo"
 # approximation: bounce hits after the first reduce half the Toughness of the first (game ability config;
 # not in the skill data)
 BOUNCE_TOUGHNESS_RATIO = 0.5
+# Hit splits from the ability script (not in the data snapshot); the Talent rolls Wind Shear on every hit (OnAfterHit).
+# Ultimate: a loop of 4 AoE hits of 25% each (Skill03_Phase02 LoopExecuteTaskList; 4 x 0.25 per the fribbels hit data).
+ULT_SPLITS = [0.25, 0.25, 0.25, 0.25]
+# approximation: Basic ATK is 3 DamageByAttackProperty hits on the target (Skill01_Phase02) whose ratios are not
+# readable from the script; an even split is assumed.
+BASIC_SPLITS = [0.33, 0.33, 0.34]
 
 
 @register
@@ -34,10 +40,11 @@ class Sampo(Kit):
             self.on(E.KILL, self._e2)
 
     def technique(self) -> None:
+        # params: #1 Blind duration (seconds, overworld only), #2 fixed chance, #3 action delay
         p = self.sk("technique")["params"][0]
-        if self.battle.rng.random() < p[0]:  # fixed chance
+        if self.battle.rng.random() < p[1]:  # fixed chance
             for e in self.enemies():
-                self.battle.delay(e, p[1])
+                self.battle.delay(e, p[2])
 
     # -------------------------------------------------------- Wind Shear
     def ws_mult(self) -> float:
@@ -98,15 +105,16 @@ class Sampo(Kit):
     # ----------------------------------------------------------- actions
     def basic(self, target: Enemy | None) -> None:
         assert target is not None
-        self.simple_basic(target)
+        self.simple_basic(target, splits=BASIC_SPLITS)
 
     def _skill_hit(self, act: object, t: Enemy, tough: float, primary: bool) -> None:
         from ..battle import Action
 
         assert isinstance(act, Action)
-        act.hit(t, self.p("skill", 1), toughness=tough, primary=primary)
+        # E4: the ability script checks the stacks and triggers Wind Shear before each Skill hit lands
         if self.e(4) and t.hp > 0 and self.ws_stacks(t) >= self.ep(4, 0):
             self.battle.detonate(t, self.ep(4, 1), kinds=(WS_TAG,))
+        act.hit(t, self.p("skill", 1), toughness=tough, primary=primary)
 
     def skill(self, target: Enemy | None) -> None:
         assert target is not None
@@ -123,7 +131,7 @@ class Sampo(Kit):
 
     def ult(self, target: Enemy | None) -> None:
         with self.action(ActionKind.ULT, "ult", target) as act:
-            act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target, splits="data")
+            act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target, splits=ULT_SPLITS)
             for e in [e for e in self.enemies() if e.hp > 0]:
                 self.battle.try_debuff(
                     Modifier(

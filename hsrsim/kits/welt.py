@@ -1,6 +1,7 @@
 """Welt (瓦尔特) — Nihility / Imaginary. Bouncing Slow Skill, AoE Imprison ultimate, Additional DMG vs Slowed.
 
-Base kit only (the enhanced kit is not implemented yet). Options: ``rotation`` (``"skill"`` / ``"basic"``).
+``Welt`` is the base kit, ``WeltEnhanced`` the enhanced one ("Weightless"). Options: ``rotation``
+(``"skill"`` / ``"basic"``).
 """
 
 from __future__ import annotations
@@ -19,6 +20,9 @@ SKILL_EXTRA_BOUNCES = 2
 E6_EXTRA_BOUNCES = 1
 # Ultimate / Technique: "Imprisoned for 1 turn" (literal in the text)
 IMPRISON_TURNS = 1
+# Ultimate hit splits from the ability script (Skill03_Phase02: split=0.1 / 0.9 on AllEnemy; AoE splits are not in
+# the data snapshot). The Talent's Additional DMG triggers on each hit (OnAfterHit).
+ULT_SPLITS = [0.1, 0.9]
 
 
 @register
@@ -125,10 +129,8 @@ class Welt(Kit):
 
     def ult(self, target: Enemy | None) -> None:
         with self.action(ActionKind.ULT, "ult", target) as act:
-            act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target, splits="data")
-            for e in [e for e in self.enemies() if e.hp > 0]:
-                self.imprison(e, self.p("ult", 2), self.p("ult", 1), self.p("ult", 3))
-                if self.trace(1):
+            if self.trace(1):  # A2: the ability script adds the DMG-taken debuff before the Ultimate's damage
+                for e in [e for e in self.enemies() if e.hp > 0]:
                     self.battle.try_debuff(
                         Modifier(
                             "Retribution",
@@ -140,6 +142,9 @@ class Welt(Kit):
                         self.char,
                         self.tp(1, 0),
                     )
+            act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target, splits=ULT_SPLITS)
+            for e in [e for e in self.enemies() if e.hp > 0]:
+                self.imprison(e, self.p("ult", 2), self.p("ult", 1), self.p("ult", 3))
             if self.trace(2):
                 act.energy += self.tp(2, 0)
         if self.e(1):
@@ -261,7 +266,7 @@ class WeltEnhanced(Welt):
 
     def ult(self, target: Enemy | None) -> None:
         with self.action(ActionKind.ULT, "ult", target) as act:
-            act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target, splits="data")
+            act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target, splits=ULT_SPLITS)
             for e in [e for e in self.enemies() if e.hp > 0]:
                 self.imprison(e, self.p("ult", 2), self.p("ult", 1), self.p("ult", 3))
             self._e1_weightless(act, list(act.attacked))

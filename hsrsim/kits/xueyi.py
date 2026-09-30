@@ -74,7 +74,9 @@ class Xueyi(Kit):
         if reduced <= 0 or act.owner is None or act.owner.side != Side.ALLY:
             return
         if act.owner is self.char:
-            if act.kind in (ActionKind.BASIC, ActionKind.SKILL, ActionKind.ULT):  # the follow-up adds no Karma
+            # the follow-up adds no Karma; the Technique (EXTRA) does: StageAbility_Maze_Xueyi_Modifier adds
+            # MAvatar_Xueyi_00_Passive_AddCount after its DMG
+            if act.kind in (ActionKind.BASIC, ActionKind.SKILL, ActionKind.ULT, ActionKind.EXTRA):
                 self.gain_karma(max(1, math.floor(reduced / TOUGHNESS_UNIT + 1e-9)))
         else:
             self.gain_karma(int(self.p("talent", 2)))

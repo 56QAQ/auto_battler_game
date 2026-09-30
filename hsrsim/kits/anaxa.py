@@ -32,6 +32,7 @@ class Anaxa(Kit):
         self.first_skill = True
         self.on(E.AFTER_HIT, self._implant_on_hit)
         self.on(E.BEFORE_HIT, self._before_hit)
+        self.on(E.ACTION_START, self._check_disclosure)
         self.on(E.ACTION_END, self._additional_skill)
         self.on(E.TURN_START, self._turn_start)
         if self.e(2):
@@ -179,6 +180,15 @@ class Anaxa(Kit):
             act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target)
 
     # ------------------------------------------------------------- talent
+    def _check_disclosure(self, ev: E.Ev) -> None:
+        """The additional Skill is decided when the Basic ATK / Skill is used (OnBeforeSkillUse in the ability
+        script): the target must already be in "Qualitative Disclosure", Weaknesses implanted by this action's
+        own hits do not count."""
+        act = ev.action
+        if act.actor is self.char and act.kind in (ActionKind.BASIC, ActionKind.SKILL):
+            target = act.target
+            act.data["anaxa_disclosed"] = isinstance(target, Enemy) and self.disclosed(target)
+
     def _additional_skill(self, ev: E.Ev) -> None:
         act = ev.action
         if act.actor is not self.char or act.kind not in (ActionKind.BASIC, ActionKind.SKILL):
@@ -186,7 +196,7 @@ class Anaxa(Kit):
         if act.data.get("anaxa_additional"):
             return
         target = act.target
-        if not isinstance(target, Enemy) or not self.disclosed(target):
+        if not isinstance(target, Enemy) or not act.data.get("anaxa_disclosed"):
             return
 
         def extra_skill() -> None:

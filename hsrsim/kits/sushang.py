@@ -92,13 +92,18 @@ class Sushang(Kit):
 
     def skill(self, target: Enemy | None) -> None:
         assert target is not None
+        # E1 checks the target's Weakness Break state before the Skill's DMG (the game's BreakCheck_Before flag),
+        # so a Skill that breaks the target itself does not regenerate the Skill Point
+        was_broken = target.broken
         with self.action(ActionKind.SKILL, "skill", target) as act:
             act.hit(target, self.p("skill", 0), toughness=self.toughness("skill"), splits="data")
-            self._sword_stance(target, 1.0)
+            # the extra chances of the Ultimate resolve before the regular Sword Stance (game script order),
+            # which matters for the Riposte (A4) stacks each of them benefits from
             if self.char.has_mod(ULT_BUFF):
                 for _ in range(ULT_EXTRA_STANCE_CHANCES):
                     self._sword_stance(target, self.p("ult", 2))
-        if self.e(1) and target.broken:
+            self._sword_stance(target, 1.0)
+        if self.e(1) and was_broken:
             self.battle.gain_sp(E1_SP, self.char)
         self._vanquisher()
 

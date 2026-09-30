@@ -24,6 +24,9 @@ SKILL_SHIELD = "The Power of Cuteness"
 SKILL_SHIELD_AGGRO_PCT = 5.0
 # E4: "The Talent's Counter effect can be triggered 1 more time in each turn" (literal in the text)
 E4_EXTRA_COUNTERS = 1
+# Ultimate hit splits from the ability script (Skill03_Phase02: 4 x split=0.25 on all enemies; AoE splits are not in
+# the data snapshot)
+ULT_SPLITS = [0.25, 0.25, 0.25, 0.25]
 
 
 @register
@@ -138,7 +141,7 @@ class March7thPreservation(Kit):
 
     def ult(self, target: Enemy | None) -> None:
         with self.action(ActionKind.ULT, "ult", target) as act:
-            act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target, splits="data")
+            act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target, splits=ULT_SPLITS)
             chance = self.p("ult", 1) + (self.tp(3, 0) if self.trace(3) else 0.0)
             for e in [e for e in self.enemies() if e.hp > 0]:
                 if self.freeze(e, chance, int(self.p("ult", 2)), self.p("ult", 3)) and self.e(1):

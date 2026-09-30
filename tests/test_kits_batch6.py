@@ -35,9 +35,10 @@ def _lv(kit, sid):
 # ------------------------------------------------------------------ The Herta
 def test_the_herta_interpretation_and_enhanced_skill_multiplier():
     boss = Enemy("Boss", hp=1e12, rank=EnemyRank.BOSS)
-    b, (herta, _) = _battle([Build("The Herta", traces=False), generic_build("Bronya")], [boss])
+    mobs = [Enemy(f"Mob{i}", hp=1e12, rank=EnemyRank.NORMAL) for i in range(4)]
+    b, (herta, _) = _battle([Build("The Herta", traces=False), generic_build("Bronya")], [boss, *mobs])
     kit = herta.kit
-    # 1 stack on entering combat + #6 stacks at wave start
+    # 1 stack on entering combat + #6 stacks at wave start (on the Elite-level target)
     assert kit.stacks(boss) == 1 + int(kit.p("talent", 5))
     n = kit.stacks(boss)
     kit.inspiration = 1
@@ -45,11 +46,16 @@ def test_the_herta_interpretation_and_enhanced_skill_multiplier():
     kit.skill(boss)
     act = acts[-1]
     assert act.skill["id"] == "140109"
-    first = act.hits[0]
     lv = _lv(kit, "140109")
-    # one Erudition character: +#1% per stack on the primary target, added once
-    assert first.mult["atk"] == pytest.approx(lv[0] + kit.p("talent", 0) * n)
-    assert act.hits[1].mult["atk"] == pytest.approx(lv[0])
+    # spreading instances (boss at the edge: boss x3, Mob0 x2, Mob1 x1) use the plain multiplier
+    spread, final = act.hits[:-5], act.hits[-5:]
+    assert len(spread) == 6 and all(h.mult["atk"] == pytest.approx(lv[0]) for h in spread)
+    # one Erudition character: +#1%/#2% per primary-target stack, added once per enemy by the final instance,
+    # including Mob2/Mob3 that the spreading hits never reached
+    mult = {h.target.name: h.mult["atk"] for h in final}
+    assert mult["Boss"] == pytest.approx(lv[2] + kit.p("talent", 0) * n)
+    for name in ("Mob0", "Mob1", "Mob2", "Mob3"):
+        assert mult[name] == pytest.approx(lv[2] + kit.p("talent", 1) * n)
     assert kit.stacks(boss) == 1  # reset after the Enhanced Skill
     assert kit.inspiration == 0
 
@@ -81,6 +87,14 @@ def test_aglaea_garmentmaker_summon_and_spd_stacks():
     assert kit.in_stance
     assert ag.spd == pytest.approx(spd_before + ag.raw(S.BASE_SPD) * kit.p("ult", 0) * kit.gm_stacks)
     assert ag.atk == pytest.approx(atk_before + kit.tp(1, 0) * ag.spd + kit.tp(1, 1) * gm.spd)
+    # Enhanced Basic ATK: Aglaea's half follows the data's hit split
+    acts = _actions(b)
+    kit.basic(enemy)
+    act = acts[-1]
+    assert act.skill["id"] == "140208"
+    own = [h for h in act.hits if h.attacker is ag and h.target is enemy]
+    assert len(own) == len(kit.sk("140208")["splits"])
+    assert sum(h.mult["atk"] for h in own) == pytest.approx(_lv(kit, "140208")[0])
 
 
 # --------------------------------------------------------------------- Tribbie
@@ -125,7 +139,11 @@ def test_mydei_charge_and_vendetta():
     assert kit.pending_godslayer
     acts = _actions(b)
     b.process_queue()  # the extra turn uses Godslayer Be God
-    assert any(a.skill and a.skill["id"] == "140411" for a in acts)
+    gs = next(a for a in acts if a.skill and a.skill["id"] == "140411")
+    # two hits of 50% (ability script split)
+    main = [h for h in gs.hits if h.target is gs.target]
+    assert len(main) == 2
+    assert sum(h.mult["hp"] for h in main) == pytest.approx(_lv(kit, "140411")[0])
 
 
 # ----------------------------------------------------------------------- Anaxa
@@ -135,13 +153,17 @@ def test_anaxa_weakness_implant_and_additional_skill():
     kit = anaxa.kit
     assert kit.weakness_count(enemy) == 0
     acts = _actions(b)
-    sp0 = b.sp
     kit.skill(enemy)  # 1 + 4 hits on the only enemy -> 5 different Weaknesses
     assert kit.weakness_count(enemy) == 1 + int(kit.p("skill", 1))
     assert kit.disclosed(enemy)
     b.process_queue()
     skills = [a for a in acts if a.kind == ActionKind.SKILL and a.actor is anaxa]
-    assert len(skills) == 2  # Qualitative Disclosure: 1 additional Skill
+    assert len(skills) == 1  # not in Qualitative Disclosure when the Skill was used: no additional Skill
+    sp0 = b.sp
+    kit.skill(enemy)
+    b.process_queue()
+    skills = [a for a in acts if a.kind == ActionKind.SKILL and a.actor is anaxa]
+    assert len(skills) == 3  # Qualitative Disclosure: 1 additional Skill
     assert b.sp == sp0 - 1  # the additional Skill costs no SP
 
 
@@ -157,6 +179,7 @@ def test_cipher_tally_and_ultimate_true_damage():
     dmg = next(r.amount for r in b.records if r.attacker == seele.name)
     fua = sum(r.amount for r in b.records if r.label == "The Hospitable Dolosian")
     assert fua > 0  # follow-up after a teammate attacked the Patron
+    assert sum(1 for r in b.records if r.label == "The Hospitable Dolosian") == 4  # ability-script hit split
     assert kit.tally == pytest.approx(kit.p("talent", 1) * (dmg + fua))
     kit.tally = 100_000.0
     cipher.energy = cipher.max_energy
@@ -164,6 +187,19 @@ def test_cipher_tally_and_ultimate_true_damage():
     true = sum(r.amount for r in b.records if "True DMG" in r.label)
     assert true == pytest.approx(100_000.0 * (kit.p("ult", 1) + kit.p("ult", 2)))
     assert kit.tally == 0.0
+
+
+def test_cipher_skill_split_and_e2_applies_before_the_hit():
+    b, (cipher, _) = _battle([Build("Cipher", eidolon=2), generic_build("Seele")])
+    kit = cipher.kit
+    enemy = b.default_target()
+    acts = _actions(b)
+    kit.skill(enemy)
+    main = [h for h in acts[-1].hits if h.target is enemy]
+    assert len(main) == len(kit.sk("skill")["splits"])
+    assert enemy.has_mod("In the Fray, Nab On a Spree")
+    # E2 is applied OnBeforeHit: the first hit already takes the increased DMG
+    assert main[0].parts.vuln_mult == pytest.approx(main[-1].parts.vuln_mult)
 
 
 # ------------------------------------------------------------------- Castorice

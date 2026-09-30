@@ -23,6 +23,8 @@ from .base import Kit
 MAX_CHARGE = 200.0  # "accumulates 1 point of Charge (up to 200 points)" (literal)
 VENDETTA_CHARGE = 100.0  # "When Charge reaches 100, consumes 100 points of Charge" (literal)
 A6_STEP = 100.0  # A6 "for every 100 excess HP" (literal)
+# "Godslayer Be God" hits twice (split 0.5 / 0.5 in Avatar_Mydeimos_00_Skill22_Ability; not in the skill record)
+GODSLAYER_SPLITS = [0.5, 0.5]
 
 
 @register
@@ -202,9 +204,23 @@ class Mydei(Kit):
                 if self.e(1):  # every enemy takes the primary target's multiplier
                     main = lv[0] + self.ep(1, 0)
                     for e in self.enemies():
-                        act.hit(e, main, stat="hp", toughness=float(tough[0] if e is t else tough[2]), primary=e is t)
+                        act.hit(
+                            e,
+                            main,
+                            stat="hp",
+                            toughness=float(tough[0] if e is t else tough[2]),
+                            primary=e is t,
+                            splits=GODSLAYER_SPLITS,
+                        )
                 else:
-                    act.blast(t, lv[0], lv[1], stat="hp", toughness=(float(tough[0]), float(tough[2])))
+                    act.blast(
+                        t,
+                        lv[0],
+                        lv[1],
+                        stat="hp",
+                        toughness=(float(tough[0]), float(tough[2])),
+                        splits=GODSLAYER_SPLITS,
+                    )
         finally:
             self.in_godslayer = False
         self._check_charge()
