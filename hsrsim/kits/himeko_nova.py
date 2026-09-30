@@ -28,6 +28,7 @@ from typing import Any, ClassVar
 from .. import events as E
 from .. import stats as S
 from ..control import SELF, MenuItem
+from ..data import get_data
 from ..entities import Character, Enemy, Entity
 from ..enums import ActionKind, DmgTag
 from ..modifiers import Modifier, Tick
@@ -45,12 +46,8 @@ BEAMS = 6  # "can launch Hyperluminal Particle Beam against enemies 6 times" (li
 SEMAPHORE = "Navigator's Semaphore"
 E6_SE_PER_ASSIST = 1  # E6: "Himeko • Nova gains 1 Source Energy" per Assist Skill (literal)
 E6_SE_PER_BEAM = 1  # E6: "When launching Hyperluminal Particle Beam ... additionally gains 1 Source Energy" (literal)
-# Trailblaze Companions (data has no such tag): March 7th, Dan Heng, Himeko, Welt, Imbibitor Lunae,
-# March 7th (Hunt), Sunday, Evernight, Dan Heng • Permansor Terrae, Himeko • Nova and every Trailblazer.
-COMPANIONS = frozenset(
-    {"1001", "1002", "1003", "1004", "1213", "1224", "1313", "1413", "1414", "1510"}
-    | {str(8001 + i) for i in range(10)}
-)
+# Trailblaze Companions: the official "AstralExpress" group of GameCoreConstValue.CharacterIDGroups.
+COMPANIONS = get_data().character_group("AstralExpress")
 
 
 @register

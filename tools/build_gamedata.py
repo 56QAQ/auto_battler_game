@@ -401,6 +401,7 @@ def main() -> None:
         "elation_skill_priority": {str(r["ElationSkillID"]): r["PriorityValue"] for r in raw["ElationSkill"]},
         "relic_main_affix": dict(main_aff),
         "relic_sub_affix": dict(sub_aff),
+        "character_groups": character_groups(cache),
     }
     dump("tables", tables)
 
@@ -412,6 +413,14 @@ def main() -> None:
 
 
 CONFIG_BASE = "https://raw.githubusercontent.com/DimbreathBot/turnbasedgamedata/main/"
+
+
+def character_groups(cache: Path) -> dict[str, list[str]]:
+    """Named character groups used by ability scripts (``ByIsInCharacterIDGroup``), e.g. "AstralExpress" (the
+    Trailblaze Companions) or "Chrysos" (the Chrysos Heirs), from ``GameCoreConstValue.CharacterIDGroups``."""
+    path = "Config/GlobalConfig/GameCoreConstValue.json"
+    data = fetch(CONFIG_BASE + path, cache / "config" / path.replace("/", "_"))
+    return {g["Group"]: [str(i) for i in g.get("IDList", [])] for g in data.get("CharacterIDGroups", [])}
 
 
 SPLIT_GROUPS = {

@@ -155,6 +155,10 @@ class GameData:
     def elation_base(self, level: int) -> float:
         return float(self.tables["elation_level_base"][str(level)])
 
+    def character_group(self, name: str) -> frozenset[str]:
+        """Character IDs of a named group from the game config (e.g. "AstralExpress" = Trailblaze Companions)."""
+        return frozenset(self.tables.get("character_groups", {}).get(name, []))
+
     def relic_main_value(self, slot: str, prop: str, rarity: int = 5, level: int = 15) -> float:
         group = self.tables["relic_main_affix"][f"{rarity}{RELIC_SLOTS[slot]}"]
         if prop not in group:

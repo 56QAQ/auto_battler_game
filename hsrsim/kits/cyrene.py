@@ -37,6 +37,7 @@ from typing import TYPE_CHECKING, Any
 from .. import events as E
 from .. import stats as S
 from ..control import ALLIES, MenuItem
+from ..data import get_data
 from ..entities import Character, Enemy, Entity, Summon
 from ..enums import ActionKind, DmgTag, Element, Path, Side
 from ..modifiers import Modifier, Tick, hidden
@@ -79,7 +80,7 @@ ODE_BY_CHAR = {
     "8007": GENESIS,
     "8008": GENESIS,
 }
-CHRYSOS_HEIRS = frozenset(ODE_BY_CHAR) | {"1415"}
+CHRYSOS_HEIRS = get_data().character_group("Chrysos")  # official CharacterIDGroups entry
 REPEATABLE = frozenset({ODE_NORMAL, ROMANCE, STRIFE, REASON, SKY, OCEAN, EARTH})  # one-time / refreshable Odes
 ZONE = "Bloom, Elysium of Beyond"
 STORY_GAIN = 1  # Ode to Ego: "Demiurge immediately gains 1 Story" (literal)

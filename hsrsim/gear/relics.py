@@ -1040,3 +1040,121 @@ class CosmicLifeSciences(_Set):
         excess = self.char.max_energy - self.p(2, 0)
         if excess >= 0:
             self.passive("Cosmic Life Sciences 2pc", {S.DMG_PCT: min(self.p(2, 2), excess * self.p(2, 1))})
+
+
+# ------------------------------------------------------------- sets added later
+PASSERBY_SP = 1  # 4pc text "At the start of the battle, immediately regenerates 1 Skill Point" (not a parameter)
+
+
+@register_relic
+class PasserbyOfWanderingCloud(_Set):
+    set_id = "101"
+
+    def setup(self) -> None:
+        if self.pieces >= 4:
+            self.on(E.BATTLE_START, lambda ev: self.battle.gain_sp(PASSERBY_SP, self.char))
+
+
+@register_relic
+class KnightOfPurityPalace(_Set):
+    """4pc: Shields created by the wearer absorb 20% more (MRelic_103_Main: StackProperty ShieldAddedRatio)."""
+
+    set_id = "103"
+
+    def setup(self) -> None:
+        if self.pieces >= 4:
+            self.passive("Knight of Purity Palace 4pc", {S.SHIELD_PCT: self.p(4, 0)})
+
+
+@register_relic
+class DreamlitActor(_Set):
+    """4pc: Skill / Ultimate on one other ally -> that ally's Elation +#1 for #2 turns; with >= #3 Certified Banger
+    points, all allies' CRIT DMG +#4 for #5 turns.
+
+    approximation: the set's ability script is not in the datamine yet; implemented from the description (the
+    buff is applied when the ability targets the ally, before its effects)."""
+
+    set_id = "133"
+
+    def setup(self) -> None:
+        if self.pieces >= 4:
+            self.on(E.ALLY_TARGETED, self._on_targeted)
+
+    def _on_targeted(self, ev: E.Ev) -> None:
+        act = ev.action
+        target = ev.target
+        if not self.mine(act) or act.kind not in (ActionKind.SKILL, ActionKind.ULT) or target is self.char:
+            return
+        self.buff(
+            target,
+            Modifier("Dreamlit Actor 4pc", stats={S.ELATION_DMG_PCT: self.p(4, 0)}, duration=int(self.p(4, 1))),
+        )
+        if self.battle.elation.certified_banger(self.char) >= self.p(4, 2):
+            for c in self.battle.allies():
+                if isinstance(c, Character):
+                    self.buff(
+                        c,
+                        Modifier(
+                            "Dreamlit Actor 4pc CRIT DMG",
+                            stats={S.CRIT_DMG: self.p(4, 3)},
+                            duration=int(self.p(4, 4)),
+                            key="Dreamlit Actor 4pc CRIT DMG",
+                        ),
+                    )
+
+
+@register_relic
+class GiantTreeOfRaptBrooding(_Set):
+    """2pc: Outgoing Healing +#4 / +#5 at SPD >= #2 / #3 for the wearer and their memosprite (a synced memosprite
+    reads the wearer's bonus). MRelic_320_Main re-checks the wearer's SPD, so the bonus follows the current SPD."""
+
+    set_id = "320"
+
+    def setup(self) -> None:
+        self.passive("Giant Tree 2pc", {}, dyn=self._heal, dyn_keys={S.HEAL_PCT})
+
+    def _heal(self, mod: Modifier, key: str, ent: Entity) -> float:
+        spd = self.char.spd
+        if spd >= self.p(2, 2):
+            return self.p(2, 4)
+        if spd >= self.p(2, 1):
+            return self.p(2, 3)
+        return 0.0
+
+
+@register_relic
+class PunklordeStageZero(_Set):
+    """2pc: when the wearer's Elation reaches #2 / #3 for the first time in combat, CRIT DMG +#4 / +#5 (the higher
+    tier replaces the lower one; MRelic_325_Main). The tier reached is kept for the rest of the battle."""
+
+    set_id = "325"
+
+    def setup(self) -> None:
+        self.tier = 0
+        self.passive("Punklorde Stage Zero 2pc", {}, dyn=self._crit_dmg, dyn_keys={S.CRIT_DMG})
+        for ev in (E.BATTLE_START, E.MOD_APPLIED, E.MOD_REMOVED, E.ACTION_START):
+            self.on(ev, lambda e: self._check())
+
+    def _check(self) -> None:
+        elation = self.char.stat(S.ELATION_DMG_PCT)
+        if elation >= self.p(2, 2) - 1e-9:
+            self.tier = 2
+        elif elation >= self.p(2, 1) - 1e-9:
+            self.tier = max(self.tier, 1)
+
+    def _crit_dmg(self, mod: Modifier, key: str, ent: Entity) -> float:
+        self._check()
+        return (0.0, self.p(2, 3), self.p(2, 4))[self.tier]
+
+
+@register_relic
+class FallenStarAnchorage(_Set):
+    """2pc: entering combat with the wearer and another teammate both in the "AstralExpress" character group
+    (Trailblaze Companions; MRelic_327_Main: ByIsInCharacterIDGroup), CRIT DMG +#2."""
+
+    set_id = "327"
+
+    def setup(self) -> None:
+        group = self.battle.data.character_group("AstralExpress")
+        if self.char.char_id in group and any(c is not self.char and c.char_id in group for c in self.battle.team):
+            self.passive("Fallen Star Anchorage 2pc", {S.CRIT_DMG: self.p(2, 1)})

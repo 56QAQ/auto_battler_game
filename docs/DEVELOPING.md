@@ -201,6 +201,11 @@ class InTheNight(LightCone):
 
 Relic sets: see `hsrsim/gear/relics.py` (`self.p(pieces, i)`, `self.pieces` is 2 or 4).
 
+A set or light cone with parameters but no registered class shows the build note "only static stats
+modelled" in the editor; `tests/test_gear_smoke.py` runs every registered one. Character groups used by
+scripts (`ByIsInCharacterIDGroup`, e.g. Trailblaze Companions = `"AstralExpress"`, Chrysos Heirs = `"Chrysos"`)
+come from the data: `get_data().character_group(name)` — do not hard-code ID lists.
+
 ## 8. Checking a kit against the game script
 
 `python tools/kitinfo.py <id>` prints the skill texts and parameters; `python tools/ability_summary.py <id>`
