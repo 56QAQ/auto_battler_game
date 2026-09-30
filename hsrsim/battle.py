@@ -163,10 +163,14 @@ class Action:
     def is_attack(self) -> bool:
         return self.attack_started
 
-    def _splits(self, splits: list[float] | str | None) -> list[float]:
-        """``splits="data"`` uses the per-hit ratios of the skill from the game's ability script."""
+    def _splits(self, splits: list[float] | str | None, group: str = "splits") -> list[float]:
+        """``splits="data"`` uses the per-hit ratios of the skill from the game's ability script: ``group`` is
+        ``"splits"`` (designated target), ``"splits_adj"`` (adjacent targets) or ``"splits_aoe"`` (all enemies);
+        the latter two fall back to the designated target's ratios."""
         if splits == "data":
-            found = self.skill.get("splits") if self.skill else None
+            found = None
+            if self.skill:
+                found = self.skill.get(group) or self.skill.get("splits")
             return list(found) if found else [1.0]
         return list(splits) if splits else [1.0]  # type: ignore[arg-type]
 
@@ -221,13 +225,22 @@ class Action:
         stat: str = "atk",
         toughness: tuple[float, float] = (0.0, 0.0),
         splits: list[float] | str | None = None,
+        adj_splits: list[float] | str | None = None,
         **kw: Any,
     ) -> list[Hit]:
+        """Main target + adjacent targets; ``adj_splits`` (default: ``splits``) splits the adjacent hits."""
         out = []
         adjs = self.battle.adjacent(target)
-        for r in self._splits(splits):
-            for t, m, tg, prim in [(target, main, toughness[0], True)] + [(a, adj, toughness[1], False) for a in adjs]:
-                out.append(self.battle.do_hit(self._make(t, m, stat, tg, r, primary=prim, **kw)))
+        main_r = self._splits(splits)
+        adj_r = self._splits(adj_splits if adj_splits is not None else splits, "splits_adj")
+        for i in range(max(len(main_r), len(adj_r))):
+            if i < len(main_r):
+                out.append(self.battle.do_hit(self._make(target, main, stat, toughness[0], main_r[i], **kw)))
+            if i < len(adj_r):
+                for a in adjs:
+                    out.append(
+                        self.battle.do_hit(self._make(a, adj, stat, toughness[1], adj_r[i], primary=False, **kw))
+                    )
         return out
 
     def aoe(
@@ -241,7 +254,7 @@ class Action:
         **kw: Any,
     ) -> list[Hit]:
         out = []
-        for r in self._splits(splits):
+        for r in self._splits(splits, "splits_aoe"):
             for t in self.battle.alive_enemies():
                 prim = main_target is None or t is main_target
                 out.append(self.battle.do_hit(self._make(t, mult, stat, toughness, r, primary=prim, **kw)))

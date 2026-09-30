@@ -414,17 +414,40 @@ def main() -> None:
 CONFIG_BASE = "https://raw.githubusercontent.com/DimbreathBot/turnbasedgamedata/main/"
 
 
+SPLIT_GROUPS = {
+    "AbilityTargetEntity": "splits",  # the designated target
+    "AbilityTargetAdjoinEntity": "splits_adj",  # adjacent targets
+    "AllEnemy": "splits_aoe",
+    "AllDarkTeam": "splits_aoe",
+}
+GATED = ("ByRankActivated", "BySkillPointActivated")  # eidolon / trace conditions
+
+
 def add_hit_splits(skills: dict[str, Any], characters: dict[str, Any], cache: Path) -> None:
     """Attach per-hit split ratios to skills from the characters' ability scripts.
 
     For every ability named ``..._<SkillTriggerKey>_Phase*`` the fixed ``HitSplitRatio`` of each
-    ``DamageByAttackProperty`` aimed at the designated target is recorded in order as
-    ``skill["splits"]`` (only when all ratios are fixed numbers summing to ~1).
+    ``DamageByAttackProperty`` is recorded in order, per target group: ``skill["splits"]`` (designated target),
+    ``skill["splits_adj"]`` (adjacent targets) and ``skill["splits_aoe"]`` (all enemies). Loops with a static
+    ``MaxLoopCount`` are unrolled; for branches gated by an eidolon or trace only the base branch (the one taken
+    without it) is followed. A group is kept only when all its ratios are fixed numbers summing to ~1 and it has
+    more than one hit.
     """
 
     def walk(o: Any, out: list[tuple[str, float | None]]) -> None:
         if isinstance(o, dict):
-            if str(o.get("$type", "")).endswith("DamageByAttackProperty"):
+            t = str(o.get("$type", ""))
+            if t.endswith("PredicateTaskList") and str((o.get("Predicate") or {}).get("$type", "")).endswith(GATED):
+                walk(o.get("FailedTaskList"), out)
+                return
+            if t.endswith("LoopExecuteTaskListWithInterval"):
+                cnt = o.get("MaxLoopCount") or {}
+                n = None if cnt.get("IsDynamic") else val(cnt.get("FixedValue"), None)
+                body: list[tuple[str, float | None]] = []
+                walk(o.get("TaskList"), body)
+                out.extend(body * int(n) if n else [(a, None) for a, _ in body])
+                return
+            if t.endswith("DamageByAttackProperty"):
                 ap = o.get("AttackProperty") or {}
                 hs = ap.get("HitSplitRatio") or {}
                 ratio = None if hs.get("IsDynamic") else val(hs.get("FixedValue"), None)
@@ -462,9 +485,10 @@ def add_hit_splits(skills: dict[str, Any], characters: dict[str, Any], cache: Pa
             for sid in sids:
                 trig = skills[sid].get("trigger", "")
                 hits = by_trigger.get(trig, [])
-                main = [r for a, r in hits if a == "AbilityTargetEntity"]
-                if main and all(r is not None for r in main) and abs(sum(main) - 1.0) < 0.02 and len(main) > 1:
-                    skills[sid]["splits"] = [round(float(r), 4) for r in main]  # type: ignore[arg-type]
+                for key in dict.fromkeys(SPLIT_GROUPS.values()):
+                    group = [r for a, r in hits if SPLIT_GROUPS.get(a) == key]
+                    if len(group) > 1 and all(r is not None for r in group) and abs(sum(group) - 1.0) < 0.02:
+                        skills[sid][key] = [round(float(r), 4) for r in group]  # type: ignore[arg-type]
 
 
 def build_endgame(raw: dict[str, Any]) -> dict[str, Any]:
