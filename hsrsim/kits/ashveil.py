@@ -78,7 +78,7 @@ class Ashveil(Kit):
     def technique(self) -> None:
         p = self.sk("technique")["params"][0]
         with self.action(ActionKind.EXTRA, None, label="Ashveil Technique", energy=0, sp=0) as act:
-            act.aoe(p[1], toughness=20)
+            act.aoe(p[1], toughness=self.toughness("technique"))
         self.charge = min(int(self.p("talent", 1)), self.charge + int(p[2]))
 
     # ----------------------------------------------------------------- Bait
@@ -200,6 +200,8 @@ class Ashveil(Kit):
             if self.trace(1):
                 self.add_gluttony(int(self.tp(1, 1)))
             if self.e(4):
-                self.buff_self(Modifier("Heed: Swallow Truth Whole", stats={S.ATK_PCT: self.ep(4, 0)}, duration=int(self.ep(4, 1))))
+                self.buff_self(
+                    Modifier("Heed: Swallow Truth Whole", stats={S.ATK_PCT: self.ep(4, 0)}, duration=int(self.ep(4, 1)))
+                )
         self._ensure_bait()
         self.follow_up(enhanced=True)  # "then immediately launches 1 enhanced Talent Follow-Up ATK"

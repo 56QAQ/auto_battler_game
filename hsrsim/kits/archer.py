@@ -11,7 +11,8 @@ follow-ups triggered during the chain are resolved between the Skills.
 
 from __future__ import annotations
 
-from typing import Any
+from functools import partial
+from typing import Any, ClassVar
 
 from .. import events as E
 from .. import stats as S
@@ -27,7 +28,7 @@ FUA_SP = 1  # "recovering 1 Skill Point" (literal in the Talent text)
 @register
 class Archer(Kit):
     char_id = "1015"
-    default_opts: dict[str, Any] = {"sp_reserve": 0}
+    default_opts: ClassVar[dict[str, Any]] = {"sp_reserve": 0}
 
     def setup(self) -> None:
         self.charge = 0
@@ -44,7 +45,9 @@ class Archer(Kit):
             self.passive("The Unsung Life", {f"{S.DMG_PCT}:{DmgTag.ULT}": self.ep(4, 0)})
         if self.e(6):
             self.passive("The Endless Pilgrimage", {f"{S.DEF_IGNORE}:{DmgTag.SKILL}": self.ep(6, 1)})
-            self.on(E.TURN_START, lambda ev: ev.entity is self.char and self.battle.gain_sp(int(self.ep(6, 0)), self.char))
+            self.on(
+                E.TURN_START, lambda ev: ev.entity is self.char and self.battle.gain_sp(int(self.ep(6, 0)), self.char)
+            )
         self.on(E.ATTACK_END, self._talent)
 
     def on_battle_start(self) -> None:
@@ -70,6 +73,8 @@ class Archer(Kit):
         owner = act.owner
         if not isinstance(owner, Character) or owner is self.char or not act.attacked or self.charge <= 0:
             return
+        if self.char in act.data.get("joint_with", ()):
+            return  # approximation: a Joint Follow-Up ATK Archer takes part in (Rin Tohsaka) does not trigger it
         self.charge -= 1
         primary = act.target if isinstance(act.target, Enemy) else act.attacked[0]
         if self.in_chain:
@@ -122,7 +127,7 @@ class Archer(Kit):
             self.in_chain = False
             self.cc = False
             for t in self._pending:
-                self.battle.queue_action(lambda t=t: self.follow_up(t), self.char, "Mind's Eye (True)")
+                self.battle.queue_action(partial(self.follow_up, t), self.char, "Mind's Eye (True)")
             self._pending = []
 
     def _after_skill(self) -> None:

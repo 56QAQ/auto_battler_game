@@ -147,7 +147,9 @@ class _TrailblazerElation(Kit):
                     )
             if self.e(6):
                 self.buff_self(
-                    Modifier("The Cosmic Legend Cometh!", stats={S.CRIT_DMG: self.ep(6, 0)}, duration=int(self.ep(6, 1)))
+                    Modifier(
+                        "The Cosmic Legend Cometh!", stats={S.CRIT_DMG: self.ep(6, 0)}, duration=int(self.ep(6, 1))
+                    )
                 )
             for _ in range(int(lv[0])):
                 pool = [e for e in self.enemies() if e.hp > 0] or self.enemies()

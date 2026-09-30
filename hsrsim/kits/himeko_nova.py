@@ -19,13 +19,13 @@ Skill, else Basic ATK.
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, ClassVar
 
 from .. import events as E
 from .. import stats as S
 from ..entities import Character, Enemy
 from ..enums import ActionKind, DmgTag
-from ..modifiers import Modifier, Tick, hidden
+from ..modifiers import Modifier, Tick
 from . import register
 from .base import Kit
 
@@ -51,7 +51,7 @@ COMPANIONS = frozenset(
 @register
 class HimekoNova(Kit):
     char_id = "1510"
-    default_opts: dict[str, Any] = {"assist_users": [], "protocol": "verdict"}
+    default_opts: ClassVar[dict[str, Any]] = {"assist_users": [], "protocol": "verdict"}
 
     def setup(self) -> None:
         self.se = 0  # Source Energy
@@ -65,6 +65,7 @@ class HimekoNova(Kit):
         self.tech = False
         stats = {S.CRIT_DMG: self.p("talent", 0), S.RES_PEN: self.p("talent", 1)}
         if self.e(4):
+            # approximation: the team-wide RES PEN is permanent (it starts with the first Assist Skill in the game)
             stats[S.RES_PEN] += self.ep(4, 0)
             self.passive("Let No Skyward Hand Stay Unheld", {S.RES_PEN: self.p("talent", 1)}, scope=self.teammate_scope)
         self.passive("Of Fire and Far Faring", stats)
@@ -148,9 +149,7 @@ class HimekoNova(Kit):
         else:
             aoe, n, rnd = lv[0], int(lv[1]), lv[2]
         tough = rec["toughness"]
-        with self.action(
-            ActionKind.SKILL, rec, target, tags=(DmgTag.SKILL, ASSIST), sp=0, label=rec["name"]
-        ) as act:
+        with self.action(ActionKind.SKILL, rec, target, tags=(DmgTag.SKILL, ASSIST), sp=0, label=rec["name"]) as act:
             act.data["assist_user"] = user
             act.data["no_charge"] = launched
             act.aoe(aoe, toughness=tough[1], main_target=target, ignore_weakness=True)
@@ -173,9 +172,7 @@ class HimekoNova(Kit):
         if "verdict" in self.protocols and not self.char.has_mod("Companion Protocol: Verdict"):
             rec = self.sk(VERDICT_ID)
             lv = rec["params"][self.level_of(rec) - 1]
-            self.passive(
-                "Companion Protocol: Verdict", {S.DMG_PCT: lv[7], f"{S.DMG_PCT}:{DmgTag.ULT}": lv[9]}
-            )
+            self.passive("Companion Protocol: Verdict", {S.DMG_PCT: lv[7], f"{S.DMG_PCT}:{DmgTag.ULT}": lv[9]})
         if "decimation" in self.protocols and not self.char.has_mod("Companion Protocol: Decimation"):
             rec = self.sk(DECIMATION_ID)
             lv = rec["params"][self.level_of(rec) - 1]
@@ -222,7 +219,11 @@ class HimekoNova(Kit):
         if target is None:
             return
         sem = self.char.get_mod(SEMAPHORE)
-        if self.opts.get("rotation", "skill") == "skill" and self.can_skill() and (sem is None or (sem.duration or 0) <= 1):
+        if (
+            self.opts.get("rotation", "skill") == "skill"
+            and self.can_skill()
+            and (sem is None or (sem.duration or 0) <= 1)
+        ):
             self.skill(target)
         elif self.trace(1) or self.uses.get(self.char.uid, 0) >= 1:
             if not self.trace(1):

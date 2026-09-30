@@ -155,7 +155,7 @@ class SilverWolfLV999(Kit):
         with self.action(ActionKind.ULT, "ult", energy=0):
             self.god = True
             self.box_chance = 1.0
-            self.basics_left = int(self._enh_lv()[4])
+            self.basics_left = int(self.p("talent", 4))
             self.e2_progress = self.mmr
             if self.e(2):
                 self._extend_buffs()
@@ -227,9 +227,7 @@ class SilverWolfLV999(Kit):
         target = self.pick_target()
         if target is None:
             return
-        if self.pending is not None:
-            self.enhanced_basic(target)
-        elif self.god:
+        if self.pending is not None or self.god:
             self.enhanced_basic(target)
         elif self.opts.get("rotation", "skill") == "skill" and self.can_skill():
             self.skill(target)

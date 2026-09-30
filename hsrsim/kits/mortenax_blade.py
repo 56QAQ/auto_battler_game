@@ -110,7 +110,9 @@ class MortenaxBlade(Kit):
         self.fury = self.buff_self(hidden("Infinite Fury", stats))
         if self.countdown is None:
             self.countdown = self.battle.add_unit(
-                Summon("Infinite Fury Countdown", self.char, spd=self.p("ult", 4), on_turn=lambda u, b: self._end_fury())
+                Summon(
+                    "Infinite Fury Countdown", self.char, spd=self.p("ult", 4), on_turn=lambda u, b: self._end_fury()
+                )
             )
 
     def _end_fury(self) -> None:
@@ -137,6 +139,10 @@ class MortenaxBlade(Kit):
             self.char,
             1.0,
         )
+
+    def consume_hp(self, ratio: float) -> None:
+        """Consume ``ratio`` of Max HP; "if the current HP is insufficient, it is reduced to 1"."""
+        self.battle.lose_hp(self.char, min(ratio * self.char.max_hp, max(0.0, self.char.hp - 1.0)), self.char)
 
     # ----------------------------------------------------------- Charge
     def charge_cap(self) -> int:
@@ -205,7 +211,7 @@ class MortenaxBlade(Kit):
     def _rain(self, rec: dict[str, Any], kind: ActionKind, tags: tuple[str, ...], target: Enemy | None) -> None:
         sk = self.sk("skill")
         lv = sk["params"][self.level_of(sk) - 1]
-        self.battle.lose_hp(self.char, lv[3] * self.char.max_hp, self.char)
+        self.consume_hp(lv[3])
         with self.action(kind, rec, target, tags=tags) as act:
             act.aoe(lv[0], stat="hp", toughness=self.toughness("skill", 1), main_target=target)
             act.bounce(None, int(lv[1]), lv[2], stat="hp", toughness=self.toughness("skill", 0))
@@ -236,7 +242,7 @@ class MortenaxBlade(Kit):
             with self.action(ActionKind.ULT, "ult", target):
                 for e in self.enemies():
                     self.balefire(e)
-                self.battle.lose_hp(self.char, self.p("ult", 0) * self.char.max_hp, self.char)
+                self.consume_hp(self.p("ult", 0))
                 self._enter_fury()
         if refund > 0:
             self.battle.gain_energy(self.char, refund, fixed=True)

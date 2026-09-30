@@ -163,7 +163,9 @@ class Saber(Kit):
             act.blast(target, main, adj, toughness=(self.toughness("skill", 0), self.toughness("skill", 2)))
             if self.trace(3):
                 self.buff_self(
-                    Modifier("Crown of the Star (Skill)", stats={S.CRIT_DMG: self.tp(3, 0)}, duration=int(self.tp(3, 1)))
+                    Modifier(
+                        "Crown of the Star (Skill)", stats={S.CRIT_DMG: self.tp(3, 0)}, duration=int(self.tp(3, 1))
+                    )
                 )
         if empowered:
             self.consume_cr()
@@ -177,7 +179,10 @@ class Saber(Kit):
         self.overflow = 0.0
         with self.action(ActionKind.ULT, "ult", target) as act:
             act.aoe(self.p("ult", 0), toughness=self.toughness("ult", 1), main_target=target)
-            act.bounce(None, int(self.p("ult", 2)), self.p("ult", 1), toughness=self.toughness("ult", 0))
+            n = int(self.p("ult", 2))
+            # approximation: the data's 20 Toughness is read as the total over the bounces (2 each, like Gilgamesh's
+            # Enuma Elish [2, 40]); 20 per bounce would be 200 Toughness on one target
+            act.bounce(None, n, self.p("ult", 1), toughness=self.toughness("ult", 0) / n)
         self.release_next = True
         self.ults += 1
         if self.e(4):

@@ -53,7 +53,7 @@ class AventurineWaveflair(Kit):
     def technique(self) -> None:
         p = self.sk("technique")["params"][0]
         with self.action(ActionKind.EXTRA, None, label="Aventurine • Waveflair Technique", energy=0, sp=0) as act:
-            act.aoe(p[0], toughness=20)
+            act.aoe(p[0], toughness=self.toughness("technique"))
         self.add_fervor(int(p[1]))
         grant_banger(self.battle, self.char, p[2], self.char)
 
@@ -91,17 +91,24 @@ class AventurineWaveflair(Kit):
             return
         self.gain_punchline(int(self.p("talent", 5)))
         fervor = int(self.p("talent", 6))
-        if self.trace(3) and self.a6_left > 0 and act.kind in (
-            ActionKind.BASIC,
-            ActionKind.SKILL,
-            ActionKind.FUA,
-            ActionKind.ULT,
+        if (
+            self.trace(3)
+            and self.a6_left > 0
+            and act.kind
+            in (
+                ActionKind.BASIC,
+                ActionKind.SKILL,
+                ActionKind.FUA,
+                ActionKind.ULT,
+            )
         ):
             self.a6_left -= 1
             for c in self.allies():
                 self.buff(
                     c,
-                    Modifier("Sift Through Gilded Dreams", stats={S.CRIT_DMG: self.tp(3, 1)}, duration=int(self.tp(3, 2))),
+                    Modifier(
+                        "Sift Through Gilded Dreams", stats={S.CRIT_DMG: self.tp(3, 1)}, duration=int(self.tp(3, 2))
+                    ),
                 )
             fervor += int(self.tp(3, 3))
         if self.trace(2) and self.solo:
@@ -138,7 +145,10 @@ class AventurineWaveflair(Kit):
             if self.e(4):
                 for c in self.allies():
                     self.buff(
-                        c, Modifier("Sunlight Runs No Tab", stats={S.DEF_IGNORE: self.ep(4, 0)}, duration=int(self.ep(4, 1)))
+                        c,
+                        Modifier(
+                            "Sunlight Runs No Tab", stats={S.DEF_IGNORE: self.ep(4, 0)}, duration=int(self.ep(4, 1))
+                        ),
                     )
         if self.trace(3):
             self.a6_left = int(self.tp(3, 4))
@@ -186,7 +196,9 @@ class AventurineWaveflair(Kit):
             aoe, extra, n, bounce = lv[0], 0.0, int(lv[1]), lv[2]
         with self.action(ActionKind.ELATION, rec, label=rec["name"]) as act:
             for e in self.enemies():
-                self.elation_hit(e, aoe, punchline, label=f"{rec['name']} (AoE)", action=act, tags=tags, toughness=tough[1])
+                self.elation_hit(
+                    e, aoe, punchline, label=f"{rec['name']} (AoE)", action=act, tags=tags, toughness=tough[1]
+                )
             spent = 0
             if all_in:
                 spent = self.fervor

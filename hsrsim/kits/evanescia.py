@@ -49,7 +49,7 @@ class Evanescia(Kit):
     def technique(self) -> None:
         p = self.sk("technique")["params"][0]
         with self.action(ActionKind.EXTRA, None, label="Evanescia Technique", energy=0, sp=0) as act:
-            act.aoe(p[0], toughness=20)
+            act.aoe(p[0], toughness=self.toughness("technique"))
         grant_banger(self.battle, self.char, p[1], self.char)
 
     def banger_extra_turns(self) -> int:
@@ -71,6 +71,7 @@ class Evanescia(Kit):
     def _on_energy(self, ev: E.Ev) -> None:
         if ev.entity is not self.char:
             return
+        # approximation: Energy lost to the Max Energy cap grants neither Certified Banger nor accumulation
         amount = float(ev.amount)
         if not self._syncing:
             self._syncing = True

@@ -27,9 +27,7 @@ def banger_turns(target: Entity) -> int:
     return CERTIFIED_BANGER_TURNS + extra
 
 
-def grant_banger(
-    battle: Battle, target: Entity, amount: float, source: Entity | None, **data: Any
-) -> Modifier | None:
+def grant_banger(battle: Battle, target: Entity, amount: float, source: Entity | None, **data: Any) -> Modifier | None:
     """``target`` gains ``amount`` points of Certified Banger (one independent stack, like the Aha Instant's)."""
     if amount <= 0:
         return None

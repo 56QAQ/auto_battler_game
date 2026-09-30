@@ -74,9 +74,7 @@ class Pearl(Kit):
         if self.e(1):
             n = elation_count(self.battle)
             if n >= 2:
-                self.passive(
-                    "Nestle That Pearl", {S.ELATION_DMG_PCT: self.ep(1, min(n, 4) - 2)}, scope=self.ally_scope
-                )
+                self.passive("Nestle That Pearl", {S.ELATION_DMG_PCT: self.ep(1, min(n, 4) - 2)}, scope=self.ally_scope)
             # not modelled: the fatal-DMG revive (allies cannot be knocked down in the simulator)
         if self.e(2):
             self.passive("Crop That Dappled Dawn", {S.MERRYMAKE_PCT: self.ep(2, 0)}, scope=self.ally_scope)
