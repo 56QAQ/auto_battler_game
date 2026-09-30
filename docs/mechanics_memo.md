@@ -388,6 +388,10 @@ Elemental RES = M.DamageTypeResistance[] (weak types in M.StanceWeakList have 0)
   - `ElationDamageAddedRatio(Base)` ("Elation"; glossary: "affects Elation DMG and boosts its multiplier").
   - "Merrymake" (glossary 30000011: "additionally boost Elation DMG").
 - **Punchline:** a team-shared counter. Elation abilities grant it, e.g. Yao Guang's ult gives 5 and her basic/skill give 3.
+- **Path rules** [DATA, `Config/ConfigAbility/BattleEvent/StageAbility_Elation.json`; Punchline changes are the obfuscated task `JDOLDFECMPL`]:
+  - On entering battle (wave 1 only, `MLevel_Elation_Common`): every Elation character gains **20 Certified Banger** (`AddElationEchoPoint AddValue=20`, 2 turns), then the team gains **1 Punchline per living Elation character**.
+  - When an Aha Instant ends (`MBattleEvent_Elation_Passive` / `..._ListenElationTimeEnd`): participants gain Certified Banger equal to the counted Punchline, Punchline is set to 0 (unless the turn was a fixed, non-consuming one), then the team gains **1 Punchline per living Elation character** again. This also happens after fixed extra turns.
+  - Some enemies grant Punchline too, e.g. W3_TV_03 "Smile Magic" (`SkillP01` = 3, the first time it is attacked); see `hsrsim/monsters.py`.
   - Once the team has Punchline, **Aha** (BattleEvent 70001, `EventSubType Elation`) joins the action bar.
   - **Aha SPD** = 80 + Σ over Elation characters sorted by SPD descending, SPD_i × {1/5, 1/10, 1/20, 1/40}. [COMM, fribbels `ahaCalculations.ts`]
 - **Aha's turn — the "Aha Instant":**

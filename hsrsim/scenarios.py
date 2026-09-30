@@ -57,6 +57,8 @@ class EnemySpec:
     debuff_res: dict[str, float] = field(default_factory=dict)
     hit_energy: float | None = None
     initial_delay: float = 1.0
+    template: str = ""  # datamined monster template (e.g. "W3_TV_03"): selects monster traits
+    passives: dict[str, list[float]] = field(default_factory=dict)  # passive skill key -> parameters
 
     @classmethod
     def from_monster(cls, m: dict[str, Any]) -> EnemySpec:
@@ -77,6 +79,8 @@ class EnemySpec:
             debuff_res=dict(m["debuff_res"]),
             hit_energy=m.get("hit_energy"),
             initial_delay=m.get("initial_delay", 1.0),
+            template=m["name"],
+            passives={k: list(v) for k, v in m.get("passives", {}).items()},
         )
 
     def make(self) -> list[Enemy]:
@@ -101,6 +105,8 @@ class EnemySpec:
                     debuff_res=self.debuff_res,
                     hit_energy=self.hit_energy,
                     initial_delay=self.initial_delay,
+                    template=self.template,
+                    passives=self.passives,
                 )
             )
         return out

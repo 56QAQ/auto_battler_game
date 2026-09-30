@@ -4,6 +4,10 @@ Rules implemented (see docs/mechanics_memo.md §11; parts marked there as commun
 knowledge are configurable here):
 
 * Punchline is a team-wide counter. Elation abilities grant it.
+* Path rules (``StageAbility_Elation``, ``MLevel_Elation_Common`` / ``MBattleEvent_Elation_ListenElationTimeEnd``):
+  on entering battle (wave 1) the team gains 1 Punchline per Elation character and every Elation character
+  gains 20 points of Certified Banger (2 turns); every Aha Instant ends by granting Certified Banger, consuming
+  the Punchline (unless fixed) and then gaining 1 Punchline per Elation character again.
 * When the team has Punchline, "Aha" (battle event 70001) is on the action bar with
   SPD = 80 + Σ SPD_i / (5·2^min(i,3)) over Elation characters sorted by SPD (desc).
 * Aha's turn = "Aha Instant": every Elation character uses its Elation Skill once
@@ -31,6 +35,8 @@ if TYPE_CHECKING:
 
 AHA_BASE_SPD = 80.0
 CERTIFIED_BANGER_TURNS = 2
+ENTER_BATTLE_BANGER = 20  # StageAbility_Elation: AddElationEchoPoint AddValue=20 on wave 1 OnEnterBattle
+PUNCHLINE_PER_ELATION_CHAR = 1  # StageAbility_Elation: ModifyElationPoint Add = Elation character count x 1
 PUNCHLINE_CURVE_K = 240.0
 
 PUNCHLINE_CHANGED = "punchline_changed"  # ev.delta, ev.total, ev.source
@@ -106,6 +112,40 @@ class ElationSystem:
             sum(m.data.get("punchline", 0) for m in c.modifiers if m.name == "Certified Banger" and not m.removed)
         )
 
+    def grant_banger(self, target: Entity, amount: float, source: Entity | None = None, **data: Any) -> Modifier | None:
+        """``target`` gains ``amount`` points of Certified Banger: one independent stack lasting 2 turns (plus kit
+        extensions such as Yao Guang's A6)."""
+        if amount <= 0:
+            return None
+        kit = getattr(target, "kit", None)
+        extra = int(kit.banger_extra_turns()) if kit is not None and hasattr(kit, "banger_extra_turns") else 0
+        mod = Modifier(
+            "Certified Banger",
+            duration=CERTIFIED_BANGER_TURNS + extra,
+            kind=ModKind.BUFF,
+            stacking=Stacking.INDEPENDENT,
+            dispellable=False,
+        )
+        mod.data["punchline"] = amount
+        mod.data.update(data)
+        return self.battle.apply(mod, target, source)
+
+    def per_character_gain(self) -> None:
+        """Path rule: gain 1 Punchline per (living) Elation character."""
+        n = len(self.elation_chars())
+        if n > 0:
+            self.gain(n * PUNCHLINE_PER_ELATION_CHAR, self.aha)
+
+    def on_enter_battle(self) -> None:
+        """Path rule on entering battle (wave 1 only): Certified Banger for every Elation character, then Punchline
+        per Elation character."""
+        chars = self.elation_chars()
+        if not chars:
+            return
+        for c in chars:
+            self.grant_banger(c, ENTER_BATTLE_BANGER, c)
+        self.per_character_gain()
+
     # ----------------------------------------------------------- punchline
     def gain(self, n: int, source: Entity | None = None) -> None:
         if n <= 0:
@@ -150,16 +190,13 @@ class ElationSystem:
         finally:
             b.current_turn = prev
             self.current_p = None
-        if consume:
-            self.punchline = 0
-            b.events.emit(PUNCHLINE_CHANGED, delta=-p, total=0, source=self.aha)
         for c in parts:
-            dur = CERTIFIED_BANGER_TURNS + int(getattr(c.kit, "banger_extra_turns", lambda: 0)())
-            mod = Modifier(
-                "Certified Banger", duration=dur, kind=ModKind.BUFF, stacking=Stacking.INDEPENDENT, dispellable=False
-            )
-            mod.data["punchline"] = p
-            b.apply(mod, c, c)
+            self.grant_banger(c, p, c)
+        if consume:
+            before = self.punchline
+            self.punchline = 0
+            b.events.emit(PUNCHLINE_CHANGED, delta=-before, total=0, source=self.aha)
+        self.per_character_gain()  # after every Aha Instant, fixed ones included
         b.events.emit(AHA_INSTANT_END, punchline=p, participants=parts, fixed=not consume)
 
     # ------------------------------------------------------------- damage

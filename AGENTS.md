@@ -13,6 +13,7 @@ dependencies (PyYAML optional for YAML configs).
 | `hsrsim/modifiers.py` | Buffs/debuffs/fields/DoTs and duration semantics |
 | `hsrsim/kits/` | Character kits, one module per character (`@register`) |
 | `hsrsim/gear/` | Light cone and relic set conditional effects |
+| `hsrsim/elation.py` / `hsrsim/monsters.py` | Elation path (Punchline, Aha, Certified Banger) / passive traits of datamined enemies |
 | `hsrsim/data/` | Loader + generated data snapshot (`gamedata/*.json`, do not edit by hand) |
 | `tools/` | `build_gamedata.py` (regenerate snapshot), `kitinfo.py`, `lcinfo.py` |
 | `docs/` | `RESEARCH.md` (feasibility + formulas), `mechanics_memo.md`, `DEVELOPING.md` (content API) |

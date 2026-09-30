@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 from ..elation import CERTIFIED_BANGER_TURNS
 from ..entities import Entity
 from ..enums import Path
-from ..modifiers import Modifier, ModKind, Stacking
+from ..modifiers import Modifier
 
 if TYPE_CHECKING:
     from ..battle import Battle
@@ -27,18 +27,7 @@ def banger_turns(target: Entity) -> int:
 
 def grant_banger(battle: Battle, target: Entity, amount: float, source: Entity | None, **data: Any) -> Modifier | None:
     """``target`` gains ``amount`` points of Certified Banger (one independent stack, like the Aha Instant's)."""
-    if amount <= 0:
-        return None
-    mod = Modifier(
-        BANGER,
-        duration=banger_turns(target),
-        kind=ModKind.BUFF,
-        stacking=Stacking.INDEPENDENT,
-        dispellable=False,
-    )
-    mod.data["punchline"] = float(amount)
-    mod.data.update(data)
-    return battle.apply(mod, target, source)
+    return battle.elation.grant_banger(target, float(amount), source, **data)
 
 
 def elation_count(battle: Battle) -> int:

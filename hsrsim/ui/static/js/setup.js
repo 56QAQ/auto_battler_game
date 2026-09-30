@@ -425,7 +425,7 @@ function endgameEditor(sc, mode) {
     const infinite = stage.waves.some((w) => !Array.isArray(w));
     table.appendChild(h("div.row", { style: { marginTop: "8px" } },
       h("button.btn.small", { disabled: infinite, title: infinite ? "虚构叙事的无限波次不能复制" : "", onclick: () => {
-        store.config.scenario = { name: `${mode}-${g.group}-${fl.floor}-${half}`, cycles: sc.cycles || fl.cycles || 30, waves: stage.waves.map((w) => w.map((mo) => ({ name: mo.name, rank: mo.rank, level: mo.level, hp: Math.round(mo.hp), atk: mo.atk, toughness: mo.toughness, spd: mo.spd, weaknesses: mo.weaknesses, res: mo.res, default_res: 0, effect_res: mo.effect_res, initial_delay: mo.initial_delay, count: 1 }))) };
+        store.config.scenario = { name: `${mode}-${g.group}-${fl.floor}-${half}`, cycles: sc.cycles || fl.cycles || 30, waves: stage.waves.map((w) => w.map((mo) => ({ name: mo.name, rank: mo.rank, level: mo.level, hp: Math.round(mo.hp), atk: mo.atk, toughness: mo.toughness, spd: mo.spd, weaknesses: mo.weaknesses, res: mo.res, default_res: 0, effect_res: mo.effect_res, initial_delay: mo.initial_delay, hit_energy: mo.hit_energy, debuff_res: mo.debuff_res || {}, template: mo.name, passives: mo.passives || {}, count: 1 }))) };
         changed();
         toast("已复制到自定义波次，可以修改敌人数值", true);
       } }, "复制到自定义波次（可修改数值）")));

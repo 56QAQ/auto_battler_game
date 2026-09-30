@@ -32,6 +32,7 @@ from .data import get_data
 from .entities import Character, Enemy, Entity, Summon
 from .enums import ActionKind, DmgTag, Element, Side
 from .modifiers import DotModifier, Modifier, ModKind, Stacking, Tick
+from .monsters import attach_monster_traits
 
 if TYPE_CHECKING:
     from .control import Controller
@@ -430,6 +431,7 @@ class Battle:
             attach(c)
         self._next_wave()
         self.events.emit(E.BATTLE_START)
+        self.elation.on_enter_battle()
         for c in self.team:
             if c.kit is not None:
                 c.kit.on_battle_start()
@@ -1340,6 +1342,7 @@ class Battle:
         e.hp = e.max_hp
         e.toughness = e.max_toughness
         e.gauge = F.AV_BASE * e.initial_delay
+        attach_monster_traits(self, e)
         self.events.emit(E.ENEMY_SPAWNED, enemy=e)
 
     def _refill(self) -> None:

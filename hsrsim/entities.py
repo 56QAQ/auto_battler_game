@@ -244,8 +244,12 @@ class Enemy(Entity):
         ai: Callable[[Enemy, Battle], None] | None = None,
         hit_energy: float | None = None,
         initial_delay: float = 1.0,
+        template: str = "",
+        passives: dict[str, list[float]] | None = None,
     ) -> None:
         super().__init__(name, level)
+        self.template = template  # datamined monster template name (monster traits key on it)
+        self.passives = dict(passives or {})  # passive skill key ("SkillP01") -> parameters
         self.hit_energy = hit_energy  # Energy a character gains when hit by this enemy (None: config default)
         self.initial_delay = initial_delay  # action gauge at spawn = 10000 x initial_delay
         self.base[S.BASE_HP] = hp

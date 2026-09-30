@@ -267,8 +267,9 @@ def test_evanescia_energy_banger_coupling_and_master_fox():
     b, (eva, _) = _battle([Build("Evanescia"), generic_build("Bronya")])
     kit = eva.kit
     eva.energy = 0.0
+    base = kit.banger()  # 20 from the Elation path's battle-start Certified Banger
     b.gain_energy(eva, 50, fixed=True)
-    assert kit.banger() == 50  # Energy gained -> equal Certified Banger
+    assert kit.banger() - base == 50  # Energy gained -> equal Certified Banger
     acts = _actions(b)
     kit.accum = kit.p("talent", 2) - 10
     b.gain_energy(eva, 20, fixed=True)
@@ -285,8 +286,9 @@ def test_silver_wolf_lv999_hidden_mmr_and_godmode():
     b, (sw, _) = _battle([Build("Silver Wolf LV.999"), generic_build("Bronya")])
     kit = sw.kit
     cr0 = sw.stat(S.CRIT_RATE)
+    mmr0 = kit.mmr  # 1: the Elation path's battle-start Punchline (1 per Elation character)
     kit.gain_punchline(10)
-    assert kit.mmr == 10
+    assert kit.mmr == mmr0 + 10
     assert sw.stat(S.CRIT_RATE) == pytest.approx(cr0 + 10 * kit.p("talent", 3))
     assert not kit.ult_ready()
     kit.gain_mmr(kit.p("talent", 0))

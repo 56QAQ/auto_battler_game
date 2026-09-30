@@ -543,6 +543,12 @@ def build_endgame(raw: dict[str, Any]) -> dict[str, Any]:
             "debuff_res": {DEBUFF_KEYS.get(r["Key"], r["Key"]): val(r["Value"], 0) for r in m.get("DebuffResist", [])},
             "hit_energy": max(set(hits), key=hits.count) if hits else 10,
             "initial_delay": val(t.get("InitialDelayRatio"), 1),
+            # passive skills ("SkillP01" ...) with their parameters, for monster traits (hsrsim/monsters.py)
+            "passives": {
+                skills[k]["SkillTriggerKey"]: [float(val(x, 0)) for x in skills[k].get("ParamList", [])]
+                for k in m.get("SkillList", [])
+                if k in skills and str(skills[k].get("SkillTriggerKey", "")).startswith("SkillP")
+            },
         }
 
     def stage(sid: int) -> dict[str, Any] | None:

@@ -206,6 +206,10 @@ modelled" in the editor; `tests/test_gear_smoke.py` runs every registered one. C
 scripts (`ByIsInCharacterIDGroup`, e.g. Trailblaze Companions = `"AstralExpress"`, Chrysos Heirs = `"Chrysos"`)
 come from the data: `get_data().character_group(name)` — do not hard-code ID lists.
 
+Monster traits: enemies built from endgame data carry `Enemy.template` (e.g. `"W3_TV_03"`) and their passive skill
+parameters (`Enemy.passives["SkillP01"]`). Register behaviour with `@trait(template, passive_key)` in
+`hsrsim/monsters.py`; numbers come from the passive's parameters.
+
 ## 8. Checking a kit against the game script
 
 `python tools/kitinfo.py <id>` prints the skill texts and parameters; `python tools/ability_summary.py <id>`
