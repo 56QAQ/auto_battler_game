@@ -257,7 +257,9 @@ class Pearl(Kit):
                 for e in self.enemies():
                     self.elation_hit(e, lv[4], p, label="Imagenate the Starry Night (Elation)", action=act)
             # Elation DMG "calculated based on the Aesthetic Archetype's stats", credited to Pearl.
-            # approximation: it counts Pearl's Certified Banger as its Punchline.
+            # approximation: the Ultimate's "after attacking, additionally deals #2% Ice Elation DMG" is read as part
+            # of Pearl's "Imagenate the Starry Night" (Elation Archetype only; fribbels instead adds it to the
+            # Archetype's own attacks), and it counts Pearl's Certified Banger as its Punchline.
             extra = (self.p("ult", 1) if elation_arch else 0.0) + (self.ep(6, 1) if self.e(6) else 0.0)
             if extra > 0:
                 for e in self.enemies():
