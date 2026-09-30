@@ -421,7 +421,7 @@ class Battle:
 
     # ================================================================ timeline
     def timeline(self) -> list[Entity]:
-        ents: list[Entity] = [c for c in self.team if c.alive]
+        ents: list[Entity] = [c for c in self.team if c.alive and c.on_timeline]
         ents += [u for u in self.units if u.alive and u.on_timeline]
         ents += [e for e in self.enemies if e.alive]
         return ents
