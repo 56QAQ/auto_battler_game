@@ -33,7 +33,7 @@ class Sparxie(Kit):
 
     def setup(self) -> None:
         self.thrill = 0
-        self.stream_turn = -1  # manual control: battle turn of the open livestream
+        self._stream_turn = -1  # manual control: battle turn of the open livestream
         self.stream_n = 0  # Engagement Farming triggered in it
         if self.trace(1):
             self.passive("Punchline Signing", {}, dyn=self._a2, dyn_keys={S.ELATION_DMG_PCT})
@@ -116,26 +116,34 @@ class Sparxie(Kit):
     # -------------------------------------------------------------- actions
     def basic(self, target: Enemy | None) -> None:
         assert target is not None
+        if self._streaming():  # manual control: the Basic ATK of an open livestream is Bloom
+            farm = self.sk("150109")
+            n, self._stream_turn = self.stream_n, -1
+            self.bloom(target, n, farm["params"][self.level_of(farm) - 1])
+            return
         self.simple_basic(target)
 
     def livestream(self, target: Enemy) -> None:
         farm = self.sk("150109")
         lv = farm["params"][self.level_of(farm) - 1]
-        n = 0
-        with self.action(ActionKind.EXTRA, "skill", target, label="Livestream", sp=0, energy=0):
-            self._pay()
-            n += 1
-            self._engagement(lv)
-            limit = min(int(self.opts["farming"]), int(self.p("skill", 0)))
-            while n < limit and self._can_pay(int(self.opts["sp_reserve"])):
-                self._pay()
-                n += 1
-                self._engagement(lv)
+        n = self.stream_n if self._streaming() else 0  # (a livestream opened from the manual menu is continued)
+        self._stream_turn = -1
+        limit = min(int(self.opts["farming"]), int(self.p("skill", 0)))
+        if n == 0 or (n < limit and self._can_pay(int(self.opts["sp_reserve"]))):
+            with self.action(ActionKind.EXTRA, "skill", target, label="Livestream", sp=0, energy=0):
+                if n == 0:
+                    self._pay()
+                    n += 1
+                    self._engagement(lv)
+                while n < limit and self._can_pay(int(self.opts["sp_reserve"])):
+                    self._pay()
+                    n += 1
+                    self._engagement(lv)
         self.bloom(target, n, lv)
 
     # ------------------------------------------------------ manual control
     def _streaming(self) -> bool:
-        return self.stream_turn == self.battle.turns and self.battle.current_turn is self.char
+        return self._stream_turn == self.battle.turns and self.battle.current_turn is self.char
 
     def menu(self) -> list[MenuItem]:
         can_pay = self._can_pay(0)
@@ -159,19 +167,14 @@ class Sparxie(Kit):
             self._pay()
             self._engagement(lv)
         if not self._streaming():
-            self.stream_turn, self.stream_n = self.battle.turns, 0
+            self._stream_turn, self.stream_n = self.battle.turns, 0
         self.stream_n += 1
 
     def perform(self, item: str, target: Entity | None) -> None:
         if item == "skill":
             self.with_target(target, self._farm_once)
             return
-        if item == "basic" and self._streaming():
-            farm = self.sk("150109")
-            n, self.stream_turn = self.stream_n, -1
-            self.with_target(target, lambda t: self.bloom(t, n, farm["params"][self.level_of(farm) - 1]))
-            return
-        super().perform(item, target)
+        super().perform(item, target)  # "basic" ends an open livestream with Bloom (see basic())
 
     def _engagement(self, lv: list[float]) -> None:
         # approximation: the gift is drawn with the "straight_fire_chance" option; the game's odds are not in the data

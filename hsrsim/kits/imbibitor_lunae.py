@@ -171,7 +171,9 @@ class ImbibitorLunae(Kit):
             else:
                 note = f"消耗{squama}逆鳞+{need - squama}战技点" if squama else ""
             items.append(
-                self.basic_item(rec, id=f"enhanced_basic:{level}", kind="skill", sp=squama - need, enabled=ok, note=note)
+                self.basic_item(
+                    rec, id=f"enhanced_basic:{level}", kind="skill", sp=squama - need, enabled=ok, note=note
+                )
             )
         return items
 

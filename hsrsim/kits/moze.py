@@ -12,6 +12,7 @@ from __future__ import annotations
 from .. import events as E
 from .. import stats as S
 from ..battle import Action
+from ..control import MenuItem
 from ..entities import Enemy
 from ..enums import ActionKind, DmgTag, Element, Side
 from ..modifiers import Modifier, ModKind, Tick
@@ -140,6 +141,14 @@ class Moze(Kit):
     # -------------------------------------------------------------- policy
     def can_skill(self) -> bool:
         return super().can_skill() and bool(self.teammates()) and self._prey_alive() is None
+
+    def menu(self) -> list[MenuItem]:
+        items = super().menu()
+        if not self.teammates():
+            items[1].enabled, items[1].note = False, "场上没有可以战斗的其他角色"
+        elif self._prey_alive() is not None:
+            items[1].enabled, items[1].note = False, "场上存在【猎物】"
+        return items
 
     # ------------------------------------------------------------- actions
     def basic(self, target: Enemy | None) -> None:

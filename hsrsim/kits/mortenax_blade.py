@@ -11,6 +11,7 @@ from typing import Any
 
 from .. import events as E
 from .. import stats as S
+from ..control import MenuItem
 from ..entities import Character, Enemy, Summon
 from ..enums import ActionKind, DmgTag, Path, Side
 from ..modifiers import Modifier, ModKind, hidden
@@ -201,6 +202,15 @@ class MortenaxBlade(Kit):
             self.skill(target)
         else:
             self.basic(target)
+
+    def menu(self) -> list[MenuItem]:
+        """The Skill (no SP, costs HP) is only usable in Infinite Fury with more than 1 HP; the Basic ATK is enhanced
+        in Infinite Fury."""
+        if not self.in_fury:
+            return [self.basic_item(), self.skill_item(enabled=False, note="未处于【无量忿怒】状态")]
+        ok = self.char.hp > 1
+        skill = self.skill_item(enabled=ok, note="" if ok else "当前生命值不足")
+        return [self.basic_item(self.sk(ENH_BASIC_ID)), skill]
 
     # ---------------------------------------------------------- actions
     def basic(self, target: Enemy | None) -> None:

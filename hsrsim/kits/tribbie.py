@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from .. import events as E
 from .. import stats as S
+from ..control import ALLIES, MenuItem
 from ..entities import Character, Enemy, Entity
 from ..enums import ActionKind, DmgTag, Element, Side
 from ..modifiers import Modifier, Stacking, Tick
@@ -63,6 +64,10 @@ class Tribbie(Kit):
         return self.tp(2, 0) * sum(c.max_hp for c in self.battle.team if c.alive)
 
     # ----------------------------------------------------------- policy
+    def menu(self) -> list[MenuItem]:
+        """The Skill (Numinosity) buffs the whole team."""
+        return [self.basic_item(), self.skill_item(target=ALLIES)]
+
     def take_turn(self) -> None:
         target = self.pick_target()
         if target is None:

@@ -60,7 +60,6 @@ class Evernight(Kit):
         self.trigger_armed = True
         self.skill_buff: Modifier | None = None
         self.last_target: Enemy | None = None
-        self.hp_seen: set[tuple[int, int]] = set()
         self.ode: list[float] | None = None
         self.on(E.HP_CHANGED, self._on_hp)
         self.on(E.ACTION_START, self._on_action)
@@ -128,10 +127,12 @@ class Evernight(Kit):
             return
         act = self.battle.current_action
         if act is not None and isinstance(act.actor, Enemy):
-            key = (id(act), ent.uid)
-            if key in self.hp_seen:
-                return  # "only once per target for each received attack"
-            self.hp_seen.add(key)
+            # "only once per target for each received attack": remembered on the action itself (id() values are
+            # reused once an action is gone, which made results depend on earlier runs)
+            seen = act.data.setdefault("evernight_hp_seen", set())
+            if ent.uid in seen:
+                return
+            seen.add(ent.uid)
         self.buff_self(
             Modifier("With Me, This Night", stats={S.CRIT_DMG: self.p("talent", 1)}, duration=int(self.p("talent", 2)))
         )

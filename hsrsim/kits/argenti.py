@@ -92,9 +92,15 @@ class Argenti(Kit):
         return self.p("ult", 1), float(rec["params"][self.level_of(rec) - 1][3])
 
     def ult_ready(self) -> bool:
+        return self.char.energy >= self._ult_need() - 1e-9
+
+    def _ult_need(self) -> float:
+        """Energy the Ultimate waits for: 90 ("normal") or 180 ("enhanced", the default ``ult_mode``)."""
         normal, enhanced = self._costs()
-        need = normal if self.opts.get("ult_mode", "enhanced") == "normal" else enhanced
-        return self.char.energy >= need - 1e-9
+        return normal if self.opts.get("ult_mode", "enhanced") == "normal" else enhanced
+
+    def ult_resource(self) -> tuple[float, float, str]:
+        return self.char.energy, self._ult_need(), "能量"
 
     def pay_ult_cost(self) -> None:
         normal, enhanced = self._costs()

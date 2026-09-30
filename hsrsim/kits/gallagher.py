@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from .. import events as E
 from .. import stats as S
+from ..control import MenuItem
 from ..entities import Character, Enemy, Entity
 from ..enums import ActionKind, DmgTag
 from ..modifiers import Modifier, ModKind
@@ -91,6 +92,12 @@ class Gallagher(Kit):
             self.basic(target)
 
     # ------------------------------------------------------------ actions
+    def menu(self) -> list[MenuItem]:
+        """After the Ultimate the next Basic ATK is "Nectar Blitz"."""
+        if self.nectar:
+            return [self.basic_item(self.sk(self.char.char_id + NECTAR_BLITZ)), self.skill_item()]
+        return super().menu()
+
     def basic(self, target: Enemy | None) -> None:
         assert target is not None
         if not self.nectar:

@@ -55,7 +55,7 @@ class Archer(Kit):
             )
         self.on(E.ATTACK_END, self._talent)
         self.on(E.TURN_END, self._cc_turn_end)
-        self.cc_ended_turn = -1  # manual control: battle turn in which Circuit Connection ended by itself
+        self._cc_ended_turn = -1  # manual control: battle turn in which Circuit Connection ended by itself
 
     def on_battle_start(self) -> None:
         if self.trace(2):
@@ -119,7 +119,8 @@ class Archer(Kit):
             self.basic(target)
 
     def chain(self) -> None:
-        self.cc, self.cc_count, self.cc_stacks = True, 0, 0
+        if not self.cc:  # (a chain started from the manual menu is continued)
+            self.cc, self.cc_count, self.cc_stacks = True, 0, 0
         self.in_chain = True
         try:
             while True:
@@ -158,7 +159,7 @@ class Archer(Kit):
         """The Skill enters Circuit Connection and does not end the turn while it lasts; "End" exits it."""
         skill = self.skill_item(ends_turn=not self._chain_continues())
         if not self.cc:
-            if self.cc_ended_turn == self.battle.turns and self.battle.current_turn is self.char:
+            if self._cc_ended_turn == self.battle.turns and self.battle.current_turn is self.char:
                 end = self.basic_item(self.sk(END_ID), id="end", target=SELF, sp=0, note="【回路连接】已结束")
                 return [end]
             return [self.basic_item(), skill]
@@ -182,7 +183,7 @@ class Archer(Kit):
         if last or self.cc_count >= int(self.p("skill", 4)) or not self.enemies() or not self.can_skill():
             self._exit_cc()
             if not last:
-                self.cc_ended_turn = self.battle.turns  # the turn is over: only "End" is left
+                self._cc_ended_turn = self.battle.turns  # the turn is over: only "End" is left
 
     def _after_skill(self) -> None:
         for c in self.battle.team:

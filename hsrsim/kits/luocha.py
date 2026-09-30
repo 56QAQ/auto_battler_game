@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from .. import events as E
 from .. import stats as S
-from ..entities import Character, Enemy
+from ..entities import Character, Enemy, Entity, Summon
 from ..enums import ActionKind
 from ..modifiers import Modifier, ModKind, Tick
 from . import register
@@ -156,6 +156,14 @@ class Luocha(Kit):
 
     def skill(self, target: Enemy | None) -> None:
         self._skill_effect(self._lowest(), auto=False)
+
+    def perform(self, item: str, target: Entity | None) -> None:
+        """Manual control: the Skill heals the chosen ally (the policy heals the lowest-HP ally)."""
+        ally = target.owner if isinstance(target, Summon) else target
+        if item == "skill" and isinstance(ally, Character) and ally.side == self.char.side and ally.alive:
+            self._skill_effect(ally, auto=False)
+            return
+        super().perform(item, target)
 
     def ult(self, target: Enemy | None) -> None:
         with self.action(ActionKind.ULT, "ult", target) as act:

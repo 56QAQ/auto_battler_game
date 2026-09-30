@@ -158,6 +158,9 @@ class Acheron(Kit):
     def ult_ready(self) -> bool:
         return self.sd >= self.sd_max
 
+    def ult_resource(self) -> tuple[float, float, str]:
+        return self.sd, self.sd_max, "闪裂"
+
     def pay_ult_cost(self) -> None:
         self.sd -= self.sd_max
 

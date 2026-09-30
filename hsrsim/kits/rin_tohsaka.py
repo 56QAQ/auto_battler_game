@@ -17,6 +17,7 @@ from typing import Any, ClassVar
 
 from .. import events as E
 from .. import stats as S
+from ..control import MenuItem
 from ..entities import Character, Enemy, Entity
 from ..enums import ActionKind, DmgTag, Side
 from ..modifiers import Modifier, ModKind, Stacking
@@ -158,6 +159,17 @@ class RinTohsaka(Kit):
             self.basic(target)
 
     # -------------------------------------------------------------- actions
+    def menu(self) -> list[MenuItem]:
+        """With enough Gem Energy / Skill Points the Skill is "Second Magic Experiment" (no fixed SP cost: it spends
+        the Skill Points above the floor for Gem Energy; E1's Shadow skips that)."""
+        if not self.enhanced_ready():
+            return super().menu()
+        rec = self.sk(ENHANCED_ID)
+        floor = int(rec["params"][self.level_of(rec) - 1][3])
+        spent = 0 if (self.e(1) and self.shadow > 0) else max(0, self.battle.sp - floor)
+        note = f"消耗战技点至{floor}点" if spent else ""
+        return [self.basic_item(), self.skill_item(rec, sp=-spent, enabled=True, note=note)]
+
     def basic(self, target: Enemy | None) -> None:
         assert target is not None
         self.simple_basic(target)

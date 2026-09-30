@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from .. import events as E
 from .. import stats as S
+from ..control import MenuItem
 from ..entities import Character, Enemy, Entity
 from ..enums import ActionKind, DmgTag, Element
 from ..modifiers import Modifier, Stacking, Tick
@@ -152,6 +153,11 @@ class Jade(Kit):
     # ------------------------------------------------------------- policy
     def can_skill(self) -> bool:
         return self.debt_collector() is None and super().can_skill()
+
+    def menu(self) -> list[MenuItem]:
+        if self.debt_collector() is not None:
+            return [self.basic_item(), self.skill_item(enabled=False, note="场上存在【收债人】")]
+        return super().menu()
 
     def take_turn(self) -> None:
         target = self.pick_target()

@@ -52,8 +52,8 @@ class Castorice(Kit):
         self.ardent = 0
         self.e2_bonus = False
         self.heal_conv: dict[int, float] = {}
-        self.nw_turn_counted = -1  # battle turn whose Netherwing turn was counted
-        self.breath_turn = -1  # manual control: battle turn in which Netherwing used Breath
+        self._nw_turn_counted = -1  # battle turn whose Netherwing turn was counted
+        self._breath_turn = -1  # manual control: battle turn in which Netherwing used Breath
         self.on(E.HP_CHANGED, self._on_hp)
         self.on(E.TURN_END, self._nw_turn_end)
         if self.trace(1):
@@ -241,15 +241,16 @@ class Castorice(Kit):
 
     def _count_nw_turn(self) -> None:
         """Count Netherwing's turn once (its policy and the manual menu may both act in the same turn)."""
-        if self.nw_turn_counted != self.battle.turns:
-            self.nw_turn_counted = self.battle.turns
+        if self._nw_turn_counted != self.battle.turns:
+            self._nw_turn_counted = self.battle.turns
             self.nw_turns += 1
 
     def _nw_turn(self, nw: Summon, battle: Battle) -> None:
         self._count_nw_turn()
         policy = self.opts.get("breath", "last_turn")
         final = self.nw_turns >= int(self.p("ult", 1))
-        if policy == "always" or (policy == "last_turn" and final):
+        breathed = self._breath_turn == self.battle.turns  # manual control: only Breath can follow a Breath
+        if policy == "always" or (policy == "last_turn" and final) or breathed:
             _, lv = self._memo_lv("1140702")
             for _ in range(MAX_BREATHS_PER_TURN):
                 if not nw.alive or not self.enemies():
@@ -270,7 +271,7 @@ class Castorice(Kit):
         nw = self.nw()
         if nw is None or unit is not nw:
             return []
-        breathed = self.breath_turn == self.battle.turns
+        breathed = self._breath_turn == self.battle.turns
         claw = self.basic_item(self.sk("1140701"), id="claw", enabled=not breathed)
         if breathed:
             claw.note = "已发动【燎尽黯泽的焰息】，只能继续发动"
@@ -293,7 +294,7 @@ class Castorice(Kit):
         elif self._wings_now(nw):
             self._wings(nw, "1140712")
         else:
-            self.breath_turn = self.battle.turns
+            self._breath_turn = self.battle.turns
             self._breath(nw)
 
     def _nw_turn_end(self, ev: E.Ev) -> None:

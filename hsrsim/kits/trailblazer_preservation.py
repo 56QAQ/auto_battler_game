@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from .. import events as E
 from .. import stats as S
+from ..control import SELF, MenuItem
 from ..entities import Enemy
 from ..enums import ActionKind
 from ..modifiers import Modifier, Stacking, Tick, hidden
@@ -103,6 +104,11 @@ class _TrailblazerPreservation(Kit):
             self.skill(target)
         else:
             self.basic(target)
+
+    def menu(self) -> list[MenuItem]:
+        """4+ Magma Will (or the Ultimate) enhance the Basic ATK (Blast); the Skill targets the Trailblazer."""
+        basic = self.basic_item(self.sk(self.char.char_id + ENHANCED_BASIC)) if self.enhanced_ready else None
+        return [basic or self.basic_item(), self.skill_item(target=SELF)]
 
     # ------------------------------------------------------------ actions
     def basic(self, target: Enemy | None) -> None:

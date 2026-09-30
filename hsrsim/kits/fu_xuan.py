@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from .. import events as E
 from .. import stats as S
+from ..control import ALLIES, MenuItem
 from ..entities import Character, Enemy, Entity
 from ..enums import ActionKind
 from ..modifiers import Modifier
@@ -105,6 +106,10 @@ class FuXuan(Kit):
                 self.battle.gain_energy(self.char, self.ep(4, 0))
 
     # ------------------------------------------------------------ policy
+    def menu(self) -> list[MenuItem]:
+        """The Skill (Matrix of Prescience) covers the whole team."""
+        return [self.basic_item(), self.skill_item(target=ALLIES)]
+
     def take_turn(self) -> None:
         target = self.pick_target()
         if target is None:

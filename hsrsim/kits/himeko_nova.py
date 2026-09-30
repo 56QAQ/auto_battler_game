@@ -68,8 +68,8 @@ class HimekoNova(Kit):
         self.ult_only: set[int] = set()
         self.wrapped: set[int] = set()
         self.tech = False
-        self.a4_pending: set[int] = set()  # manual control: the next extra turn of these allies is Ultimate-only
-        self.a4_turn: dict[int, int] = {}  # ally uid -> battle turn of that Ultimate-only extra turn
+        self._a4_pending: set[int] = set()  # manual control: the next extra turn of these allies is Ultimate-only
+        self._a4_turn: dict[int, int] = {}  # ally uid -> battle turn of that Ultimate-only extra turn
         stats = {S.CRIT_DMG: self.p("talent", 0), S.RES_PEN: self.p("talent", 1)}
         if self.e(4):
             # approximation: the team-wide RES PEN is permanent (it starts with the first Assist Skill in the game)
@@ -177,23 +177,23 @@ class HimekoNova(Kit):
 
     def _a4_turn_start(self, ev: E.Ev) -> None:
         uid = ev.entity.uid
-        if uid in self.a4_pending:
-            self.a4_pending.discard(uid)
+        if uid in self._a4_pending:
+            self._a4_pending.discard(uid)
             if ev.extra:
-                self.a4_turn[uid] = self.battle.turns
+                self._a4_turn[uid] = self.battle.turns
 
     def _wrap_menu(self, c: Character, kit: Kit) -> None:
         """Add the Assist Skill to a teammate's menu (instance attributes, like ``_wrap_turn``)."""
         orig_menu, orig_perform = kit.menu, kit.perform
 
         def menu() -> list[MenuItem]:
-            if self.a4_turn.get(c.uid) == self.battle.turns:
+            if self._a4_turn.get(c.uid) == self.battle.turns:
                 return [MenuItem("end", "结束回合", target=SELF, kind="other", note="该额外回合仅可施放终结技")]
             return [*orig_menu(), self.assist_item(c)]
 
         def perform(item: str, target: Entity | None) -> None:
             if item == "end":
-                self.a4_turn.pop(c.uid, None)
+                self._a4_turn.pop(c.uid, None)
                 self.ult_only.discard(c.uid)
                 return
             if item != "assist":
@@ -201,7 +201,7 @@ class HimekoNova(Kit):
                 return
             self._use_assist(c, target)
             if self.trace(2) and (c.char_id in COMPANIONS or self.e(2)):
-                self.a4_pending.add(c.uid)  # the queued extra turn only allows an Ultimate
+                self._a4_pending.add(c.uid)  # the queued extra turn only allows an Ultimate
 
         setattr(kit, "menu", menu)  # noqa: B010
         setattr(kit, "perform", perform)  # noqa: B010

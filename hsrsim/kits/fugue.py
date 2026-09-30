@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from .. import events as E
 from .. import stats as S
+from ..control import MenuItem
 from ..entities import Character, Enemy, Entity
 from ..enums import ActionKind, Side
 from ..modifiers import Modifier, ModKind, Stacking, Tick
@@ -148,6 +149,12 @@ class Fugue(Kit):
             self.basic(target)
 
     # ------------------------------------------------------------ actions
+    def menu(self) -> list[MenuItem]:
+        """Torrid Scorch: the Basic ATK is enhanced ("Fiery Caress", Blast); the Skill stays available."""
+        if self.in_scorch:
+            return [self.basic_item(self.sk(ENHANCED_BASIC_ID)), self.skill_item()]
+        return super().menu()
+
     def basic(self, target: Enemy | None) -> None:
         assert target is not None
         if not self.in_scorch:

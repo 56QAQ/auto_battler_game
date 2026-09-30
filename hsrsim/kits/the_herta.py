@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 from .. import events as E
 from .. import stats as S
+from ..control import MenuItem
 from ..entities import Character, Enemy
 from ..enums import ActionKind, EnemyRank, Path, Side
 from ..modifiers import Modifier, ModKind, Stacking, Tick
@@ -188,6 +189,12 @@ class TheHerta(Kit):
                         continue
                     tough = tough_main / SPREAD_INSTANCES if ring_no == 0 else tough_other / (SPREAD_INSTANCES - 1)
                     act.hit(t, mult, toughness=tough, extra=extra, primary=t is target)
+
+    def menu(self) -> list[MenuItem]:
+        """With "Inspiration" the Skill is enhanced to "Hear Me Out" (AoE around the chosen main target)."""
+        if self.inspiration > 0:
+            return [self.basic_item(), self.skill_item(self.sk("140109"), note=f"【灵感】{self.inspiration}")]
+        return super().menu()
 
     def skill(self, target: Enemy | None) -> None:
         assert target is not None

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from .. import events as E
 from .. import stats as S
+from ..control import MenuItem
 from ..entities import Character, Enemy, Entity
 from ..enums import ActionKind, Element
 from ..modifiers import Modifier, ModKind, Stacking, Tick
@@ -226,6 +227,11 @@ class SparkleEnhanced(Sparkle):
     # -------------------------------------------------------------- actions
     def can_skill(self) -> bool:
         return self.free_skill or super().can_skill()
+
+    def menu(self) -> list[MenuItem]:
+        if self.free_skill:
+            return [self.basic_item(), self.skill_item(sp=0, note="本次战技不消耗战技点")]
+        return super().menu()
 
     def _cd_buff(self, ally: Character, value: float) -> None:
         self.buff(ally, Modifier("Dreamdiver", stats={S.CRIT_DMG: value}, duration=int(self.p("skill", 2))))

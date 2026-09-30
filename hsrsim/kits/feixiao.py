@@ -81,6 +81,9 @@ class Feixiao(Kit):
     def ult_ready(self) -> bool:
         return self.aureus >= int(self.p("talent", 2))
 
+    def ult_resource(self) -> tuple[float, float, str]:
+        return self.aureus, int(self.p("talent", 2)), "飞黄"
+
     def pay_ult_cost(self) -> None:
         self.aureus -= int(self.p("talent", 2))
 

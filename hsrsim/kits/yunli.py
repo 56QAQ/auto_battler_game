@@ -66,6 +66,9 @@ class Yunli(Kit):
     def ult_ready(self) -> bool:
         return not self.in_parry and self.char.energy >= self.p("ult", 7) - 1e-9
 
+    def ult_resource(self) -> tuple[float, float, str]:
+        return self.char.energy, self.p("ult", 7), "能量"
+
     def pay_ult_cost(self) -> None:
         self.char.energy -= self.p("ult", 7)
 

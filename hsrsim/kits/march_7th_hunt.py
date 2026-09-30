@@ -12,6 +12,7 @@ from __future__ import annotations
 from .. import events as E
 from .. import stats as S
 from ..battle import Action
+from ..control import MenuItem
 from ..entities import Character, Enemy, Entity
 from ..enums import ActionKind, Path
 from ..modifiers import Modifier, Tick, hidden
@@ -155,6 +156,22 @@ class March7thHunt(Kit):
             self.skill(target)
         else:
             self.basic(target)
+
+    def menu(self) -> list[MenuItem]:
+        """At the Charge threshold the Basic ATK is enhanced and the Skill cannot be used."""
+        if self.charge >= self.threshold:
+            return [
+                self.basic_item(self.sk(ENHANCED_BASIC_ID)),
+                self.skill_item(enabled=False, note="充能已满：仅能施放强化普攻"),
+            ]
+        if not self.teammates():
+            return [self.basic_item(), self.skill_item(enabled=False, note="没有可指定为【师父】的队友")]
+        return super().menu()
+
+    def perform(self, item: str, target: Entity | None) -> None:
+        if item == "skill" and target is self.char:
+            target = None  # "one ally (excluding this unit)": the default Shifu
+        super().perform(item, target)
 
     # --------------------------------------------------------------- actions
     def basic(self, target: Enemy | None) -> None:
