@@ -178,7 +178,8 @@ class Phainon(Kit):
             self.add_coreflame(self.tp(2, 2))  # A4: Energy Regeneration from a teammate's ability
 
     def _targeted(self, ev: E.Ev) -> None:
-        if ev.target is not self.char or ev.source is self.char:
+        # the listener is gated on "not transformed" (PassiveSkill01: ByIsContainModifier NOT MAvatar_Phainon_00_Ultra)
+        if ev.target is not self.char or ev.source is self.char or self.transformed:
             return
         self.add_coreflame(TARGETED_COREFLAME)
         if ev.source is not None and ev.source.side == Side.ALLY:
@@ -187,7 +188,7 @@ class Phainon(Kit):
             )
 
     def _attacked(self, ev: E.Ev) -> None:
-        if self.char in ev.targets:
+        if self.char in ev.targets and not self.transformed:
             self.add_coreflame(TARGETED_COREFLAME)
 
     # ------------------------------------------------------------------ A4
